@@ -18,16 +18,14 @@ jobs:
       - name: Build and test
         run: |
           cabal update
-          cabal install hspec-discover
+          cabal install hspec-discover hpc-codecov
           cabal configure --enable-coverage
           cabal build
           cabal test
-
+        
       - name: Generate coverage report
-        uses: 8c6794b6/hpc-codecov-action@v4
-        with:
-          target: cabal:glados-test
-          excludes: Main,Paths_glados
+        run: |
+          hpc-codecov cabal:glados-test --exclude Main,Paths_glados --out codecov.json --format codecov --verbose
 
       - name: Send coverage report
         uses: codecov/codecov-action@v3
