@@ -18,6 +18,7 @@ jobs:
       - name: Build and test
         run: |
           cabal update
+          cabal install hspec-discover
           cabal configure --enable-coverage
           cabal build
           cabal test
