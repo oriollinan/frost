@@ -8,9 +8,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Setup Haskell
-        uses: haskell-actions/setup@v2
+        uses: ./actions/haskell-setup
         with:
           ghc-version: 9.10.1
           cabal-version: 3.12.1.0
@@ -22,7 +24,7 @@ jobs:
           cabal configure --enable-coverage
           cabal build
           cabal test
-        
+
       - name: Generate coverage report
         run: |
           hpc-codecov cabal:glados-test --exclude Main,Paths_glados --out codecov.json --format codecov --verbose
