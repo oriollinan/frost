@@ -1,0 +1,26 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.hs]
+indent_style = space
+indent_size = 4
+max_line_length = 80
+
+[*.cabal]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+
+[*.md]
+trim_trailing_whitespace = false
+indent_style = space
+indent_size = 2
+
+[*.yaml]
+indent_style = space
+indent_size = 2

@@ -1,0 +1,16 @@
+repos:
+  - repo: local
+    hooks:
+      - id: hlint-lint
+        name: hlint
+        entry: hlint
+        language: system
+        types: [haskell]
+        additional_dependencies: []
+
+      - id: ormolu
+        name: ormolu
+        entry: ormolu --mode check
+        language: system
+        types: [haskell]
+        additional_dependencies: []
