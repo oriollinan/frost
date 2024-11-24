@@ -28,6 +28,19 @@ Hooks for code formatting and linting will run automatically when you commit
 changes. These hooks are `ormolu` and `hlint`. Please make sure to fix any
 errors before committing.
 
+## devcontainer
+
+This project includes a `devcontainer` configuration for Visual Studio Code. To
+use the devcontainer, you need to have
+[Docker](https://docs.docker.com/get-docker/),
+[Visual Studio Code](https://code.visualstudio.com/) and the
+[Remote - Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+extension installed.
+
+To open the project in the devcontainer, open the command palette
+(`Ctrl+Shift+P`) and run the command `Remote-Containers: Reopen in Container`.
+All the necessary tools and dependencies will be installed in the container.
+
 # development
 
 To build the project, run the following command:
