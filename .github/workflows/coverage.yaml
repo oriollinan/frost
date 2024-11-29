@@ -19,6 +19,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-ghcup-
 
+      - name: Cache Cabal
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.cabal
+          key: ${{ runner.os }}-cabal-${{ hashFiles('**/*.cabal') }}
+          restore-keys: |
+            ${{ runner.os }}-cabal-
+
       - name: Install required packages
         run: sudo apt update && sudo apt install -y build-essential libffi-dev libgmp-dev zlib1g-dev
 
