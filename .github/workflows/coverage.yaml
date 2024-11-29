@@ -49,4 +49,4 @@ jobs:
           hpc-codecov cabal:glados-test --exclude Main,Paths_glados --out codecov.json --format codecov --verbose
 
       - name: Send coverage report
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
