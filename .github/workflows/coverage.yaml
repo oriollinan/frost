@@ -13,6 +13,7 @@ jobs:
 
       - name: Cache GHCup
         uses: actions/cache@v4
+        id: ghcup-cache
         with:
           path: /home/runner/.ghcup
           key: ${{ runner.os }}-ghcup-${{ hashFiles('**/*.cabal') }}
@@ -21,6 +22,7 @@ jobs:
 
       - name: Cache Cabal
         uses: actions/cache@v4
+        id: cabal-cache
         with:
           path: /home/runner/.cabal
           key: ${{ runner.os }}-cabal-${{ hashFiles('**/*.cabal') }}
@@ -31,15 +33,26 @@ jobs:
         run: sudo apt update && sudo apt install -y build-essential libffi-dev libgmp-dev zlib1g-dev
 
       - name: Setup Haskell
+        if: ${{ steps.cabal-cache.outputs.cache-hit != 'true' && steps.ghcup-cache.outputs.cache-hit != 'true' }}
         uses: ./actions/haskell-setup
         with:
           ghc-version: 9.10.1
           cabal-version: 3.12.1.0
 
-      - name: Build and test
+      - name: Install dependencies
+        if: ${{ steps.cabal-cache.outputs.cache-hit != 'true' }}
         run: |
           cabal update
           cabal install hspec-discover hpc-codecov
+
+      - name: Setup environment
+        if: ${{ steps.cabal-cache.outputs.cache-hit == 'true' && steps.ghcup-cache.outputs.cache-hit == 'true' }}
+        run: |
+            echo "/home/runner/.cabal/bin" >> $GITHUB_PATH
+            echo "/home/runner/.ghcup/bin" >> $GITHUB_PATH
+
+      - name: Build and test
+        run: |
           cabal configure --enable-coverage
           cabal build --jobs=1
           cabal test --jobs=1
