@@ -4,12 +4,31 @@ on: [push]
 
 jobs:
   check_coverage:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Cache GHCup
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.ghcup
+          key: ${{ runner.os }}-ghcup-${{ hashFiles('**/*.cabal') }}
+          restore-keys: |
+            ${{ runner.os }}-ghcup-
+
+      - name: Cache Cabal
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.cabal
+          key: ${{ runner.os }}-cabal-${{ hashFiles('**/*.cabal') }}
+          restore-keys: |
+            ${{ runner.os }}-cabal-
+
+      - name: Install required packages
+        run: sudo apt update && sudo apt install -y build-essential libffi-dev libgmp-dev zlib1g-dev
 
       - name: Setup Haskell
         uses: ./actions/haskell-setup
@@ -22,8 +41,8 @@ jobs:
           cabal update
           cabal install hspec-discover hpc-codecov
           cabal configure --enable-coverage
-          cabal build
-          cabal test
+          cabal build --jobs=1
+          cabal test --jobs=1
 
       - name: Generate coverage report
         run: |
