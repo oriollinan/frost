@@ -11,6 +11,14 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Cache GHCup
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.ghcup
+          key: ${{ runner.os }}-ghcup-${{ hashFiles('**/*.cabal') }}
+          restore-keys: |
+            ${{ runner.os }}-ghcup-
+
       - name: Install required packages
         run: sudo apt update && sudo apt install -y build-essential libffi-dev libgmp-dev zlib1g-dev
 
