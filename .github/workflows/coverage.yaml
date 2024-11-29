@@ -41,8 +41,8 @@ jobs:
           cabal update
           cabal install hspec-discover hpc-codecov
           cabal configure --enable-coverage
-          cabal build
-          cabal test
+          cabal build --jobs=1
+          cabal test --jobs=1
 
       - name: Generate coverage report
         run: |
