@@ -43,7 +43,7 @@ jobs:
         if: ${{ steps.cabal-cache.outputs.cache-hit != 'true' }}
         run: |
           cabal update
-          cabal install hspec-discover hpc-codecov
+          cabal install hspec-discover hpc-codecov --overwrite-policy=always
 
       - name: Setup environment
         if: ${{ steps.cabal-cache.outputs.cache-hit == 'true' && steps.ghcup-cache.outputs.cache-hit == 'true' }}
