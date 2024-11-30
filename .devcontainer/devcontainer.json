@@ -1,14 +1,14 @@
 {
-	"name": "Glados Debian",
-	"image": "mcr.microsoft.com/devcontainers/base:bullseye",
-	"features": {
-		"ghcr.io/devcontainers-extra/features/haskell:2": {
-			"ghcVersion": "9.10.1",
-			"cabalVersion": "3.12.1.0",
-			"globalPackages": "hspec-discover hpc-codecov hlint ormolu"
-		},
-		"ghcr.io/devcontainers-contrib/features/pipx-package:1": {
-			"package": "pre-commit"
-		}
-	}
+  "name": "Glados Debian",
+  "image": "mcr.microsoft.com/devcontainers/base:bullseye",
+  "features": {
+    "ghcr.io/devcontainers-extra/features/haskell:2": {
+      "ghcVersion": "9.4.8",
+      "cabalVersion": "3.10.3.0",
+      "globalPackages": "hspec-discover hpc-codecov hlint ormolu"
+    },
+    "ghcr.io/devcontainers-contrib/features/pipx-package:1": {
+      "package": "pre-commit"
+    }
+  }
 }

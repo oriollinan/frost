@@ -22,3 +22,5 @@ cabal.project.local~
 .HTF/
 .ghc.environment.*
 venv/
+*.tix
+codecov.json
