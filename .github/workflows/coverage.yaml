@@ -53,7 +53,7 @@ jobs:
 
       - name: Build and test
         run: |
-          cabal configure --enable-coverage
+          cabal configure --enable-coverage --disable-library-coverage
           cabal build --jobs=1
           cabal test --jobs=1
 
