@@ -1,3 +1,6 @@
 [submodule "external/haskell-setup"]
 	path = external/haskell-setup
 	url = git@github.com:haskell-actions/setup.git
+[submodule "external/llvm-hs-pretty"]
+	path = external/llvm-hs-pretty
+	url = git@github.com:Jabolol/llvm-hs-pretty.git
