@@ -18,7 +18,7 @@ common warnings
 library
   import: warnings
   exposed-modules: Misc
-  build-depends: base ^>=4.19.0.0
+  build-depends: base ^>=4.17.2.1
   hs-source-dirs: lib
   default-language: Haskell2010
 
@@ -26,8 +26,10 @@ executable glados
   import: warnings
   main-is: Main.hs
   build-depends:
-    base ^>=4.19.0.0,
+    base ^>=4.17.2.1,
     glados,
+    llvm-hs-pretty >=0.9.0 && <0.10,
+    llvm-hs-pure >=9.0.0 && <9.1,
 
   hs-source-dirs: app
   default-language: Haskell2010
@@ -41,7 +43,7 @@ test-suite glados-test
   main-is: Spec.hs
   build-depends:
     QuickCheck,
-    base ^>=4.19.0.0,
+    base ^>=4.17.2.1,
     glados,
     hspec,
     hspec-discover,
