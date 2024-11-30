@@ -36,7 +36,7 @@ jobs:
         if: ${{ steps.cabal-cache.outputs.cache-hit != 'true' && steps.ghcup-cache.outputs.cache-hit != 'true' }}
         uses: ./external/haskell-setup
         with:
-          ghc-version: 9.8.2
+          ghc-version: 9.4.8
           cabal-version: 3.10.3.0
 
       - name: Install dependencies

@@ -3,7 +3,7 @@
   "image": "mcr.microsoft.com/devcontainers/base:bullseye",
   "features": {
     "ghcr.io/devcontainers-extra/features/haskell:2": {
-      "ghcVersion": "9.8.2",
+      "ghcVersion": "9.4.8",
       "cabalVersion": "3.10.3.0",
       "globalPackages": "hspec-discover hpc-codecov hlint ormolu"
     },
