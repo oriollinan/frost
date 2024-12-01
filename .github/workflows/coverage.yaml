@@ -4,7 +4,7 @@ on: [push]
 
 jobs:
   check_coverage:
-    runs-on: self-hosted
+    runs-on: ${{ github.repository_owner == 'EpitechPromo2027' && 'self-hosted' || 'ubuntu-latest' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,22 +53,18 @@ jobs:
 
       # This is disabled for the moment since EPITECH CI runners are not powerful enough to build the project
       - name: Build project
-        if: ${{ false }}
         run: cabal build --jobs=1
 
       - name: Test project
-        if: ${{ false }}
         run: |
           cabal configure --enable-coverage --disable-library-coverage
           cabal test --jobs=1
 
       - name: Generate coverage report
-        if: ${{ false }}
         run: |
           hpc-codecov cabal:glados-test --exclude Main,Paths_glados --out codecov.json --format codecov --verbose
 
       - name: Send coverage report
-        if: ${{ false }}
         uses: codecov/codecov-action@v5
 
       - name: Generate Haddock documentation
