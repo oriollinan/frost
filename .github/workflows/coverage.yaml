@@ -4,6 +4,8 @@ on: [push]
 
 jobs:
   check_coverage:
+    permissions:
+      contents: write
     runs-on: ${{ github.repository_owner == 'EpitechPromo2027' && 'self-hosted' || 'ubuntu-latest' }}
     steps:
       - name: Checkout
