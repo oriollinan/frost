@@ -4,3 +4,6 @@
 [submodule "external/llvm-hs-pretty"]
 	path = external/llvm-hs-pretty
 	url = git@github.com:Jabolol/llvm-hs-pretty.git
+[submodule "external/actions-gh-pages"]
+	path = external/actions-gh-pages
+	url = git@github.com:peaceiris/actions-gh-pages.git

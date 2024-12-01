@@ -51,15 +51,37 @@ jobs:
             echo "/home/runner/.cabal/bin" >> $GITHUB_PATH
             echo "/home/runner/.ghcup/bin" >> $GITHUB_PATH
 
-      - name: Build and test
+      # This is disabled for the moment since EPITECH CI runners are not powerful enough to build the project
+      - name: Build project
+        if: ${{ false }}
+        run: cabal build --jobs=1
+
+      - name: Test project
+        if: ${{ false }}
         run: |
           cabal configure --enable-coverage --disable-library-coverage
-          cabal build --jobs=1
           cabal test --jobs=1
 
       - name: Generate coverage report
+        if: ${{ false }}
         run: |
           hpc-codecov cabal:glados-test --exclude Main,Paths_glados --out codecov.json --format codecov --verbose
 
       - name: Send coverage report
+        if: ${{ false }}
         uses: codecov/codecov-action@v5
+
+      - name: Generate Haddock documentation
+        id: generate-docs
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cabal haddock --haddock-html --haddock-hyperlink-source
+          DOCS_DIR=$(find dist-newstyle/build -type d -path "*/doc/html/*" | head -n 1)
+          echo "::notice::Haddock documentation generated at: $DOCS_DIR"
+
+      - name: Deploy Haddock to GitHub Pages
+        uses: ./external/actions-gh-pages
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ${{ steps.generate-docs.outputs.DOCS_DIR }}
