@@ -53,7 +53,6 @@ jobs:
             echo "/home/runner/.cabal/bin" >> $GITHUB_PATH
             echo "/home/runner/.ghcup/bin" >> $GITHUB_PATH
 
-      # This is disabled for the moment since EPITECH CI runners are not powerful enough to build the project
       - name: Build project
         run: cabal build --jobs=1
 
@@ -75,7 +74,7 @@ jobs:
       - name: Generate Haddock documentation
         if: github.ref == 'refs/heads/main'
         run: |
-          cabal haddock --haddock-html --haddock-hyperlink-source --haddock-quickjump --haddock-contents-location=local
+          cabal haddock --haddock-html --haddock-hyperlink-source --haddock-quickjump
           echo "DOCS_DIR=$(find dist-newstyle/build -type d -path '*/doc/html/glados' | head -n 1)" >> $GITHUB_ENV
   
       - name: Deploy Haddock to GitHub Pages
