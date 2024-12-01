@@ -75,8 +75,8 @@ jobs:
       - name: Generate Haddock documentation
         if: github.ref == 'refs/heads/main'
         run: |
-          cabal haddock --haddock-html --haddock-hyperlink-source
-          echo "DOCS_DIR=$(find dist-newstyle/build -type d -path '*/doc/html/*' | head -n 1)" >> $GITHUB_ENV
+          cabal haddock --haddock-html --haddock-hyperlink-source --haddock-quickjump --haddock-contents-location=local
+          echo "DOCS_DIR=$(find dist-newstyle/build -type d -path '*/doc/html/glados' | head -n 1)" >> $GITHUB_ENV
   
       - name: Deploy Haddock to GitHub Pages
         uses: ./external/actions-gh-pages
