@@ -73,16 +73,15 @@ jobs:
           slug: ${{ github.repository }}
 
       - name: Generate Haddock documentation
-        id: generate-docs
         if: github.ref == 'refs/heads/main'
         run: |
           cabal haddock --haddock-html --haddock-hyperlink-source
-          DOCS_DIR=$(find dist-newstyle/build -type d -path "*/doc/html/*" | head -n 1)
-          echo "::notice::Haddock documentation generated at: $DOCS_DIR"
-
+          echo "DOCS_DIR=$(find dist-newstyle/build -type d -path '*/doc/html/*' | head -n 1)" >> $GITHUB_ENV
+  
       - name: Deploy Haddock to GitHub Pages
         uses: ./external/actions-gh-pages
         if: github.ref == 'refs/heads/main'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ${{ steps.generate-docs.outputs.DOCS_DIR }}
+          publish_dir: ${{ env.DOCS_DIR }}
+  
