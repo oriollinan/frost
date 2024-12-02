@@ -9,10 +9,22 @@ main :: IO ()
 main = do
   let ast =
         T.AST
-          [ T.If
-              (T.Lit (T.LInt 1))
-              (T.Op T.Add (T.Lit (T.LInt 2)) (T.Lit (T.LInt 3)))
-              (T.Op T.Mult (T.Lit (T.LInt 4)) (T.Lit (T.LInt 5)))
+          [ T.Define
+              "$$generated"
+              ( T.If
+                  (T.Lit (T.LInt 1))
+                  ( T.Call
+                      ( T.Lambda ["x"] (T.Op T.Add (T.Var "x") (T.Lit (T.LInt 1)))
+                      )
+                      [T.Lit (T.LInt 2)]
+                  )
+                  ( T.Call
+                      ( T.Lambda ["y"] (T.Op T.Sub (T.Var "y") (T.Lit (T.LInt 1)))
+                      )
+                      [T.Lit (T.LInt 2)]
+                  )
+              )
           ]
+
   let output = TL.unpack $ P.ppllvm $ C.codegen ast
   writeFile "demo/generated.ll" output
