@@ -45,6 +45,34 @@ generateExpr expr = case expr of
     v1 <- generateExpr e1
     v2 <- generateExpr e2
     I.sdiv v1 v2
+  AT.Op AT.Lt e1 e2 -> do
+    v1 <- generateExpr e1
+    v2 <- generateExpr e2
+    I.icmp IP.SLT v1 v2
+  AT.Op AT.Gt e1 e2 -> do
+    v1 <- generateExpr e1
+    v2 <- generateExpr e2
+    I.icmp IP.SGT v1 v2
+  AT.Op AT.Lte e1 e2 -> do
+    v1 <- generateExpr e1
+    v2 <- generateExpr e2
+    I.icmp IP.SLE v1 v2
+  AT.Op AT.Gte e1 e2 -> do
+    v1 <- generateExpr e1
+    v2 <- generateExpr e2
+    I.icmp IP.SGE v1 v2
+  AT.Op AT.Equal e1 e2 -> do
+    v1 <- generateExpr e1
+    v2 <- generateExpr e2
+    I.icmp IP.EQ v1 v2
+  AT.Op AT.And e1 e2 -> do
+    v1 <- generateExpr e1
+    v2 <- generateExpr e2
+    I.and v1 v2
+  AT.Op AT.Or e1 e2 -> do
+    v1 <- generateExpr e1
+    v2 <- generateExpr e2
+    I.or v1 v2
   AT.If cond then_ else_ -> mdo
     condValue <- generateExpr cond
     test <- I.icmp IP.NE condValue (AST.ConstantOperand $ C.Int 1 0)
@@ -60,4 +88,4 @@ generateExpr expr = case expr of
 
     mergeBB <- IRM.block `IRM.named` "merge"
     I.phi [(thenValue, thenBlock), (elseValue, elseBlock)]
-  _ -> error "Unimplemented expression type"
+  _ -> error ("Unimplemented expression type" ++ show expr)
