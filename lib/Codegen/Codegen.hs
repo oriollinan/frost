@@ -1,3 +1,5 @@
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
 
@@ -13,6 +15,9 @@ import qualified LLVM.IRBuilder.Instruction as I
 import qualified LLVM.IRBuilder.Module as M
 import qualified LLVM.IRBuilder.Monad as IRM
 
+-- | Type alias for the monad stack used for code generation.
+type MonadCodegen m = (IRM.MonadIRBuilder m, Fix.MonadFix m)
+
 -- | Generates LLVM code for a given abstract syntax tree (AST).
 -- The `codegen` function takes an AST and returns the corresponding LLVM module.
 codegen :: AT.AST -> AST.Module
@@ -22,70 +27,58 @@ codegen ast = M.buildModule "generated" $ do
       AT.AST exprs -> generateExpr $ head exprs
     I.ret result
 
+-- | Maps binary operators to LLVM instructions.
+binaryOps :: [(AT.Operation, AST.Operand -> AST.Operand -> (IRM.MonadIRBuilder m) => m AST.Operand)]
+binaryOps =
+  [ (AT.Add, I.add),
+    (AT.Sub, I.sub),
+    (AT.Mult, I.mul),
+    (AT.Div, I.sdiv),
+    (AT.Lt, I.icmp IP.SLT),
+    (AT.Gt, I.icmp IP.SGT),
+    (AT.Lte, I.icmp IP.SLE),
+    (AT.Gte, I.icmp IP.SGE),
+    (AT.Equal, I.icmp IP.EQ),
+    (AT.And, I.and),
+    (AT.Or, I.or)
+  ]
+
+-- | Generates LLVM code for an if expression.
+generateIf :: (MonadCodegen m) => AT.Expr -> AT.Expr -> AT.Expr -> m AST.Operand
+generateIf cond then_ else_ = mdo
+  condValue <- generateExpr cond
+  test <- I.icmp IP.NE condValue (AST.ConstantOperand $ C.Int 1 0)
+  I.condBr test thenBlock elseBlock
+
+  thenBlock <- IRM.block `IRM.named` "then"
+  thenValue <- generateExpr then_
+  I.br mergeBB
+
+  elseBlock <- IRM.block `IRM.named` "else"
+  elseValue <- generateExpr else_
+  I.br mergeBB
+
+  mergeBB <- IRM.block `IRM.named` "merge"
+  I.phi [(thenValue, thenBlock), (elseValue, elseBlock)]
+
+-- | Generates LLVM code for a binary operation.
+generateOp :: (MonadCodegen m) => AT.Operation -> AT.Expr -> AT.Expr -> m AST.Operand
+generateOp op e1 e2 = do
+  v1 <- generateExpr e1
+  v2 <- generateExpr e2
+  case lookup op binaryOps of
+    Just instruction -> instruction v1 v2
+    Nothing -> error $ "Unsupported operator: " ++ show op
+
 -- | Generates an LLVM operand for an expression.
 -- The `generateExpr` function recursively processes different expression types
 -- and generates the corresponding LLVM code.
-generateExpr :: (IRM.MonadIRBuilder m, Fix.MonadFix m) => AT.Expr -> m AST.Operand
+generateExpr :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateExpr expr = case expr of
   AT.Lit (AT.LInt n) ->
     pure $ AST.ConstantOperand $ C.Int 32 (fromIntegral n)
-  AT.Op AT.Add e1 e2 -> do
-    v1 <- generateExpr e1
-    v2 <- generateExpr e2
-    I.add v1 v2
-  AT.Op AT.Sub e1 e2 -> do
-    v1 <- generateExpr e1
-    v2 <- generateExpr e2
-    I.sub v1 v2
-  AT.Op AT.Mult e1 e2 -> do
-    v1 <- generateExpr e1
-    v2 <- generateExpr e2
-    I.mul v1 v2
-  AT.Op AT.Div e1 e2 -> do
-    v1 <- generateExpr e1
-    v2 <- generateExpr e2
-    I.sdiv v1 v2
-  AT.Op AT.Lt e1 e2 -> do
-    v1 <- generateExpr e1
-    v2 <- generateExpr e2
-    I.icmp IP.SLT v1 v2
-  AT.Op AT.Gt e1 e2 -> do
-    v1 <- generateExpr e1
-    v2 <- generateExpr e2
-    I.icmp IP.SGT v1 v2
-  AT.Op AT.Lte e1 e2 -> do
-    v1 <- generateExpr e1
-    v2 <- generateExpr e2
-    I.icmp IP.SLE v1 v2
-  AT.Op AT.Gte e1 e2 -> do
-    v1 <- generateExpr e1
-    v2 <- generateExpr e2
-    I.icmp IP.SGE v1 v2
-  AT.Op AT.Equal e1 e2 -> do
-    v1 <- generateExpr e1
-    v2 <- generateExpr e2
-    I.icmp IP.EQ v1 v2
-  AT.Op AT.And e1 e2 -> do
-    v1 <- generateExpr e1
-    v2 <- generateExpr e2
-    I.and v1 v2
-  AT.Op AT.Or e1 e2 -> do
-    v1 <- generateExpr e1
-    v2 <- generateExpr e2
-    I.or v1 v2
-  AT.If cond then_ else_ -> mdo
-    condValue <- generateExpr cond
-    test <- I.icmp IP.NE condValue (AST.ConstantOperand $ C.Int 1 0)
-    I.condBr test thenBlock elseBlock
-
-    thenBlock <- IRM.block `IRM.named` "then"
-    thenValue <- generateExpr then_
-    I.br mergeBB
-
-    elseBlock <- IRM.block `IRM.named` "else"
-    elseValue <- generateExpr else_
-    I.br mergeBB
-
-    mergeBB <- IRM.block `IRM.named` "merge"
-    I.phi [(thenValue, thenBlock), (elseValue, elseBlock)]
-  _ -> error ("Unimplemented expression type" ++ show expr)
+  AT.Lit (AT.LBool b) ->
+    pure $ AST.ConstantOperand $ C.Int 1 (if b then 1 else 0)
+  AT.Op op e1 e2 -> generateOp op e1 e2
+  AT.If cond then_ else_ -> generateIf cond then_ else_
+  _ -> error ("Unimplemented expression type: " ++ show expr)
