@@ -17,6 +17,7 @@ data Literal
 data Expr
   = Lit Literal
   | Var String
+  | Define String Expr
   | Call Expr [Expr]
   | Lambda [String] Expr
   | If Expr Expr Expr
@@ -26,17 +27,17 @@ data Expr
 -- | Operations supported by the language, such as addition, subtraction, etc.
 data Operation
   = Add
-  | Subtract
-  | Multiply
-  | Divide
-  | LessThan
+  | Sub
+  | Mult
+  | Div
+  | Lt
+  | Gt
+  | Lte
+  | Gte
   | Equal
   | And
   | Or
   deriving (Show, Eq)
 
 -- | Top-level AST representation for the program.
-data AST
-  = Define String Expr
-  | Expr Expr
-  deriving (Show, Eq)
+newtype AST = AST [Expr] deriving (Show, Eq)

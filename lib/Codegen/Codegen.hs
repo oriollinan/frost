@@ -19,8 +19,7 @@ codegen :: AT.AST -> AST.Module
 codegen ast = M.buildModule "generated" $ do
   M.function "$$generated" [] T.i32 $ \_ -> do
     result <- case ast of
-      AT.Define _ expr -> generateExpr expr
-      AT.Expr expr -> generateExpr expr
+      AT.AST exprs -> generateExpr $ head exprs
     I.ret result
 
 -- | Generates an LLVM operand for an expression.
@@ -34,7 +33,7 @@ generateExpr expr = case expr of
     v1 <- generateExpr e1
     v2 <- generateExpr e2
     I.add v1 v2
-  AT.Op AT.Multiply e1 e2 -> do
+  AT.Op AT.Mult e1 e2 -> do
     v1 <- generateExpr e1
     v2 <- generateExpr e2
     I.mul v1 v2
