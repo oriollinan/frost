@@ -33,10 +33,18 @@ generateExpr expr = case expr of
     v1 <- generateExpr e1
     v2 <- generateExpr e2
     I.add v1 v2
+  AT.Op AT.Sub e1 e2 -> do
+    v1 <- generateExpr e1
+    v2 <- generateExpr e2
+    I.sub v1 v2
   AT.Op AT.Mult e1 e2 -> do
     v1 <- generateExpr e1
     v2 <- generateExpr e2
     I.mul v1 v2
+  AT.Op AT.Div e1 e2 -> do
+    v1 <- generateExpr e1
+    v2 <- generateExpr e2
+    I.sdiv v1 v2
   AT.If cond then_ else_ -> mdo
     condValue <- generateExpr cond
     test <- I.icmp IP.NE condValue (AST.ConstantOperand $ C.Int 1 0)
