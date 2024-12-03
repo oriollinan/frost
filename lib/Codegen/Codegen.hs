@@ -39,6 +39,7 @@ codegen (AT.AST exprs) = M.buildModule "$$generated" $ do
 -- The `generateTopLevel` function takes an expression and generates the corresponding LLVM code.
 generateTopLevel :: (MonadCodegen m) => AT.Expr -> m ()
 generateTopLevel expr = case expr of
+  AT.Define varName (AT.Lit var) -> CM.void $ buildGlobaVariable (AST.mkName varName) var -- Global variable
   AT.Define name body -> CM.void $ buildLambda (AST.mkName name) [] body
   _ -> error ("Unsupported top-level expression: " ++ show expr)
 
@@ -84,6 +85,16 @@ generateOp op e1 e2 = do
   case lookup op binaryOps of
     Just instruction -> instruction v1 v2
     Nothing -> error $ "Unsupported operator: " ++ show op
+
+-- | Generates LLVM code for a literal variable.
+-- The `buildLiteralVariable` function takes the variable name and its value,
+buildGlobaVariable :: (MonadCodegen m) => AST.Name -> AT.Literal -> m AST.Operand
+buildGlobaVariable name value = do
+  let constant = case value of
+        AT.LInt i -> C.Int 32 (fromIntegral i)
+        AT.LBool b -> C.Int 1 (if b then 1 else 0)
+        _ -> error ("Global variable cannot be created with value: " ++ show value)
+  M.global name T.i32 constant
 
 -- | Generates LLVM code for a lambda expression.
 -- The `buildLambda` function takes a name, a list of parameter names, and a body expression,
