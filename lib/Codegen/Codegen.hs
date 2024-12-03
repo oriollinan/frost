@@ -39,10 +39,7 @@ codegen (AT.AST exprs) = M.buildModule "$$generated" $ do
 -- The `generateTopLevel` function takes an expression and generates the corresponding LLVM code.
 generateTopLevel :: (MonadCodegen m) => AT.Expr -> m ()
 generateTopLevel expr = case expr of
-  AT.Define name body -> CM.void $
-    M.function (AST.mkName name) [] T.i32 $ \_ -> do
-      result <- generateExpr body
-      I.ret result
+  AT.Define name body -> CM.void $ buildLambda (AST.mkName name) [] body
   _ -> error ("Unsupported top-level expression: " ++ show expr)
 
 -- | Maps binary operators to LLVM instructions.
@@ -88,6 +85,19 @@ generateOp op e1 e2 = do
     Just instruction -> instruction v1 v2
     Nothing -> error $ "Unsupported operator: " ++ show op
 
+-- | Generates LLVM code for a lambda expression.
+-- The `buildLambda` function takes a name, a list of parameter names, and a body expression,
+-- and returns an LLVM operand representing the lambda function.
+buildLambda :: (MonadCodegen m) => AST.Name -> [String] -> AT.Expr -> m AST.Operand
+buildLambda name params body = do
+  M.function
+    name
+    [toParamType param | param <- params]
+    T.i32
+    $ \_ -> do
+      result <- generateExpr body
+      I.ret result
+
 -- | Generates an LLVM operand for an expression.
 -- The `generateExpr` function recursively processes different expression types
 -- and generates the corresponding LLVM code.
@@ -99,20 +109,14 @@ generateExpr expr = case expr of
     pure $ AST.ConstantOperand $ C.Int 1 (if b then 1 else 0)
   AT.Op op e1 e2 -> generateOp op e1 e2
   AT.If cond then_ else_ -> generateIf cond then_ else_
-  AT.Call (AT.Lambda params body) args -> do
-    uniqueName <- IRM.freshName "lambda"
-    func <- M.function
-      uniqueName
-      [toParamType param | param <- params]
-      T.i32
-      $ \_ -> do
-        result <- generateExpr body
-        I.ret result
-    args' <- mapM generateExpr args
-    I.call func [(arg', []) | arg' <- args']
   AT.Call func args -> do
-    func' <- generateExpr func
+    func' <- case func of
+      AT.Lambda params body -> do
+        uniqueName <- IRM.freshName "lambda"
+        buildLambda uniqueName params body
+      AT.Var name -> pure $ AST.LocalReference T.i32 $ AST.mkName name
+      _ -> generateExpr func
     args' <- mapM generateExpr args
     I.call func' [(arg, []) | arg <- args']
-  AT.Var name -> pure $ AST.LocalReference T.i32 $ AST.mkName (name ++ "_0")
+  AT.Var name -> pure $ AST.LocalReference T.i32 $ AST.mkName name
   _ -> error ("Unimplemented expression type: " ++ show expr)
