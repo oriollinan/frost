@@ -6,9 +6,9 @@
 module Codegen.Codegen where
 
 import qualified Ast.Types as AT
+import qualified Codegen.Utils as U
 import qualified Control.Monad as CM
 import qualified Control.Monad.Fix as Fix
-import qualified Data.ByteString.Short as BS
 import qualified LLVM.AST as AST
 import qualified LLVM.AST.Constant as C
 import qualified LLVM.AST.IntegerPredicate as IP
@@ -24,10 +24,7 @@ type MonadCodegen m = (IRM.MonadIRBuilder m, M.MonadModuleBuilder m, Fix.MonadFi
 -- The `toParamType` function takes a string and returns a pair of type and parameter name.
 -- The type is always `i32` (32-bit integer), and the parameter name is the input string.
 toParamType :: String -> (T.Type, M.ParameterName)
-toParamType param =
-  ( T.i32,
-    M.ParameterName $ BS.pack $ map (fromIntegral . fromEnum) param
-  )
+toParamType param = (T.i32, M.ParameterName $ U.stringToByteString param)
 
 -- | Generates LLVM code for a given abstract syntax tree (AST).
 -- The `codegen` function takes an AST and returns the corresponding LLVM module.
@@ -39,7 +36,7 @@ codegen (AT.AST exprs) = M.buildModule "$$generated" $ do
 -- The `generateTopLevel` function takes an expression and generates the corresponding LLVM code.
 generateTopLevel :: (MonadCodegen m) => AT.Expr -> m ()
 generateTopLevel expr = case expr of
-  AT.Define varName (AT.Lit var) -> CM.void $ buildGlobaVariable (AST.mkName varName) var -- Global variable
+  AT.Define name (AT.Lit var) -> CM.void $ buildGlobaVariable (AST.mkName name) var
   AT.Define name body -> CM.void $ buildLambda (AST.mkName name) [] body
   _ -> error ("Unsupported top-level expression: " ++ show expr)
 
@@ -62,16 +59,16 @@ binaryOps =
 -- | Generates LLVM code for an if expression.
 generateIf :: (MonadCodegen m) => AT.Expr -> AT.Expr -> AT.Expr -> m AST.Operand
 generateIf cond then_ else_ = mdo
-  condValue <- generateExpr cond
+  condValue <- generateExpr [] cond
   test <- I.icmp IP.NE condValue (AST.ConstantOperand $ C.Int 1 0)
   I.condBr test thenBlock elseBlock
 
   thenBlock <- IRM.block `IRM.named` "then"
-  thenValue <- generateExpr then_
+  thenValue <- generateExpr [] then_
   I.br mergeBB
 
   elseBlock <- IRM.block `IRM.named` "else"
-  elseValue <- generateExpr else_
+  elseValue <- generateExpr [] else_
   I.br mergeBB
 
   mergeBB <- IRM.block `IRM.named` "merge"
@@ -80,8 +77,8 @@ generateIf cond then_ else_ = mdo
 -- | Generates LLVM code for a binary operation.
 generateOp :: (MonadCodegen m) => AT.Operation -> AT.Expr -> AT.Expr -> m AST.Operand
 generateOp op e1 e2 = do
-  v1 <- generateExpr e1
-  v2 <- generateExpr e2
+  v1 <- generateExpr [] e1
+  v2 <- generateExpr [] e2
   case lookup op binaryOps of
     Just instruction -> instruction v1 v2
     Nothing -> error $ "Unsupported operator: " ++ show op
@@ -105,29 +102,43 @@ buildLambda name params body = do
     name
     [toParamType param | param <- params]
     T.i32
-    $ \_ -> do
-      result <- generateExpr body
+    $ \paramOps -> do
+      let paramMap = zip params paramOps
+      result <- generateExpr paramMap body
       I.ret result
 
 -- | Generates an LLVM operand for an expression.
 -- The `generateExpr` function recursively processes different expression types
 -- and generates the corresponding LLVM code.
-generateExpr :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateExpr expr = case expr of
+generateExpr :: (MonadCodegen m) => [(String, AST.Operand)] -> AT.Expr -> m AST.Operand
+generateExpr paramMap expr = case expr of
   AT.Lit (AT.LInt n) ->
     pure $ AST.ConstantOperand $ C.Int 32 (fromIntegral n)
   AT.Lit (AT.LBool b) ->
     pure $ AST.ConstantOperand $ C.Int 1 (if b then 1 else 0)
-  AT.Op op e1 e2 -> generateOp op e1 e2
+  AT.Op op e1 e2 -> do
+    v1 <- generateExpr paramMap e1
+    v2 <- generateExpr paramMap e2
+    case lookup op binaryOps of
+      Just instruction -> instruction v1 v2
+      Nothing -> error $ "Unsupported operator: " ++ show op
   AT.If cond then_ else_ -> generateIf cond then_ else_
   AT.Call func args -> do
     func' <- case func of
       AT.Lambda params body -> do
         uniqueName <- IRM.freshName "lambda"
         buildLambda uniqueName params body
-      AT.Var name -> pure $ AST.LocalReference T.i32 $ AST.mkName name
-      _ -> generateExpr func
-    args' <- mapM generateExpr args
+      AT.Var name -> error $ "Calling a variable as a function is not supported yet: " ++ name
+      _ -> generateExpr paramMap func
+    args' <- mapM (generateExpr paramMap) args
     I.call func' [(arg, []) | arg <- args']
-  AT.Var name -> pure $ AST.LocalReference T.i32 $ AST.mkName name
-  _ -> error ("Unimplemented expression type: " ++ show expr)
+  AT.Var name ->
+    case lookup name paramMap of
+      Just op -> pure op
+      Nothing -> do
+        let globalVarPtr = AST.ConstantOperand (C.GlobalReference (T.ptr T.i32) (AST.mkName name))
+        I.load globalVarPtr 0
+  AT.Lambda params body -> do
+    uniqueName <- IRM.freshName "lambda"
+    buildLambda uniqueName params body
+  _ -> error ("Unsupported expression: " ++ show expr)
