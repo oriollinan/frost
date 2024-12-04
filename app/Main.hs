@@ -9,14 +9,15 @@ main :: IO ()
 main = do
   let ast =
         T.AST
-          [ T.Define
+          [ T.Define "example" (T.Lit (T.LInt 21)),
+            T.Define
               "$$generated"
               ( T.If
                   (T.Lit (T.LInt 1))
                   ( T.Call
-                      ( T.Lambda ["x"] (T.Op T.Add (T.Var "x") (T.Lit (T.LInt 1)))
+                      ( T.Lambda ["x"] (T.Op T.Mult (T.Var "x") (T.Lit (T.LInt 2)))
                       )
-                      [T.Lit (T.LInt 2)]
+                      [T.Var "example"]
                   )
                   ( T.Call
                       ( T.Lambda ["y"] (T.Op T.Sub (T.Var "y") (T.Lit (T.LInt 1)))

@@ -25,6 +25,7 @@ library
     Ast.Tokenizer
     Ast.Types
     Codegen.Codegen
+    Codegen.Utils
     Misc
 
   build-depends:
