@@ -23,6 +23,7 @@ library
   import: warnings
   exposed-modules:
     Ast.Tokenizer
+    Ast.Parser
     Ast.Types
     Codegen.Codegen
     Codegen.Utils

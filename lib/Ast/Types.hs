@@ -11,7 +11,7 @@ data Literal
   = LInt Integer
   | LBool Bool
   | LSymbol String
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 -- | Expression nodes in the LISP AST.
 data Expr
