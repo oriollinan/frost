@@ -1,83 +1,76 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies #-}
-
 module Ast.Parser (parse) where
 
-import qualified Ast.Tokenizer as T
-import Ast.Types (AST (..), Expr)
-import Control.Applicative (Alternative ((<|>)))
-import Data.Foldable (Foldable (toList))
+import Ast.Types (AST (..), Expr (..), Literal (..), Operation (..))
+import Control.Applicative (Alternative (..))
 import qualified Data.Void as V
 import qualified Text.Megaparsec as M
-import qualified Text.Megaparsec.State as MST
-import qualified Text.Megaparsec.Stream as MS
+import qualified Text.Megaparsec.Char as MC
+import qualified Text.Megaparsec.Char.Lexer as ML
 
-newtype TokenStream = TokenStream [T.Token]
-  deriving (Show, Eq, Ord)
-
-instance MS.Stream TokenStream where
-  type Token TokenStream = T.Token
-  type Tokens TokenStream = [T.Token]
-
-  tokenToChunk _ t = [t]
-
-  tokensToChunk _ ts = ts
-
-  chunkToTokens _ chunk = chunk
-
-  chunkLength _ = length
-
-  chunkEmpty _ = null
-
-  take1_ (TokenStream []) = Nothing
-  take1_ (TokenStream (x : xs)) = Just (x, TokenStream xs)
-
-  takeN_ n (TokenStream s)
-    | null s = Nothing
-    | n <= 0 = Just ([], TokenStream s)
-    | otherwise = Just (take n s, TokenStream $ drop n s)
-
-  takeWhile_ f (TokenStream s) =
-    let (h, t) = span f s
-     in (h, TokenStream t)
-
-instance MS.VisualStream TokenStream where
-  showTokens _ ts = unwords $ map show $ toList ts
-
-instance MS.TraversableStream TokenStream where
-  reachOffset o pst =
-    let (TokenStream s) = MST.pstateInput pst
-        oldOffset = MST.pstateOffset pst
-        diff = o - oldOffset
-        (_, rest) = splitAt diff s
-        newPosState =
-          pst
-            { MST.pstateInput = TokenStream rest,
-              MST.pstateOffset = o
-            }
-        shownStream = show (take 10 rest)
-     in (Just shownStream, newPosState)
-
-type Parser = M.Parsec V.Void TokenStream
+type Parser = M.Parsec V.Void String
 
 parse :: String -> Either String AST
-parse input = case T.tokenize input of
-  Left err -> Left err
-  Right tokens -> case M.parse parseProgram "" (TokenStream tokens) of
-    Left err -> Left (M.errorBundlePretty err)
-    Right ast -> Right ast
+parse input = case M.parse parseProgram "" input of
+  Left err -> Left (M.errorBundlePretty err)
+  Right tokens -> Right tokens
 
 parseProgram :: Parser AST
 parseProgram = do
-  exprs <- M.many parseExpr
+  ast <- parseAst
   M.eof
-  return $ AST exprs
+  return ast
 
-parseExpr :: Parser Expr
-parseExpr = parseAtom <|> parseList
+parseAst :: Parser AST
+parseAst =
+  lexeme $
+    let parsers = [parseDefine, parseLambda, parseIf, parseCall, parseOp, parseVar, parseLit]
+        triedParsers = map M.try (init parsers) ++ [last parsers]
+     in M.choice triedParsers
 
-parseAtom :: Parser Expr
-parseAtom = fail "not defined"
+parseLit :: Parser AST
+parseLit = AST . (: []) . Lit <$> M.choice [parseInt, parseBool]
 
-parseList :: Parser Expr
-parseList = fail "not defined"
+parseInt :: Parser Literal
+parseInt = LInt <$> ML.signed sc ML.decimal
+
+parseBool :: Parser Literal
+parseBool = LBool True <$ MC.string "#t" <|> LBool False <$ MC.string "#f"
+
+parseVar :: Parser AST
+parseVar = AST . (: []) . Var <$> some (MC.alphaNumChar <|> MC.symbolChar <|> M.oneOf "+-*_")
+
+parseDefine :: Parser AST
+parseDefine = fail ""
+
+parseCall :: Parser AST
+parseCall = fail ""
+
+parseLambda :: Parser AST
+parseLambda = fail ""
+
+parseIf :: Parser AST
+parseIf = do
+  _ <- MC.string "if" <* sc
+  e1 <- parseAst <* sc
+  e2 <- parseAst <* sc
+  e3 <- parseAst
+  return $ AST . (: []) $ If e1 e2 e3
+
+parseOp :: Parser AST
+parseOp = do
+  op <- parseOpeartor <* sc
+  e1 <- parseAst <* sc
+  e2 <- parseAst
+  return $ AST . (: []) $ Op op e1 e2
+
+parseOpeartor :: Parser Operation
+parseOpeartor = M.choice $ (\(o, c) -> c <$ MC.string o) <$> ops
+
+ops :: [(String, Operation)]
+ops = [("+", Add), ("-", Sub), ("*", Mult), ("div", Div), (">", Gt), ("<", Lt), (">=", Gte), ("<=", Lte), ("==", Equal), ("&&", And), ("||", Or)]
+
+sc :: Parser ()
+sc = ML.space MC.space1 empty empty
+
+lexeme :: Parser a -> Parser a
+lexeme = ML.lexeme sc

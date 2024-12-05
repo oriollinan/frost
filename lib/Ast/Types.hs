@@ -17,11 +17,11 @@ data Literal
 data Expr
   = Lit Literal
   | Var String
-  | Define String Expr
-  | Call Expr [Expr]
-  | Lambda [String] Expr
-  | If Expr Expr Expr
-  | Op Operation Expr Expr
+  | Define String AST
+  | Call AST [AST]
+  | Lambda [String] AST
+  | If AST AST AST
+  | Op Operation AST AST
   deriving (Show, Eq)
 
 -- | Operations supported by the language, such as addition, subtraction, etc.
