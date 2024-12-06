@@ -17,12 +17,12 @@ data Literal
 data Expr
   = Lit Literal
   | Var String
-  | Define AST AST
-  | Call AST [AST]
-  | Lambda [String] AST
-  | If AST AST AST
-  | Op Operation AST AST
-  deriving (Show, Eq)
+  | Define String Expr
+  | Call Expr [Expr]
+  | Lambda [String] Expr
+  | If Expr Expr Expr
+  | Op Operation Expr Expr
+  deriving (Show, Eq, Ord)
 
 -- | Operations supported by the language, such as addition, subtraction, etc.
 data Operation
@@ -37,7 +37,7 @@ data Operation
   | Equal
   | And
   | Or
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 -- | Top-level AST representation for the program.
-data AST = Atom Expr | List [AST] deriving (Show, Eq)
+newtype AST = AST [Expr] deriving (Show, Eq)
