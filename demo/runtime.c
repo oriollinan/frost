@@ -41,14 +41,14 @@ void cleanup(char **ptr)
 
 int main(void)
 {
-    __attribute__((cleanup(cleanup))) char *lc = read_contents("add.lisp");
+    __attribute__((cleanup(cleanup))) char *lc = read_contents("add.scm");
     __attribute__((cleanup(cleanup))) char *gc = read_contents("generated.ll");
 
     if (!lc || !gc) {
         return EXIT_FAILURE;
     }
 
-    printf("--- LISP code ---\n%s\n", lc);
+    printf("--- Scheme code ---\n%s\n", lc);
     printf("--- Generated code ---\n%s\n", gc);
 
     int result = $$generated();
