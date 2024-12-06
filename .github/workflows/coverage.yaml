@@ -6,7 +6,8 @@ jobs:
   check_coverage:
     permissions:
       contents: write
-    runs-on: ${{ github.repository_owner == 'EpitechPromo2027' && 'self-hosted' || 'ubuntu-latest' }}
+    if: github.repository_owner != 'EpitechPromo2027'
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
