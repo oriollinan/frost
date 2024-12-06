@@ -43,7 +43,7 @@ jobs:
 
       - name: Install required packages
         if: matrix.os == 'macos-14' || matrix.os == 'macos-13'
-        run: brew install libffi gmp zlib
+        run: brew install libffi zlib
 
       - name: Setup Haskell
         if: steps.cabal-cache.outputs.cache-hit != 'true' && steps.ghcup-cache.outputs.cache-hit != 'true'
@@ -62,7 +62,6 @@ jobs:
         run: cabal build --jobs=1
 
       - name: Get binary path
-        id: get-binary-path
         run: |
           mv "$(cabal list-bin exe:glados)" "$(cabal list-bin exe:glados)_$(uname -s)_$(uname -m)"
           echo "GLADOS_BIN=$(cabal list-bin exe:glados)_$(uname -s)_$(uname -m)" >> $GITHUB_ENV
@@ -72,11 +71,12 @@ jobs:
         with:
           name: "${{ matrix.os }}-artifact"
           path: |
-            ${{ steps.get-binary-path.outputs.GLADOS_BIN }}
+            ${{ env.GLADOS_BIN }}
           overwrite: true
 
   release:
     runs-on: ubuntu-latest
+    needs: build
     if: github.ref == 'refs/heads/main'
     permissions:
       contents: write
