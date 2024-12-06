@@ -14,32 +14,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache GHC
-        uses: actions/cache@v4
-        with:
-          path: /opt/ghc
-          key: ${{ runner.os }}-ghcup-${{ hashFiles('**/*.cabal') }}
-          restore-keys: |
-            ${{ runner.os }}-ghcup-
-
-      - name: Cache Cabal
-        uses: actions/cache@v4
-        with:
-          path: /opt/cabal
-          key: ${{ runner.os }}-cabal-${{ hashFiles('**/*.cabal') }}
-          restore-keys: |
-            ${{ runner.os }}-cabal-
-
-      - name: Cache Deno
-        uses: actions/cache@v4
-        if: github.ref == 'refs/heads/main'
-        id: deno-cache
-        with:
-          path: /opt/hostedtoolcache/deno
-          key: ${{ runner.os }}-deno-${{ hashFiles('**/*.ts') }}
-          restore-keys: |
-            ${{ runner.os }}-deno-
-
       - name: Install required packages
         run: sudo apt update && sudo apt install -y build-essential libffi-dev libgmp-dev zlib1g-dev
 
@@ -50,7 +24,7 @@ jobs:
           cabal-version: 3.12.1.0
 
       - name: Setup Deno
-        if: steps.deno-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         uses: ./external/setup-deno
         with:
           deno-version: v2.x
