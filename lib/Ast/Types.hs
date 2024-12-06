@@ -17,7 +17,7 @@ data Literal
 data Expr
   = Lit Literal
   | Var String
-  | Define String AST
+  | Define AST AST
   | Call AST [AST]
   | Lambda [String] AST
   | If AST AST AST
@@ -40,4 +40,4 @@ data Operation
   deriving (Show, Eq)
 
 -- | Top-level AST representation for the program.
-newtype AST = AST [Expr] deriving (Show, Eq)
+data AST = Atom Expr | List [AST] deriving (Show, Eq)

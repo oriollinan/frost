@@ -16,52 +16,56 @@ parse input = case M.parse parseProgram "" input of
 
 parseProgram :: Parser AST
 parseProgram = do
+  sc
   ast <- parseAst
   M.eof
   return ast
 
 parseAst :: Parser AST
-parseAst =
-  lexeme $
-    let parsers = [parseDefine, parseLambda, parseIf, parseCall, parseOp, parseVar, parseLit]
-        triedParsers = map M.try (init parsers) ++ [last parsers]
-     in M.choice triedParsers
+parseAst = lexeme $ triedChoice [M.try parseList, parseAtom]
 
-parseLit :: Parser AST
-parseLit = AST . (: []) . Lit <$> M.choice [parseInt, parseBool]
+parseList :: Parser AST
+parseList = List <$> M.between (lexeme $ MC.char '(') (lexeme $ MC.char ')') (M.many parseAst)
+
+parseAtom :: Parser AST
+parseAtom = Atom <$> triedChoice [parseDefine, parseLambda, parseIf, parseCall, parseOp, parseLit, parseVar]
+
+parseLit :: Parser Expr
+parseLit = Lit <$> M.choice [parseInt, parseBool]
 
 parseInt :: Parser Literal
-parseInt = LInt <$> ML.signed sc ML.decimal
+parseInt = LInt <$> ML.signed (pure ()) ML.decimal
 
 parseBool :: Parser Literal
 parseBool = LBool True <$ MC.string "#t" <|> LBool False <$ MC.string "#f"
 
-parseVar :: Parser AST
-parseVar = AST . (: []) . Var <$> some (MC.alphaNumChar <|> MC.symbolChar <|> M.oneOf "+-*_")
+parseVar :: Parser Expr
+parseVar = Var <$> some (MC.alphaNumChar <|> M.oneOf "+-*_")
 
-parseDefine :: Parser AST
-parseDefine = fail ""
+parseDefine :: Parser Expr
+parseDefine = do
+  _ <- MC.string "define" <* sc
+  e1 <- parseAst <* sc
+  Define e1 <$> parseAst
 
-parseCall :: Parser AST
+parseCall :: Parser Expr
 parseCall = fail ""
 
-parseLambda :: Parser AST
+parseLambda :: Parser Expr
 parseLambda = fail ""
 
-parseIf :: Parser AST
+parseIf :: Parser Expr
 parseIf = do
   _ <- MC.string "if" <* sc
   e1 <- parseAst <* sc
   e2 <- parseAst <* sc
-  e3 <- parseAst
-  return $ AST . (: []) $ If e1 e2 e3
+  If e1 e2 <$> parseAst
 
-parseOp :: Parser AST
+parseOp :: Parser Expr
 parseOp = do
   op <- parseOpeartor <* sc
   e1 <- parseAst <* sc
-  e2 <- parseAst
-  return $ AST . (: []) $ Op op e1 e2
+  Op op e1 <$> parseAst
 
 parseOpeartor :: Parser Operation
 parseOpeartor = M.choice $ (\(o, c) -> c <$ MC.string o) <$> ops
@@ -74,3 +78,8 @@ sc = ML.space MC.space1 empty empty
 
 lexeme :: Parser a -> Parser a
 lexeme = ML.lexeme sc
+
+triedChoice :: [Parser a] -> Parser a
+triedChoice ps =
+  let triedPs = map M.try (init ps) ++ [last ps]
+   in M.choice triedPs
