@@ -59,7 +59,7 @@ jobs:
           echo "/home/runner/.ghcup/bin" >> $GITHUB_PATH
 
       - name: Build project
-        run: cabal build --jobs=1
+        run: cabal build
 
       - name: Get binary path
         run: |

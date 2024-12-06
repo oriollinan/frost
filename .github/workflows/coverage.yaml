@@ -88,12 +88,12 @@ jobs:
             echo "/home/runner/.ghcup/bin" >> $GITHUB_PATH
 
       - name: Build project
-        run: cabal build --jobs=1
+        run: cabal build
 
       - name: Test project
         run: |
           cabal configure --enable-coverage
-          cabal test --jobs=1
+          cabal test
 
       - name: Generate coverage report
         run: |
