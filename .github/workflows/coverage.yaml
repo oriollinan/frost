@@ -40,16 +40,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-deno-
 
-      - name: Cache Chrome
-        uses: actions/cache@v4
-        if: github.ref == 'refs/heads/main'
-        id: chrome-cache
-        with:
-          path: /opt/hostedtoolcache/setup-chrome/chromium
-          key: ${{ runner.os }}-chrome-${{ hashFiles('**/*.ts') }}
-          restore-keys: |
-            ${{ runner.os }}-chrome-
-
       - name: Install required packages
         run: sudo apt update && sudo apt install -y build-essential libffi-dev libgmp-dev zlib1g-dev
 
@@ -67,7 +57,7 @@ jobs:
 
       - name: Setup Chrome
         uses: ./external/setup-chrome
-        if: steps.chrome-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         id: setup-chrome
         with:
           chrome-version: stable
