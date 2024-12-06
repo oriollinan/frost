@@ -38,7 +38,12 @@ jobs:
             ${{ runner.os }}-cabal-
 
       - name: Install required packages
+        if: matrix.os == 'ubuntu-latest'
         run: sudo apt update && sudo apt install -y build-essential libffi-dev libgmp-dev zlib1g-dev
+
+      - name: Install required packages
+        if: matrix.os == 'macos-14' || matrix.os == 'macos-13'
+        run: brew install libffi gmp zlib
 
       - name: Setup Haskell
         if: steps.cabal-cache.outputs.cache-hit != 'true' && steps.ghcup-cache.outputs.cache-hit != 'true'
