@@ -1,4 +1,4 @@
-name: Main
+name: Coverage Report
 
 on: [push]
 
@@ -31,24 +31,48 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cabal-
 
+      - name: Cache Deno
+        uses: actions/cache@v4
+        if: github.ref == 'refs/heads/main'
+        id: deno-cache
+        with:
+          path: /home/runner/.deno
+          key: ${{ runner.os }}-deno-${{ hashFiles('**/*.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-deno-
+
       - name: Install required packages
         run: sudo apt update && sudo apt install -y build-essential libffi-dev libgmp-dev zlib1g-dev
 
       - name: Setup Haskell
-        if: ${{ steps.cabal-cache.outputs.cache-hit != 'true' && steps.ghcup-cache.outputs.cache-hit != 'true' }}
+        if: steps.cabal-cache.outputs.cache-hit != 'true' && steps.ghcup-cache.outputs.cache-hit != 'true'
         uses: ./external/haskell-setup
         with:
           ghc-version: 9.4.8
-          cabal-version: 3.10.3.0
+          cabal-version: 3.12.1.0
+
+      - name: Setup Deno
+        if: steps.deno-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+        uses: ./external/setup-deno
+        with:
+          deno-version: v2.x
+
+      - name: Setup Chrome
+        uses: ./external/setup-chrome
+        if: github.ref == 'refs/heads/main'
+        id: setup-chrome
+        with:
+          chrome-version: stable
+          install-dependencies: true
 
       - name: Install dependencies
-        if: ${{ steps.cabal-cache.outputs.cache-hit != 'true' }}
+        if: steps.cabal-cache.outputs.cache-hit != 'true'
         run: |
           cabal update
           cabal install hspec-discover hpc-codecov --overwrite-policy=always
 
       - name: Setup environment
-        if: ${{ steps.cabal-cache.outputs.cache-hit == 'true' && steps.ghcup-cache.outputs.cache-hit == 'true' }}
+        if: steps.cabal-cache.outputs.cache-hit == 'true' && steps.ghcup-cache.outputs.cache-hit == 'true'
         run: |
             echo "/home/runner/.cabal/bin" >> $GITHUB_PATH
             echo "/home/runner/.ghcup/bin" >> $GITHUB_PATH
@@ -58,14 +82,19 @@ jobs:
 
       - name: Test project
         run: |
-          cabal configure --enable-coverage --disable-library-coverage
+          cabal configure --enable-coverage
           cabal test --jobs=1
 
       - name: Generate coverage report
         run: |
           hpc-codecov cabal:glados-test --exclude Main,Paths_glados --out codecov.json --format codecov --verbose
 
-      - name: Send coverage report
+      - name: Publish coverage report to Discord
+        if: github.ref == 'refs/heads/main'
+        run: |
+          deno run -A scripts/publish-coverage.ts ${{ secrets.WEBHOOK_URL }} ${{ steps.setup-chrome.outputs.chrome-path }}
+
+      - name: Send coverage report to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

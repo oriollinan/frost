@@ -1,0 +1,108 @@
+name: Release Workflow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-14
+          - macos-13
+    runs-on: "${{ matrix.os }}"
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache GHCup
+        uses: actions/cache@v4
+        id: ghcup-cache
+        with:
+          path: /home/runner/.ghcup
+          key: ${{ runner.os }}-ghcup-${{ hashFiles('**/*.cabal') }}
+          restore-keys: |
+            ${{ runner.os }}-ghcup-
+
+      - name: Cache Cabal
+        uses: actions/cache@v4
+        id: cabal-cache
+        with:
+          path: /home/runner/.cabal
+          key: ${{ runner.os }}-cabal-${{ hashFiles('**/*.cabal') }}
+          restore-keys: |
+            ${{ runner.os }}-cabal-
+
+      - name: Install required packages
+        run: sudo apt update && sudo apt install -y build-essential libffi-dev libgmp-dev zlib1g-dev
+
+      - name: Setup Haskell
+        if: steps.cabal-cache.outputs.cache-hit != 'true' && steps.ghcup-cache.outputs.cache-hit != 'true'
+        uses: ./external/haskell-setup
+        with:
+          ghc-version: 9.4.8
+          cabal-version: 3.12.1.0
+
+      - name: Setup environment
+        if: steps.cabal-cache.outputs.cache-hit == 'true' && steps.ghcup-cache.outputs.cache-hit == 'true'
+        run: |
+          echo "/home/runner/.cabal/bin" >> $GITHUB_PATH
+          echo "/home/runner/.ghcup/bin" >> $GITHUB_PATH
+
+      - name: Build project
+        run: cabal build --jobs=1
+
+      - name: Get binary path
+        id: get-binary-path
+        run: |
+          mv "$(cabal list-bin exe:glados)" "$(cabal list-bin exe:glados)_$(uname -s)_$(uname -m)"
+          echo "GLADOS_BIN=$(cabal list-bin exe:glados)_$(uname -s)_$(uname -m)" >> $GITHUB_ENV
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ matrix.os }}-artifact"
+          path: |
+            ${{ steps.get-binary-path.outputs.GLADOS_BIN }}
+          overwrite: true
+
+  release:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      
+      - name: Determine release body
+        id: release_body
+        run: |
+          if [ -z "$(git tag --list)" ]; then
+            git log --oneline --no-decorate > release_body.txt
+          else
+            latest_tag=$(git describe --tags --abbrev=0)
+            git log ${latest_tag}..HEAD --oneline --no-decorate > release_body.txt
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@master
+        with:
+          tag_name: draft
+          draft: true
+          files: |
+            artifacts/*
+          body_path: release_body.txt
