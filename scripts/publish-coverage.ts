@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
 
 import { $ } from "npm:zx";
-import puppeteer from "npm:puppeteer";
+import puppeteer from "https://deno.land/x/puppeteer@16.2.0/mod.ts";
 
 const WEBHOOK_URL = Deno.args[0];
 const CHROME_PATH = Deno.args[1];
@@ -27,7 +27,7 @@ const browser = await puppeteer.launch({
 
 const page = await browser.newPage();
 
-await page.goto(`file://${hpcRootPath.stdout.trim()}`);
+await page.goto(`file://${Deno.cwd()}/${hpcRootPath.stdout.trim()}`);
 
 const { width, height } = await page.evaluate(() => {
   const body = document.body;
@@ -59,10 +59,21 @@ await browser.close();
 
 const form = new FormData();
 
+const gitCommitHash = (await $`git rev-parse HEAD`).stdout.trim();
+
 form.append(
   "payload_json",
   JSON.stringify({
-    content: `\`\`\`md\n# HPC test report\n\`\`\``,
+    embeds: [
+      {
+        title: "HPC Test Report",
+        description: `\`\`\`md\n# ${gitCommitHash}\n\`\`\``,
+        image: {
+          url: "attachment://coverage.png",
+        },
+        color: 0x36393f,
+      },
+    ],
   }),
 );
 
@@ -85,3 +96,5 @@ if (!req.ok) {
     ),
   });
 }
+
+await $`rm coverage.png`;
