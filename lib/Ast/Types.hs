@@ -19,7 +19,7 @@ data Expr
   | Var String
   | Define String Expr
   | Call Expr [Expr]
-  | Lambda [String] Expr
+  | Lambda [String] [Expr]
   | If Expr Expr Expr
   | Op Operation Expr Expr
   deriving (Show, Eq)
