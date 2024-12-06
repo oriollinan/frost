@@ -7,3 +7,10 @@
 [submodule "external/actions-gh-pages"]
 	path = external/actions-gh-pages
 	url = git@github.com:peaceiris/actions-gh-pages.git
+[submodule "external/setup-deno"]
+	path = external/setup-deno
+	url = git@github.com:denoland/setup-deno.git
+[submodule "external/setup-chrome"]
+	path = external/setup-chrome
+	url = git@github.com:browser-actions/setup-chrome.git
+	branch = latest
