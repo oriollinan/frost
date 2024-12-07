@@ -64,11 +64,11 @@ spec = do
           )
 
     it "parses a nested if expression" $ do
-      parse "(if (eq? x y) #t #f)"
+      parse "(if (eq x y) #t #f)"
         `shouldBe` Right
           ( AST
               [ If
-                  (Call (Var "eq?") (Seq [Var "x", Var "y"]))
+                  (Call (Var "eq") (Seq [Var "x", Var "y"]))
                   (Lit (LBool True))
                   (Lit (LBool False))
               ]
