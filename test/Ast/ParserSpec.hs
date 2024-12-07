@@ -25,12 +25,12 @@ spec = do
       parse "#f" `shouldBe` Right (AST [Lit (LBool False)])
 
     it "parses a symbol literal" $ do
-      parse "foo-bar" `shouldBe` Right (AST [Var "foo-bar"])
+      parse "foo_bar" `shouldBe` Right (AST [Var "foo_bar"])
 
   -- \**Separator Parsing Tests **
   describe "List Parsing" $ do
     it "parses an empty list" $ do
-      parse "()" `shouldBe` Right (AST [])
+      parse "()" `shouldBe` Right (AST [Seq []])
 
   -- \**Define Expression Tests **
   describe "Define Expressions" $ do
@@ -68,7 +68,7 @@ spec = do
         `shouldBe` Right
           ( AST
               [ If
-                  (Call (Var "eq?") [Var "x", Var "y"])
+                  (Call (Var "eq?") (Seq [Var "x", Var "y"]))
                   (Lit (LBool True))
                   (Lit (LBool False))
               ]
@@ -102,7 +102,7 @@ spec = do
       parse "(add 1 2)"
         `shouldBe` Right
           ( AST
-              [ Call (Var "add") [Lit (LInt 1), Lit (LInt 2)]
+              [ Call (Var "add") (Seq [Lit (LInt 1), Lit (LInt 2)])
               ]
           )
 
@@ -112,7 +112,7 @@ spec = do
           ( AST
               [ Op
                   Mult
-                  (Call (Var "+") [Lit (LInt 1), Lit (LInt 2)])
+                  (Op Add (Lit (LInt 1)) (Lit (LInt 2)))
                   (Lit (LInt 3))
               ]
           )

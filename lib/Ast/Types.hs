@@ -41,4 +41,4 @@ data Operation
   deriving (Show, Eq, Ord)
 
 -- | Top-level AST representation for the program.
-newtype AST = AST Expr deriving (Show, Eq)
+newtype AST = AST [Expr] deriving (Show, Eq)

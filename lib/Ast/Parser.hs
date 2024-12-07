@@ -2,6 +2,7 @@ module Ast.Parser (parse) where
 
 import Ast.Types (AST (..), Expr (..), Literal (..), Operation (..))
 import Control.Applicative (Alternative (..))
+import qualified Control.Monad as M
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
 import qualified Text.Megaparsec.Char.Lexer as ML
@@ -13,6 +14,7 @@ data ParseErrorCustom
   | InvalidArgsForDefine Expr
   | InvalidLambdaExpression Expr
   | InvalidArgsForLambda Expr
+  | ReservedKeywordUsed String
   deriving (Show, Ord, Eq)
 
 instance M.ShowErrorComponent ParseErrorCustom where
@@ -24,6 +26,14 @@ instance M.ShowErrorComponent ParseErrorCustom where
     "Invalid lambda expression: expected a function definition, but got: " ++ show e
   showErrorComponent (InvalidArgsForLambda e) =
     "Invalid arguments in lambda: expected all arguments to be variables, but got: " ++ show e
+  showErrorComponent (ReservedKeywordUsed kw) =
+    "Reserved keyword used as function name: \"" ++ kw ++ "\""
+
+ops :: [(String, Operation)]
+ops = [("+", Add), ("-", Sub), ("*", Mult), ("div", Div), (">", Gt), ("<", Lt), (">=", Gte), ("<=", Lte), ("==", Equal), ("&&", And), ("||", Or)]
+
+keywords :: [String]
+keywords = ["define", "lambda", "if"] ++ map fst ops
 
 parse :: String -> Either String AST
 parse input = case M.parse parseProgram "" input of
@@ -38,13 +48,16 @@ parseProgram = do
   return ast
 
 parseAst :: Parser AST
-parseAst = lexeme $ AST <$> parseExpr
+parseAst = lexeme $ AST <$> M.many parseExpr
 
 parseExpr :: Parser Expr
-parseExpr = triedChoice [parseList, parseDefine, parseLambda, parseIf, parseOp, parseLit, parseCall, parseVar]
+parseExpr = triedChoice [parseAtom, parseList]
+
+parseAtom :: Parser Expr
+parseAtom = triedChoice [list parseDefine, list parseLambda, list parseIf, list parseOp, list parseCall, parseLit, parseVar]
 
 parseList :: Parser Expr
-parseList = Seq <$> M.between (symbol "(") (symbol ")") (M.many parseExpr)
+parseList = Seq <$> list (M.many parseExpr)
 
 parseDefine :: Parser Expr
 parseDefine = do
@@ -53,7 +66,7 @@ parseDefine = do
   value <- parseExpr
   case e of
     (Var name) -> return $ Define name value
-    (Seq (Var name : es)) -> case extractVarNames es of
+    (Call (Var name) (Seq es)) -> case extractVarNames es of
       (Just args) -> return $ Define name $ Lambda args value
       _ -> M.customFailure $ InvalidArgsForDefine $ Seq es
     _ -> M.customFailure $ InvalidDefineExpression e
@@ -127,8 +140,12 @@ parseOp = do
 parseOpeartor :: Parser Operation
 parseOpeartor = M.choice $ (\(o, c) -> c <$ symbol o) <$> ops
 
-ops :: [(String, Operation)]
-ops = [("+", Add), ("-", Sub), ("*", Mult), ("div", Div), (">", Gt), ("<", Lt), (">=", Gte), ("<=", Lte), ("==", Equal), ("&&", And), ("||", Or)]
+parseCall :: Parser Expr
+parseCall = do
+  name <- lexeme parseVarName
+  M.when (name `elem` keywords) $ M.customFailure $ ReservedKeywordUsed name
+  args <- M.some $ parseExpr <* M.optional sc
+  return $ Call (Var name) $ Seq args
 
 parseLit :: Parser Expr
 parseLit = Lit <$> M.choice [parseInt, parseBool]
@@ -138,12 +155,6 @@ parseInt = LInt <$> ML.signed (pure ()) ML.decimal
 
 parseBool :: Parser Literal
 parseBool = LBool True <$ symbol "#t" <|> LBool False <$ symbol "#f"
-
-parseCall :: Parser Expr
-parseCall = do
-  name <- lexeme parseVarName
-  args <- M.some $ parseExpr <* M.optional sc
-  return $ Call (Var name) $ Seq args
 
 parseVar :: Parser Expr
 parseVar = Var <$> parseVarName
@@ -164,3 +175,6 @@ triedChoice :: [Parser a] -> Parser a
 triedChoice ps =
   let triedPs = map M.try (init ps) ++ [last ps]
    in M.choice triedPs
+
+list :: Parser a -> Parser a
+list = M.between (symbol "(") (symbol ")")
