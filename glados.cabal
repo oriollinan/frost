@@ -17,7 +17,6 @@ source-repository head
 common warnings
   ghc-options:
     -Wall
-    -fhpc
 
 library
   import: warnings

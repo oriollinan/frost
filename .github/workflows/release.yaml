@@ -1,0 +1,88 @@
+name: Release Workflow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-14
+          - macos-13
+    runs-on: "${{ matrix.os }}"
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install required packages
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt update && sudo apt install -y build-essential libffi-dev libgmp-dev zlib1g-dev
+
+      - name: Install required packages
+        if: matrix.os == 'macos-14' || matrix.os == 'macos-13'
+        run: brew install libffi zlib
+
+      - name: Setup Haskell
+        uses: ./external/haskell-setup
+        with:
+          ghc-version: 9.4.8
+          cabal-version: 3.12.1.0
+
+      - name: Build project
+        run: cabal build
+
+      - name: Get binary path
+        run: |
+          mv "$(cabal list-bin exe:glados)" "$(cabal list-bin exe:glados)_$(uname -s)_$(uname -m)"
+          echo "GLADOS_BIN=$(cabal list-bin exe:glados)_$(uname -s)_$(uname -m)" >> $GITHUB_ENV
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ matrix.os }}-artifact"
+          path: |
+            ${{ env.GLADOS_BIN }}
+          overwrite: true
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      
+      - name: Determine release body
+        id: release_body
+        run: |
+          if [ -z "$(git tag --list)" ]; then
+            git log --oneline --no-decorate > release_body.txt
+          else
+            latest_tag=$(git describe --tags --abbrev=0)
+            git log ${latest_tag}..HEAD --oneline --no-decorate > release_body.txt
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@master
+        with:
+          tag_name: draft
+          draft: true
+          files: |
+            artifacts/*
+          body_path: release_body.txt

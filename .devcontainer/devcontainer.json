@@ -4,11 +4,12 @@
   "features": {
     "ghcr.io/devcontainers-extra/features/haskell:2": {
       "ghcVersion": "9.4.8",
-      "cabalVersion": "3.10.3.0",
+      "cabalVersion": "3.12.1.0",
       "globalPackages": "hspec-discover hpc-codecov hlint ormolu"
     },
     "ghcr.io/devcontainers-contrib/features/pipx-package:1": {
       "package": "pre-commit"
-    }
+    },
+    "ghcr.io/devcontainers-contrib/features/deno:1": {}
   }
 }
