@@ -17,19 +17,23 @@ main = do
                   ( T.Call
                       ( T.Lambda
                           ["x"]
-                          [ T.Define "example" (T.Lit (T.LInt 2)),
-                            T.Op T.Mult (T.Var "x") (T.Var "example")
-                          ]
+                          ( T.Seq
+                              [ T.Define "example" (T.Lit (T.LInt 2)),
+                                T.Op T.Mult (T.Var "x") (T.Var "example")
+                              ]
+                          )
                       )
                       [T.Var "value"]
                   )
                   ( T.Call
-                      ( T.Lambda ["y"] [T.Op T.Sub (T.Var "y") (T.Lit (T.LInt 1))]
+                      ( T.Lambda ["y"] (T.Seq [T.Op T.Sub (T.Var "y") (T.Lit (T.LInt 1))])
                       )
                       [T.Lit (T.LInt 2)]
                   )
               )
           ]
 
-  let output = TL.unpack $ P.ppllvm $ C.codegen ast
+  let output = case C.codegen ast of
+        Left err -> error (show err)
+        Right lmod -> TL.unpack $ P.ppllvm lmod
   writeFile "demo/generated.ll" output
