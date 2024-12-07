@@ -25,16 +25,29 @@ Finally, run the executable.
 ./generated
 ```
 
-This should output `5`, which is the result of the `lisp` code.
+This should output `42`, which is the result of the `scheme` code.
 
-## lisp
+## scheme
 
-We currently have this code, that has a conditional branch that evaluates to
-`true` always, and then adds `2` and `3` together.
+We currently have this code, that has global variables, lambdas, conditionals,
+arithmetic operations, local variables, and function calls.
 
-```lisp
-; Sample LISP code, evaluates to `5`
-(if 1 (+ 2 3) (* 4 5))
+```scm
+; Sample scheme code, evaluates to `42`
+
+(define value 21)
+
+(define $$generated
+  (if 1
+   ((lambda (x)
+  (define example 2)
+  (* x example))
+    value)
+   ((lambda (y)
+  (- y 1))
+    2)))
+
+($$generated)
 ```
 
 ## haskell
@@ -42,12 +55,28 @@ We currently have this code, that has a conditional branch that evaluates to
 The `AST` equivalent, for the moment, is hardcoded in the entrypoint as follows:
 
 ```haskell
-T.Expr
-  ( T.If
-      (T.Lit (T.LInt 1))
-      (T.Op T.Add (T.Lit (T.LInt 2)) (T.Lit (T.LInt 3)))
-      (T.Op T.Multiply (T.Lit (T.LInt 4)) (T.Lit (T.LInt 5)))
-  )
+T.AST
+  [ T.Define "value" (T.Lit (T.LInt 21)),
+    T.Define
+      "$$generated"
+      ( T.If
+          (T.Lit (T.LInt 1))
+          ( T.Call
+              ( T.Lambda
+                  ["x"]
+                  [ T.Define "example" (T.Lit (T.LInt 2)),
+                    T.Op T.Mult (T.Var "x") (T.Var "example")
+                  ]
+              )
+              [T.Var "value"]
+          )
+          ( T.Call
+              ( T.Lambda ["y"] [T.Op T.Sub (T.Var "y") (T.Lit (T.LInt 1))]
+              )
+              [T.Lit (T.LInt 2)]
+          )
+      )
+  ]
 ```
 
 This `AST` is then converted to the intermediate representation, and then
@@ -60,20 +89,33 @@ but this will be changed in the future.
 The generated intermediate representation is as follow:
 
 ```ll
-; ModuleID = 'generated'
+; ModuleID = '$$generated'
 
-define external ccc i32 @$$generated() {
+@value = global i32 21
+
+define external ccc  i32 @lambda_0(i32  %x_0) {
+  %1 = mul   i32 %x_0, 2 
+  ret i32 %1 
+}
+
+define external ccc  i32 @lambda_1(i32  %y_0) {
+  %1 = sub   i32 %y_0, 1 
+  ret i32 %1 
+}
+
+define external ccc  i32 @$$generated() {
 ; <label>:0:
   %1 = icmp ne i32 1, 0 
   br i1 %1, label %then_0, label %else_0 
 then_0:
-  %2 = add   i32 2, 3 
+  %2 = load   i32, i32* @value  
+  %3 =  call ccc  i32  @lambda_0(i32  %2)  
   br label %merge_0 
 else_0:
-  %3 = mul   i32 4, 5 
+  %4 =  call ccc  i32  @lambda_1(i32  2)  
   br label %merge_0 
 merge_0:
-  %4 = phi i32 [%2, %then_0], [%3, %else_0] 
-  ret i32 %4 
+  %5 = phi i32 [%3, %then_0], [%4, %else_0] 
+  ret i32 %5 
 }
 ```

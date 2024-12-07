@@ -1,26 +1,29 @@
-module Ast.Parser (parse, parseDefineFunc) where
+module Ast.Parser (parse) where
 
 import Ast.Types (AST (..), Expr (..), Literal (..), Operation (..))
 import Control.Applicative (Alternative (..))
-import Control.Concurrent (waitQSem)
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
 import qualified Text.Megaparsec.Char.Lexer as ML
 
 type Parser = M.Parsec ParseErrorCustom String
 
--- Define custom error types
 data ParseErrorCustom
   = InvalidDefineExpression Expr
-  | InvalidArgsForDefine [Expr]
+  | InvalidArgsForDefine Expr
+  | InvalidLambdaExpression Expr
+  | InvalidArgsForLambda Expr
   deriving (Show, Ord, Eq)
 
--- Make ParseErrorCustom an instance of M.ShowErrorComponent
 instance M.ShowErrorComponent ParseErrorCustom where
-  showErrorComponent (InvalidArgsForDefine e) =
-    "Invalid arguments in define: expected all arguments to be variables, but got: " ++ show e
   showErrorComponent (InvalidDefineExpression e) =
     "Invalid define expression: expected a variable or a function definition, but got: " ++ show e
+  showErrorComponent (InvalidArgsForDefine e) =
+    "Invalid arguments in define: expected all arguments to be variables, but got: " ++ show e
+  showErrorComponent (InvalidLambdaExpression e) =
+    "Invalid lambda expression: expected a function definition, but got: " ++ show e
+  showErrorComponent (InvalidArgsForLambda e) =
+    "Invalid arguments in lambda: expected all arguments to be variables, but got: " ++ show e
 
 parse :: String -> Either String AST
 parse input = case M.parse parseProgram "" input of
@@ -35,18 +38,44 @@ parseProgram = do
   return ast
 
 parseAst :: Parser AST
-parseAst = lexeme $ triedChoice [AST <$> parseList, AST . (: []) <$> parseExpr]
-
-parseList :: Parser [Expr]
-parseList = M.between (symbol "(") (symbol ")") (M.many parseExpr)
+parseAst = lexeme $ AST <$> parseExpr
 
 parseExpr :: Parser Expr
-parseExpr = triedChoice [parseDefine, parseLambda, parseIf, parseOp, parseLit, parseCall, parseVar]
+parseExpr = triedChoice [parseList, parseDefine, parseLambda, parseIf, parseOp, parseLit, parseCall, parseVar]
+
+parseList :: Parser Expr
+parseList = Seq <$> M.between (symbol "(") (symbol ")") (M.many parseExpr)
 
 parseDefine :: Parser Expr
 parseDefine = do
   _ <- symbol "define"
-  M.choice [parseDefineVar, parseDefineFunc]
+  e <- lexeme parseExpr
+  value <- parseExpr
+  case e of
+    (Var name) -> return $ Define name value
+    (Seq (Var name : es)) -> case extractVarNames es of
+      (Just args) -> return $ Define name $ Lambda args value
+      _ -> M.customFailure $ InvalidArgsForDefine $ Seq es
+    _ -> M.customFailure $ InvalidDefineExpression e
+
+-- parseDefine = do
+--   _ <- symbol "define"
+--   M.choice [parseDefineVar, parseDefineFunc]
+
+-- parseDefineVar :: Parser Expr
+-- parseDefineVar = do
+--   name <- lexeme parseVarName
+--   Define name <$> parseExpr
+
+-- parseDefineFunc :: Parser Expr
+-- parseDefineFunc = do
+--   call <- lexeme $ M.between (symbol "(") (symbol ")") parseCall
+--   e <- M.between (symbol "(") (symbol ")") parseExpr
+--   case call of
+--     (Call (Var name) es) -> case extractVarNames es of
+--       (Just args) -> return $ Define name $ Lambda args e
+--       _ -> M.customFailure $ InvalidArgsForDefine es
+--     _ -> M.customFailure $ InvalidDefineExpression call
 
 -- parseDefine = do
 -- _ <- symbol "define"
@@ -59,20 +88,21 @@ parseDefine = do
 --     _ -> M.customFailure $ InvalidArgsForDefine es
 --   _ -> M.customFailure $ InvalidDefineExpression e
 
-parseDefineVar :: Parser Expr
-parseDefineVar = do
-  name <- lexeme parseVarName
-  Define name <$> parseExpr
+parseLambda :: Parser Expr
+parseLambda = do
+  _ <- symbol "lambda"
+  e <- parseExpr
+  value <- parseExpr
+  case e of
+    (Seq es) -> case extractVarNames es of
+      (Just params) -> return $ Lambda params value
+      _ -> M.customFailure $ InvalidArgsForLambda $ Seq es
+    _ -> M.customFailure $ InvalidLambdaExpression e
 
-parseDefineFunc :: Parser Expr
-parseDefineFunc = do
-  call <- lexeme $ M.between (symbol "(") (symbol ")") parseCall
-  e <- M.between (symbol "(") (symbol ")") parseExpr
-  case call of
-    (Call (Var name) es) -> case extractVarNames es of
-      (Just args) -> return $ Define name $ Lambda args e
-      _ -> M.customFailure $ InvalidArgsForDefine es
-    _ -> M.customFailure $ InvalidDefineExpression call
+-- parseLambda = do
+--   _ <- symbol "lambda"
+--   params <- M.between (symbol "(") (symbol ")") (M.many parseVarName)
+--   Lambda params <$> parseExpr
 
 extractVarNames :: [Expr] -> Maybe [String]
 extractVarNames = mapM extractVarName
@@ -80,12 +110,6 @@ extractVarNames = mapM extractVarName
     extractVarName :: Expr -> Maybe String
     extractVarName (Var name) = Just name
     extractVarName _ = Nothing
-
-parseLambda :: Parser Expr
-parseLambda = do
-  _ <- symbol "lambda"
-  params <- M.between (symbol "(") (symbol ")") (M.many parseVarName)
-  Lambda params <$> parseExpr
 
 parseIf :: Parser Expr
 parseIf = do
@@ -118,8 +142,8 @@ parseBool = LBool True <$ symbol "#t" <|> LBool False <$ symbol "#f"
 parseCall :: Parser Expr
 parseCall = do
   name <- lexeme parseVarName
-  args <- M.many $ parseExpr <* M.optional sc
-  return $ Call (Var name) args
+  args <- M.some $ parseExpr <* M.optional sc
+  return $ Call (Var name) $ Seq args
 
 parseVar :: Parser Expr
 parseVar = Var <$> parseVarName
