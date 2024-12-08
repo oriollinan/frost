@@ -82,11 +82,13 @@ binaryOps =
     (AT.Sub, I.sub),
     (AT.Mult, I.mul),
     (AT.Div, I.sdiv),
+    (AT.Mod, I.srem),
     (AT.Lt, I.icmp IP.SLT),
     (AT.Gt, I.icmp IP.SGT),
     (AT.Lte, I.icmp IP.SLE),
     (AT.Gte, I.icmp IP.SGE),
     (AT.Equal, I.icmp IP.EQ),
+    (AT.Ne, I.icmp IP.NE),
     (AT.And, I.and),
     (AT.Or, I.or)
   ]

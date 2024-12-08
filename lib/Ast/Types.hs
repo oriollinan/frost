@@ -31,11 +31,13 @@ data Operation
   | Sub
   | Mult
   | Div
+  | Mod
   | Lt
   | Gt
   | Lte
   | Gte
   | Equal
+  | Ne
   | And
   | Or
   deriving (Show, Eq, Ord)

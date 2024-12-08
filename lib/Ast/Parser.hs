@@ -30,7 +30,7 @@ instance M.ShowErrorComponent ParseErrorCustom where
     "Reserved keyword used as function name: \"" ++ kw ++ "\""
 
 ops :: [(String, Operation)]
-ops = [("+", Add), ("-", Sub), ("*", Mult), ("div", Div), (">", Gt), ("<", Lt), (">=", Gte), ("<=", Lte), ("==", Equal), ("&&", And), ("||", Or)]
+ops = [("+", Add), ("-", Sub), ("*", Mult), ("div", Div), ("mod", Mod), (">", Gt), ("<", Lt), (">=", Gte), ("<=", Lte), ("==", Equal), ("/=", Ne), ("&&", And), ("||", Or)]
 
 keywords :: [String]
 keywords = ["define", "lambda", "if"] ++ map fst ops

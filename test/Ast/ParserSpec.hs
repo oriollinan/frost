@@ -151,11 +151,27 @@ spec = do
               ]
           )
 
+    it "parses a modulo operation" $ do
+      parse "(mod 10 2)"
+        `shouldBe` Right
+          ( AST
+              [ Op Mod (Lit (LInt 10)) (Lit (LInt 2))
+              ]
+          )
+
     it "parses a greater than operation" $ do
       parse "(> a b)"
         `shouldBe` Right
           ( AST
               [ Op Gt (Var "a") (Var "b")
+              ]
+          )
+
+    it "parses a not equal operation" $ do
+      parse "(/= a b)"
+        `shouldBe` Right
+          ( AST
+              [ Op Ne (Var "a") (Var "b")
               ]
           )
 
