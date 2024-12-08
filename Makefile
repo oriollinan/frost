@@ -2,7 +2,7 @@ PROJECT_NAME := glados
 BUILD_DIR := dist-newstyle
 EXECUTABLE := $(PROJECT_NAME)
 
-BUILD_OUTPUT := $(shell find $(BUILD_DIR) -type f -name $(EXECUTABLE) -perm -111 2>/dev/null)
+BUILD_OUTPUT := $(shell cabal list-bin exe:glados)
 
 COLOR_RESET := \033[0m
 COLOR_BLUE := \033[1;34m
