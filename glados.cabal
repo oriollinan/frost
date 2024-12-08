@@ -59,7 +59,7 @@ test-suite glados-test
   other-modules:
     Ast.ParserSpec
     Misc.MiscSpec
-
+    Codegen.CodegenSpec
   hs-source-dirs: test
   main-is: Spec.hs
   build-depends:
@@ -68,3 +68,7 @@ test-suite glados-test
     glados,
     hspec,
     hspec-discover,
+    llvm-hs-pure,
+    text,
+    bytestring >=0.11.2 && <0.12,
+    llvm-hs-pretty >=0.9.0 && <0.10,
