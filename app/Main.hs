@@ -56,10 +56,10 @@ optionsInfo =
         <> O.header "Scheme-to-LLVM Compiler"
     )
 
-compile :: String -> String -> E.ExceptT CompileError IO String
-compile input source = do
-  ast <- case P.parse input source of
-    Left err -> E.throwE $ ParseError (show err)
+compile :: String -> E.ExceptT CompileError IO String
+compile input = do
+  ast <- case P.parse input of
+    Left err -> E.throwE $ ParseError err
     Right res -> return res
 
   case C.codegen ast of
