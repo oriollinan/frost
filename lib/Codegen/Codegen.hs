@@ -4,7 +4,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE TupleSections #-}
 
 module Codegen.Codegen where
 
@@ -164,7 +163,7 @@ generateLiteral = \case
 -- | Generates an LLVM operand for a function call.
 -- The `generateCall` function takes a function expression and a list of argument expressions,
 -- and returns the corresponding LLVM operand.
-generateCall :: (MonadCodegen m) => AT.Expr -> [AT.Expr] -> m AST.Operand
+generateCall :: (MonadCodegen m) => AT.Expr -> AT.Expr -> m AST.Operand
 generateCall func args = do
   func' <- case func of
     AT.Lambda params body -> do
@@ -176,8 +175,8 @@ generateCall func args = do
         Just op -> pure op
         Nothing -> E.throwError $ VariableNotFound name
     _ -> generateExpr func
-  args' <- mapM generateExpr args
-  I.call func' $ map (,[]) args'
+  args' <- generateExpr args
+  I.call func' [(args', [])]
 
 -- | Generates an LLVM operand for a variable.
 -- The `generateVar` function takes a variable name and returns the corresponding LLVM operand.
