@@ -22,6 +22,7 @@ data Expr
   | Lambda [String] Expr
   | If Expr Expr Expr
   | Op Operation Expr Expr
+  | Seq [Expr]
   deriving (Show, Eq)
 
 -- | Operations supported by the language, such as addition, subtraction, etc.
