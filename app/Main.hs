@@ -6,7 +6,6 @@ import qualified Ast.Parser as P
 import qualified Codegen.Codegen as C
 import qualified Control.Monad as M
 import qualified Control.Monad.Trans.Except as E
-import qualified Data.Maybe as DM
 import qualified Data.Text.Lazy as TL
 import qualified LLVM.Pretty as LLVM
 import qualified Options.Applicative as O
@@ -84,9 +83,8 @@ main = do
   Options {input, out, verbose} <- O.execParser optionsInfo
   source <- readInput input
 
-  let inputName = DM.fromMaybe "stdin" input
   logMsg verbose "Starting compilation..."
-  result <- E.runExceptT $ compile inputName source
+  result <- E.runExceptT $ compile source
 
   case result of
     Left (ParseError err) -> handleError "parsing" err verbose
