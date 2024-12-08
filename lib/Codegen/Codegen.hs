@@ -55,9 +55,9 @@ addVarBinding name op = S.modify ((name, op) :)
 
 -- | Converts a parameter name to a pair of type and parameter name.
 -- The `toParamType` function takes a string and returns a pair of type and parameter name.
--- The type is always `i32` (32-bit integer), and the parameter name is the input string.
+-- The type is always `i64` (64-bit integer), and the parameter name is the input string.
 toParamType :: String -> (T.Type, M.ParameterName)
-toParamType param = (T.i32, M.ParameterName $ U.stringToByteString param)
+toParamType param = (T.i64, M.ParameterName $ U.stringToByteString param)
 
 -- | Generates LLVM code for a given abstract syntax tree (AST).
 codegen :: AT.AST -> Either CodegenError AST.Module
@@ -122,8 +122,8 @@ generateOp op e1 e2 = do
 -- The `buildLiteralVariable` function takes the variable name and its value,
 buildGlobaVariable :: (MonadCodegen m) => AST.Name -> AT.Literal -> m AST.Operand
 buildGlobaVariable name = \case
-  AT.LInt i -> M.global name T.i32 (C.Int 32 $ fromIntegral i)
-  AT.LBool b -> M.global name T.i32 (C.Int 1 $ if b then 1 else 0)
+  AT.LInt i -> M.global name T.i64 (C.Int 64 $ fromIntegral i)
+  AT.LBool b -> M.global name T.i64 (C.Int 1 $ if b then 1 else 0)
   value -> E.throwError $ UnsupportedGlobalVar value
 
 -- | Generates LLVM code for a lambda expression.
@@ -131,7 +131,7 @@ buildGlobaVariable name = \case
 -- and returns an LLVM operand representing the lambda function.
 buildLambda :: (MonadCodegen m) => AST.Name -> [String] -> AT.Expr -> m AST.Operand
 buildLambda name params body = do
-  M.function name [toParamType param | param <- params] T.i32 $ \paramOps -> do
+  M.function name [toParamType param | param <- params] T.i64 $ \paramOps -> do
     oldState <- S.get
     CM.forM_ (zip params paramOps) $ uncurry addVarBinding
     results <- generateExpr body
@@ -156,7 +156,7 @@ generateExpr = \case
 -- The `generateLiteral` function takes a literal and returns the corresponding LLVM operand.
 generateLiteral :: (MonadCodegen m) => AT.Literal -> m AST.Operand
 generateLiteral = \case
-  AT.LInt n -> pure $ AST.ConstantOperand $ C.Int 32 (fromIntegral n)
+  AT.LInt n -> pure $ AST.ConstantOperand $ C.Int 64 (fromIntegral n)
   AT.LBool b -> pure $ AST.ConstantOperand $ C.Int 1 (if b then 1 else 0)
   lit -> E.throwError $ UnsupportedLiteral lit
 
@@ -185,13 +185,13 @@ generateVar name = do
   maybeOp <- getVarBinding name
   case maybeOp of
     Just op -> do
-      alloca <- I.alloca T.i32 Nothing 0
+      alloca <- I.alloca T.i64 Nothing 0
       I.store alloca 0 op
       I.load alloca 0
     Nothing -> do
       let globalVarPtr =
             AST.ConstantOperand $
-              C.GlobalReference (T.ptr T.i32) (AST.mkName name)
+              C.GlobalReference (T.ptr T.i64) (AST.mkName name)
       I.load globalVarPtr 0
 
 -- | Generates an LLVM operand for a definition.
@@ -201,7 +201,7 @@ generateDefine :: (MonadCodegen m) => String -> AT.Expr -> m AST.Operand
 generateDefine name = \case
   AT.Lit var -> case var of
     AT.LInt i -> do
-      let op = AST.ConstantOperand (C.Int 32 $ fromIntegral i)
+      let op = AST.ConstantOperand (C.Int 64 $ fromIntegral i)
       addVarBinding name op
       generateExpr (AT.Lit var)
     AT.LBool b -> do
