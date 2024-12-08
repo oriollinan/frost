@@ -58,7 +58,7 @@ optionsInfo =
 compile :: String -> E.ExceptT CompileError IO String
 compile input = do
   ast <- case P.parse input of
-    Left err -> E.throwE $ ParseError (show err)
+    Left err -> E.throwE $ ParseError err
     Right res -> return res
 
   case C.codegen ast of
