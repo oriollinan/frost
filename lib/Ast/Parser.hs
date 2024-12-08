@@ -1,13 +1,15 @@
 module Ast.Parser (parse) where
 
+import qualified Ast.Env as E
 import Ast.Types (AST (..), Expr (..), Literal (..), Operation (..))
 import Control.Applicative (Alternative (..))
-import qualified Control.Monad as M
+import qualified Control.Monad as CM
+import qualified Control.Monad.State as S
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
 import qualified Text.Megaparsec.Char.Lexer as ML
 
-type Parser = M.Parsec ParseErrorCustom String
+type Parser = M.ParsecT ParseErrorCustom String (S.State E.Env)
 
 -- | Custom error type for the parser, representing specific cases of invalid syntax.
 data ParseErrorCustom
@@ -15,7 +17,9 @@ data ParseErrorCustom
   | InvalidArgsForDefine Expr
   | InvalidLambdaExpression Expr
   | InvalidArgsForLambda Expr
+  | UndefinedLambdaReference String
   | ReservedKeywordUsed String
+  | UndefinedVarReference String
   deriving (Show, Ord, Eq)
 
 -- | Implements a custom error message component for the parser.
@@ -28,8 +32,12 @@ instance M.ShowErrorComponent ParseErrorCustom where
     "Invalid lambda expression: expected a function definition, but got: " ++ show e
   showErrorComponent (InvalidArgsForLambda e) =
     "Invalid arguments in lambda: expected all arguments to be variables, but got: " ++ show e
+  showErrorComponent (UndefinedLambdaReference n) =
+    "Undefined lambda referenced: expected lambda \"" ++ n ++ "\" to be defined"
   showErrorComponent (ReservedKeywordUsed kw) =
     "Reserved keyword used as function name: \"" ++ kw ++ "\""
+  showErrorComponent (UndefinedVarReference n) =
+    "Undefined var referenced: expected var \"" ++ n ++ "\" to be defined"
 
 ops :: [(String, Operation)]
 ops = [("+", Add), ("-", Sub), ("*", Mult), ("div", Div), ("mod", Mod), (">", Gt), ("<", Lt), (">=", Gte), ("<=", Lte), ("==", Equal), ("/=", Ne), ("&&", And), ("||", Or)]
@@ -38,11 +46,11 @@ keywords :: [String]
 keywords = ["define", "lambda", "if"] ++ map fst ops
 
 -- | Parses a string into an abstract syntax tree (AST).
--- The `parse` function takes a String as a parameter and returns either an AST or an error message.
-parse :: String -> Either String AST
-parse input = case M.parse parseProgram "" input of
-  Left err -> Left (M.errorBundlePretty err)
-  Right tokens -> Right tokens
+-- The `parse` function takes a filename `String`, and an input `String` as a parameter and returns either an AST or an error message.
+parse :: String -> String -> Either String AST
+parse filename input = case S.runState (M.runParserT parseProgram filename input) E.emptyEnv of
+  (Left err, _) -> Left (M.errorBundlePretty err)
+  (Right tokens, _) -> Right tokens
 
 -- | Parses the top-level structure of a program.
 -- Returns an `AST` object containing a list of parsed expressions.
@@ -78,37 +86,35 @@ parseList = Seq <$> list (M.many parseExpr)
 parseDefine :: Parser Expr
 parseDefine = do
   _ <- symbol "define"
-  e <- lexeme parseExpr
+  M.choice [parseVariableDefine, parseFunctionDefine]
+
+parseVariableDefine :: Parser Expr
+parseVariableDefine = do
+  name <- lexeme parseVarName
   value <- parseExpr
-  case e of
-    (Var name) -> return $ Define name value
-    (Call (Var name) (Seq es)) -> case extractVarNames es of
-      (Just args) -> return $ Define name $ Lambda args value
-      _ -> M.customFailure $ InvalidArgsForDefine $ Seq es
-    _ -> M.customFailure $ InvalidDefineExpression e
+  S.modify $ E.insertVar name value
+  return $ Define name value
+
+parseFunctionDefine :: Parser Expr
+parseFunctionDefine = do
+  (name, args) <- list $ do
+    name <- lexeme parseVarName
+    args <- M.many $ parseVarName <* M.optional sc
+    return (name, args)
+  mapM_ (\arg -> S.modify $ E.insertVar arg $ Var arg) args
+  value <- parseExpr
+  let lambda = Lambda args value
+  S.modify $ E.insertFn name lambda
+  return $ Define name lambda
 
 -- | Parses a `lambda` expression for defining functions.
 -- Returns an `Expr` representing the parsed `lambda` construct.
 parseLambda :: Parser Expr
 parseLambda = do
   _ <- symbol "lambda"
-  e <- parseExpr
-  value <- parseExpr
-  case e of
-    (Seq es) -> case extractVarNames es of
-      (Just params) -> return $ Lambda params value
-      _ -> M.customFailure $ InvalidArgsForLambda $ Seq es
-    (Call (Var n) (Seq es)) -> case extractVarNames es of
-      (Just params) -> return $ Lambda (n : params) value
-      _ -> M.customFailure $ InvalidArgsForLambda $ Seq $ Var n : es
-    _ -> M.customFailure $ InvalidLambdaExpression e
-
-extractVarNames :: [Expr] -> Maybe [String]
-extractVarNames = mapM extractVarName
-  where
-    extractVarName :: Expr -> Maybe String
-    extractVarName (Var name) = Just name
-    extractVarName _ = Nothing
+  params <- list $ M.many $ parseVarName <* M.optional sc
+  mapM_ (\p -> S.modify $ E.insertVar p $ Var p) params
+  Lambda params <$> parseExpr
 
 -- | Parses an `if` expression with a condition, true branch, and false branch.
 -- Returns an `Expr` of type `If`.
@@ -137,9 +143,12 @@ parseOpeartor = M.choice $ (\(o, c) -> c <$ symbol o) <$> ops
 parseCall :: Parser Expr
 parseCall = do
   name <- lexeme parseVarName
-  M.when (name `elem` keywords) $ M.customFailure $ ReservedKeywordUsed name
-  args <- M.some $ parseExpr <* M.optional sc
-  return $ Call (Var name) $ Seq args
+  env <- S.get
+  case E.lookupFn name env of
+    Just (Lambda _ _) -> do
+      args <- M.many $ parseExpr <* M.optional sc
+      return $ Call (Var name) $ Seq args
+    _ -> M.customFailure $ UndefinedLambdaReference name
 
 -- | Parses a literal value (integer or boolean).
 -- Returns an `Expr` of type `Lit`.
@@ -159,12 +168,21 @@ parseBool = LBool True <$ symbol "#t" <|> LBool False <$ symbol "#f"
 -- | Parses a variable expression by matching valid variable names.
 -- Returns an `Expr` of type `Var`.
 parseVar :: Parser Expr
-parseVar = Var <$> parseVarName
+parseVar = do
+  name <- parseVarName
+  env <- S.get
+  case E.lookupVar name env of
+    Just _ -> do
+      return $ Var name
+    _ -> M.customFailure $ UndefinedVarReference name
 
 -- | Parses a variable name consisting of alphanumeric characters and underscores.
 -- Returns a `String` representing the variable name.
 parseVarName :: Parser String
-parseVarName = M.some (MC.alphaNumChar <|> M.oneOf "_")
+parseVarName = do
+  name <- M.some (MC.alphaNumChar <|> M.oneOf "_")
+  CM.when (name `elem` keywords) $ M.customFailure $ ReservedKeywordUsed name
+  return name
 
 -- | Skips whitespace and comments during parsing.
 -- Used to ensure parsers handle spacing correctly.
