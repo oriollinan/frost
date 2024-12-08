@@ -23,12 +23,12 @@ main = do
                               ]
                           )
                       )
-                      [T.Var "value"]
+                      (T.Seq [T.Var "value"])
                   )
                   ( T.Call
                       ( T.Lambda ["y"] (T.Seq [T.Op T.Sub (T.Var "y") (T.Lit (T.LInt 1))])
                       )
-                      [T.Lit (T.LInt 2)]
+                      (T.Seq [T.Lit (T.LInt 2)])
                   )
               )
           ]
