@@ -1,6 +1,6 @@
 module Ast.ParserSpec (spec) where
 
-import Ast.Parser (parse)
+import Ast.Parser (ParseErrorCustom (..), parse)
 import Ast.Types
   ( AST (..),
     Expr (..),
@@ -181,6 +181,14 @@ spec = do
               ]
           )
 
+    it "parses a less than (Lt) operation" $ do
+      parse "" "(< 3 5)"
+        `shouldBe` Right
+          ( AST
+              [ Op Lt (Lit (LInt 3)) (Lit (LInt 5))
+              ]
+          )
+
     it "parses a greater than operation" $ do
       parse "" "(define a 10) (define b 5) (> a b)"
         `shouldBe` Right
@@ -188,6 +196,30 @@ spec = do
               [ Define "a" (Lit (LInt 10)),
                 Define "b" (Lit (LInt 5)),
                 Op Gt (Var "a") (Var "b")
+              ]
+          )
+
+    it "parses a greater than or equal (Gte) operation" $ do
+      parse "" "(>= 10 10)"
+        `shouldBe` Right
+          ( AST
+              [ Op Gte (Lit (LInt 10)) (Lit (LInt 10))
+              ]
+          )
+
+    it "parses a less than or equal (Lte) operation" $ do
+      parse "" "(<= 4 7)"
+        `shouldBe` Right
+          ( AST
+              [ Op Lte (Lit (LInt 4)) (Lit (LInt 7))
+              ]
+          )
+
+    it "parses a logical or (Or) operation" $ do
+      parse "" "(|| #f #t)"
+        `shouldBe` Right
+          ( AST
+              [ Op Or (Lit (LBool False)) (Lit (LBool True))
               ]
           )
 
@@ -248,6 +280,49 @@ spec = do
 
     it "parses deeply nested lists" $ do
       parse "" "((((1))))" `shouldBe` Right (AST [Seq [Seq [Seq [Seq [Lit (LInt 1)]]]]])
+
+    it "fails with ReservedKeywordUsed for reserved keywords as names" $ do
+      let input = "(define if 10)"
+      case parse "" input of
+        Left err -> err `shouldContain` "Reserved keyword used as function name: \"if\""
+        _ -> expectationFailure "Expected parse to fail with ReservedKeywordUsed"
+
+    it "fails with UndefinedLambdaReference for undefined lambda" $ do
+      let input = "(x)"
+      case parse "" input of
+        Left err -> err `shouldContain` "Undefined lambda referenced: expected lambda \"x\" to be defined"
+        _ -> expectationFailure "Expected parse to fail with UndefinedLambdaReference"
+
+    it "fails with UndefinedVarReference for undefined variable" $ do
+      let input = "(+ someUndefinedVar 1)"
+      case parse "" input of
+        Left err -> err `shouldContain` "Undefined var referenced: expected var \"someUndefinedVar\" to be defined"
+        _ -> expectationFailure "Expected parse to fail with UndefinedVarReference"
+
+    it "returns the full error message for InvalidVarName" $ do
+      case parse "" "(define 12345 10)" of
+        Left err -> err `shouldContain` "Invalid var name: \"12345\" is not valid"
+        _ -> expectationFailure "Expected parse to fail with InvalidVarName"
+
+    -- \**ParseErrorCustom Instances Tests **
+    describe "ParseErrorCustom instances" $ do
+      it "tests the Show instance" $ do
+        show (UndefinedLambdaReference "foo") `shouldBe` "UndefinedLambdaReference \"foo\""
+        show (ReservedKeywordUsed "if") `shouldBe` "ReservedKeywordUsed \"if\""
+        show (UndefinedVarReference "bar") `shouldBe` "UndefinedVarReference \"bar\""
+        show (InvalidVarName "123") `shouldBe` "InvalidVarName \"123\""
+
+      it "tests the Ord instance" $ do
+        (UndefinedLambdaReference "a" < UndefinedLambdaReference "b") `shouldBe` True
+        (ReservedKeywordUsed "if" > ReservedKeywordUsed "else") `shouldBe` True
+        (UndefinedVarReference "foo" == UndefinedVarReference "foo") `shouldBe` True
+        (InvalidVarName "123" < InvalidVarName "456") `shouldBe` True
+
+      it "tests the Eq instance" $ do
+        (UndefinedLambdaReference "foo" == UndefinedLambdaReference "foo") `shouldBe` True
+        (ReservedKeywordUsed "if" == ReservedKeywordUsed "else") `shouldBe` False
+        (UndefinedVarReference "bar" /= UndefinedVarReference "baz") `shouldBe` True
+        (InvalidVarName "123" == InvalidVarName "123") `shouldBe` True
 
 -- | Helper function to check if a result is a Left (error)
 isLeft :: Either a b -> Bool
