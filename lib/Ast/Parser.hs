@@ -136,12 +136,17 @@ parseOpeartor = M.choice $ (\(o, c) -> c <$ symbol o) <$> ops
 -- Returns an `Expr` of type `Call`.
 parseCall :: Parser Expr
 parseCall = do
-  name <- lexeme parseVarName
+  fn <- lexeme $ M.choice [list parseLambda, parseFunctionName]
+  args <- M.many (parseExpr <* M.optional sc)
+  return $ Call fn (Seq args)
+
+-- | Parses a function name that should reference a defined lambda.
+parseFunctionName :: Parser Expr
+parseFunctionName = do
+  name <- parseVarName
   env <- S.get
   case E.lookupFn name env of
-    Just (Lambda _ _) -> do
-      args <- M.many $ parseExpr <* M.optional sc
-      return $ Call (Var name) $ Seq args
+    Just (Lambda _ _) -> return (Var name)
     _ -> M.customFailure $ UndefinedLambdaReference name
 
 -- | Parses a literal value (integer or boolean).
