@@ -119,6 +119,34 @@ spec = do
                   (Op Add (Var "x") (Var "y"))
               ]
           )
+    it "parses a recursive lambda" $ do
+      parse "" "(define (pow x n) ( if (< n 2) (x) (* x (pow x (- n 1)))))"
+        `shouldBe` Right
+          ( AST
+              [ Define
+                  "pow"
+                  ( Lambda
+                      ["x", "n"]
+                      ( If
+                          ( Op Lt (Var "n") (Lit (LInt 2))
+                          )
+                          (Seq [Var "x"])
+                          ( Op
+                              Mult
+                              (Var "x")
+                              ( Call
+                                  (Var "pow")
+                                  ( Seq
+                                      [ Var "x",
+                                        Op Sub (Var "n") (Lit (LInt 1))
+                                      ]
+                                  )
+                              )
+                          )
+                      )
+                  )
+              ]
+          )
 
     it "fails to parse a lambda with invalid parameter list" $ do
       parse "" "(lambda 42 (* 2 2))" `shouldSatisfy` isLeft
