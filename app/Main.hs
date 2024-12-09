@@ -6,6 +6,7 @@ import qualified Ast.Parser as P
 import qualified Codegen.Codegen as C
 import qualified Control.Monad as M
 import qualified Control.Monad.Trans.Except as E
+import qualified Data.Maybe as DM
 import qualified Data.Text.Lazy as TL
 import qualified LLVM.Pretty as LLVM
 import qualified Options.Applicative as O
@@ -55,9 +56,9 @@ optionsInfo =
         <> O.header "Scheme-to-LLVM Compiler"
     )
 
-compile :: String -> E.ExceptT CompileError IO String
-compile input = do
-  ast <- case P.parse input of
+compile :: String -> String -> E.ExceptT CompileError IO String
+compile input source = do
+  ast <- case P.parse input source of
     Left err -> E.throwE $ ParseError err
     Right res -> return res
 
@@ -84,7 +85,7 @@ main = do
   source <- readInput input
 
   logMsg verbose "Starting compilation..."
-  result <- E.runExceptT $ compile source
+  result <- E.runExceptT $ compile (DM.fromMaybe "stdin" input) source
 
   case result of
     Left (ParseError err) -> handleError "parsing" err verbose
