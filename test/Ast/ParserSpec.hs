@@ -123,6 +123,17 @@ spec = do
     it "fails to parse a lambda with invalid parameter list" $ do
       parse "" "(lambda 42 (* 2 2))" `shouldSatisfy` isLeft
 
+    it "defines a lambda" $ do
+      parse "" "(define add (lambda (x y) (+ x y))) (add 1 1)"
+        `shouldBe` Right
+          ( AST
+              [ Define
+                  "add"
+                  (Lambda ["x", "y"] (Op Add (Var "x") (Var "y"))),
+                Call (Var "add") (Seq [Lit (LInt 1), Lit (LInt 1)])
+              ]
+          )
+
   -- \**Function Call Tests **
   describe "Function Calls" $ do
     it "parses a simple function call" $ do
