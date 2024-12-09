@@ -186,10 +186,7 @@ generateVar :: (MonadCodegen m) => String -> m AST.Operand
 generateVar name = do
   maybeOp <- getVarBinding name
   case maybeOp of
-    Just op -> do
-      alloca <- I.alloca T.i64 Nothing 0
-      I.store alloca 0 op
-      I.load alloca 0
+    Just op -> pure op
     Nothing -> do
       let globalVarPtr =
             AST.ConstantOperand $

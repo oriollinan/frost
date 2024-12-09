@@ -5,6 +5,7 @@ module Main where
 import qualified Ast.Parser as P
 import qualified Codegen.Codegen as C
 import qualified Control.Monad as M
+import qualified Control.Monad.IO.Class as IO
 import qualified Control.Monad.Trans.Except as E
 import qualified Data.Maybe as DM
 import qualified Data.Text.Lazy as TL
@@ -12,6 +13,7 @@ import qualified LLVM.Pretty as LLVM
 import qualified Options.Applicative as O
 import qualified System.Exit as EX
 import qualified System.IO as S
+import qualified Text.Pretty.Simple as PS
 
 data CompileError
   = ParseError String
@@ -56,11 +58,13 @@ optionsInfo =
         <> O.header "Scheme-to-LLVM Compiler"
     )
 
-compile :: String -> String -> E.ExceptT CompileError IO String
-compile input source = do
+compile :: String -> String -> Bool -> E.ExceptT CompileError IO String
+compile input source verbose = do
   ast <- case P.parse input source of
     Left err -> E.throwE $ ParseError err
     Right res -> return res
+
+  IO.liftIO $ logMsg verbose (TL.unpack $ PS.pShow ast)
 
   case C.codegen ast of
     Left err -> E.throwE $ CodegenError (show err)
@@ -85,7 +89,7 @@ main = do
   source <- readInput input
 
   logMsg verbose "Starting compilation..."
-  result <- E.runExceptT $ compile (DM.fromMaybe "stdin" input) source
+  result <- E.runExceptT $ compile (DM.fromMaybe "stdin" input) source verbose
 
   case result of
     Left (ParseError err) -> handleError "parsing" err verbose
