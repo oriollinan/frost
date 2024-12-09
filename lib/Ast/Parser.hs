@@ -182,7 +182,7 @@ parseVarName = do
 -- | Skips whitespace and comments during parsing.
 -- Used to ensure parsers handle spacing correctly.
 sc :: Parser ()
-sc = ML.space MC.space1 empty empty
+sc = ML.space MC.space1 (ML.skipLineComment ";") empty
 
 -- | Wraps a parser to handle leading and trailing whitespace.
 -- Returns the result of the inner parser.
