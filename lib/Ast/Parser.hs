@@ -20,6 +20,7 @@ data ParseErrorCustom
   | UndefinedLambdaReference String
   | ReservedKeywordUsed String
   | UndefinedVarReference String
+  | InvalidVarName String
   deriving (Show, Ord, Eq)
 
 -- | Implements a custom error message component for the parser.
@@ -38,6 +39,8 @@ instance M.ShowErrorComponent ParseErrorCustom where
     "Reserved keyword used as function name: \"" ++ kw ++ "\""
   showErrorComponent (UndefinedVarReference n) =
     "Undefined var referenced: expected var \"" ++ n ++ "\" to be defined"
+  showErrorComponent (InvalidVarName n) =
+    "Invalid var name: \"" ++ n ++ "\" is not valid"
 
 ops :: [(String, Operation)]
 ops = [("+", Add), ("-", Sub), ("*", Mult), ("div", Div), ("mod", Mod), (">", Gt), ("<", Lt), (">=", Gte), ("<=", Lte), ("==", Equal), ("/=", Ne), ("&&", And), ("||", Or)]
@@ -182,6 +185,7 @@ parseVarName :: Parser String
 parseVarName = do
   name <- M.some (MC.alphaNumChar <|> M.oneOf "_")
   CM.when (name `elem` keywords) $ M.customFailure $ ReservedKeywordUsed name
+  CM.when (all (`elem` ['0' .. '9']) name) $ M.customFailure $ InvalidVarName name
   return name
 
 -- | Skips whitespace and comments during parsing.

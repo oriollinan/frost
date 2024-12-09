@@ -12,17 +12,25 @@ import Test.Hspec
 spec :: Spec
 spec = do
   describe "Literal Parsing" $ do
+    -- \**Integer Literal Parsing Tests **
     it "parses an integer literal" $ do
       parse "" "42" `shouldBe` Right (AST [Lit (LInt 42)])
 
     it "parses a negative integer literal" $ do
       parse "" "-7" `shouldBe` Right (AST [Lit (LInt (-7))])
 
+    it "fails to parse a malformed integer literal" $ do
+      parse "" "42abc" `shouldSatisfy` isLeft
+
+    -- \**Bolean Literal Parsing Tests **
     it "parses a boolean literal '#t'" $ do
       parse "" "#t" `shouldBe` Right (AST [Lit (LBool True)])
 
     it "parses a boolean literal '#f'" $ do
       parse "" "#f" `shouldBe` Right (AST [Lit (LBool False)])
+
+    it "fails to parse an invalid boolean literal" $ do
+      parse "" "#invalid" `shouldSatisfy` isLeft
 
     it "parses a symbol literal" $ do
       parse "" "(define foo_bar 10) foo_bar" `shouldBe` Right (AST [Define "foo_bar" (Lit (LInt 10)), Var "foo_bar"])
@@ -53,6 +61,9 @@ spec = do
                   )
               ]
           )
+
+    it "fails to parse a define with invalid arguments" $ do
+      parse "" "(define 42 10)" `shouldSatisfy` isLeft
 
   -- \**If Expression Tests **
   describe "If Expressions" $ do
@@ -95,6 +106,9 @@ spec = do
                   (Op Add (Var "x") (Var "y"))
               ]
           )
+
+    it "fails to parse a lambda with invalid parameter list" $ do
+      parse "" "(lambda 42 (* 2 2))" `shouldSatisfy` isLeft
 
   -- \**Function Call Tests **
   describe "Function Calls" $ do
@@ -187,6 +201,14 @@ spec = do
               ]
           )
 
+    it "parses a logical AND operation" $ do
+      parse "" "(&& #t #f)"
+        `shouldBe` Right (AST [Op And (Lit (LBool True)) (Lit (LBool False))])
+
+    it "parses a complex expression with mixed operations" $ do
+      parse "" "(+ (* 2 3) (div 10 2))"
+        `shouldBe` Right (AST [Op Add (Op Mult (Lit (LInt 2)) (Lit (LInt 3))) (Op Div (Lit (LInt 10)) (Lit (LInt 2)))])
+
   -- \**Multiple Expressions Tests **
   describe "Multiple Expressions" $ do
     it "parses multiple expressions in sequence" $ do
@@ -214,6 +236,18 @@ spec = do
 
     it "fails to parse malformed if expression" $ do
       parse "" "(if #t 1)" `shouldSatisfy` isLeft
+
+    it "fails to parse an undefined variable" $ do
+      parse "" "x" `shouldSatisfy` isLeft
+
+    it "fails to parse a call to an undefined lambda" $ do
+      parse "" "(undefined-lambda 1)" `shouldSatisfy` isLeft
+
+    it "fails to parse a reserved keyword as a variable name" $ do
+      parse "" "(define lambda 10)" `shouldSatisfy` isLeft
+
+    it "parses deeply nested lists" $ do
+      parse "" "((((1))))" `shouldBe` Right (AST [Seq [Seq [Seq [Seq [Lit (LInt 1)]]]]])
 
 -- | Helper function to check if a result is a Left (error)
 isLeft :: Either a b -> Bool
