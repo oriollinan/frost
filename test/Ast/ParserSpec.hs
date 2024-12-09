@@ -163,6 +163,19 @@ spec = do
               ]
           )
 
+    it "parses a lambda function call" $ do
+      parse "" "((lambda (x) (* x x)) 2)"
+        `shouldBe` Right
+          ( AST
+              [ Call
+                  ( Lambda
+                      ["x"]
+                      (Op Mult (Var "x") (Var "x"))
+                  )
+                  (Seq [Lit (LInt 2)])
+              ]
+          )
+
   -- \**Operation Expression Tests **
   describe "Operation Expressions" $ do
     it "parses an addition operation" $ do

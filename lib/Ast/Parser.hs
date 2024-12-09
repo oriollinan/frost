@@ -68,9 +68,20 @@ parseAtom :: Parser Expr
 parseAtom = triedChoice [list parseDefine, list parseLambda, list parseIf, list parseOp, list parseCall, parseLit, parseVar]
 
 -- | Parses a sequence of expressions enclosed in parentheses.
--- Returns an `Expr` of type `Seq` that wraps the parsed expressions.
+-- If the first element is callable, it treats the list as a function call.
+-- Otherwise, it creates a sequence of expressions (`Seq`).
 parseList :: Parser Expr
-parseList = Seq <$> list (M.many parseExpr)
+parseList = do
+  exprs <- list (M.many parseExpr)
+  case exprs of
+    (fn : args) | isCallable fn -> return $ Call fn (Seq args)
+    _ -> return $ Seq exprs
+
+-- | Determines whether an expression can be treated as callable.
+isCallable :: Expr -> Bool
+isCallable (Var _) = True
+isCallable (Lambda _ _) = True
+isCallable _ = False
 
 -- | Parses a `define` expression for variable or function definition.
 -- Returns an `Expr` representing the parsed `define` construct.
