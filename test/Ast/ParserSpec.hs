@@ -173,6 +173,8 @@ spec = do
                       (Op Mult (Var "x") (Var "x"))
                   )
                   (Seq [Lit (LInt 2)])
+              ]
+          )
 
     it "parses a recursive function" $ do
       parse "" "(define (pow x n) ( if (< n 2) (x) (* x (pow x (- n 1)))))"
