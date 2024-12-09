@@ -59,6 +59,7 @@ test-suite glados-test
   type: exitcode-stdio-1.0
   other-modules:
     Ast.ParserSpec
+    Ast.TypesSpec
     Misc.MiscSpec
 
   hs-source-dirs: test
