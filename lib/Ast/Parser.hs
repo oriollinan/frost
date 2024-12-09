@@ -1,4 +1,4 @@
-module Ast.Parser (parse) where
+module Ast.Parser (parse, ParseErrorCustom (..)) where
 
 import qualified Ast.Env as E
 import Ast.Types (AST (..), Expr (..), Literal (..), Operation (..))
@@ -13,34 +13,25 @@ type Parser = M.ParsecT ParseErrorCustom String (S.State E.Env)
 
 -- | Custom error type for the parser, representing specific cases of invalid syntax.
 data ParseErrorCustom
-  = InvalidDefineExpression Expr
-  | InvalidArgsForDefine Expr
-  | InvalidLambdaExpression Expr
-  | InvalidArgsForLambda Expr
-  | UndefinedLambdaReference String
+  = UndefinedLambdaReference String
   | ReservedKeywordUsed String
   | UndefinedVarReference String
+  | InvalidVarName String
   deriving (Show, Ord, Eq)
 
 -- | Implements a custom error message component for the parser.
 instance M.ShowErrorComponent ParseErrorCustom where
-  showErrorComponent (InvalidDefineExpression e) =
-    "Invalid define expression: expected a variable or a function definition, but got: " ++ show e
-  showErrorComponent (InvalidArgsForDefine e) =
-    "Invalid arguments in define: expected all arguments to be variables, but got: " ++ show e
-  showErrorComponent (InvalidLambdaExpression e) =
-    "Invalid lambda expression: expected a function definition, but got: " ++ show e
-  showErrorComponent (InvalidArgsForLambda e) =
-    "Invalid arguments in lambda: expected all arguments to be variables, but got: " ++ show e
   showErrorComponent (UndefinedLambdaReference n) =
     "Undefined lambda referenced: expected lambda \"" ++ n ++ "\" to be defined"
   showErrorComponent (ReservedKeywordUsed kw) =
     "Reserved keyword used as function name: \"" ++ kw ++ "\""
   showErrorComponent (UndefinedVarReference n) =
     "Undefined var referenced: expected var \"" ++ n ++ "\" to be defined"
+  showErrorComponent (InvalidVarName n) =
+    "Invalid var name: \"" ++ n ++ "\" is not valid"
 
 ops :: [(String, Operation)]
-ops = [("+", Add), ("-", Sub), ("*", Mult), ("div", Div), ("mod", Mod), (">", Gt), ("<", Lt), (">=", Gte), ("<=", Lte), ("==", Equal), ("/=", Ne), ("&&", And), ("||", Or)]
+ops = [("+", Add), ("-", Sub), ("*", Mult), ("div", Div), ("mod", Mod), (">=", Gte), ("<=", Lte), (">", Gt), ("<", Lt), ("==", Equal), ("/=", Ne), ("&&", And), ("||", Or)]
 
 keywords :: [String]
 keywords = ["define", "lambda", "if"] ++ map fst ops
@@ -182,6 +173,7 @@ parseVarName :: Parser String
 parseVarName = do
   name <- M.some (MC.alphaNumChar <|> M.oneOf "_")
   CM.when (name `elem` keywords) $ M.customFailure $ ReservedKeywordUsed name
+  CM.when (all (`elem` ['0' .. '9']) name) $ M.customFailure $ InvalidVarName name
   return name
 
 -- | Skips whitespace and comments during parsing.
