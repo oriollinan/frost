@@ -93,7 +93,7 @@ main = do
 
   case result of
     Left (ParseError err) -> handleError "parsing" err verbose
-    Left (CodegenError err) -> handleError "parsing" err verbose
+    Left (CodegenError err) -> handleError "code generation" err verbose
     Right llvm -> do
       writeFile out llvm
       logMsg verbose $ "Compilation successful! Output written to: " ++ out
