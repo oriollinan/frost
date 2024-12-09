@@ -83,7 +83,9 @@ parseVariableDefine :: Parser Expr
 parseVariableDefine = do
   name <- lexeme parseVarName
   value <- parseExpr
-  S.modify $ E.insertVar name value
+  case value of
+    (Lambda _ _) -> S.modify $ E.insertFn name value
+    _ -> S.modify $ E.insertVar name value
   return $ Define name value
 
 parseFunctionDefine :: Parser Expr
