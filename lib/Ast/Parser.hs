@@ -95,6 +95,7 @@ parseFunctionDefine = do
     args <- M.many $ parseVarName <* M.optional sc
     return (name, args)
   mapM_ (\arg -> S.modify $ E.insertVar arg $ Var arg) args
+  S.modify $ E.insertFn name $ Lambda args $ Seq []
   value <- parseExpr
   let lambda = Lambda args value
   S.modify $ E.insertFn name lambda
