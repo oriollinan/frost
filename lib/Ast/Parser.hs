@@ -95,6 +95,7 @@ parseFunctionDefine = do
     args <- M.many $ parseVarName <* M.optional sc
     return (name, args)
   mapM_ (\arg -> S.modify $ E.insertVar arg $ Var arg) args
+  S.modify $ E.insertFn name $ Lambda args $ Seq []
   value <- parseExpr
   let lambda = Lambda args value
   S.modify $ E.insertFn name lambda
@@ -186,7 +187,7 @@ parseVarName = do
 -- | Skips whitespace and comments during parsing.
 -- Used to ensure parsers handle spacing correctly.
 sc :: Parser ()
-sc = ML.space MC.space1 empty empty
+sc = ML.space MC.space1 (ML.skipLineComment ";") empty
 
 -- | Wraps a parser to handle leading and trailing whitespace.
 -- Returns the result of the inner parser.

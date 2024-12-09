@@ -173,6 +173,33 @@ spec = do
                       (Op Mult (Var "x") (Var "x"))
                   )
                   (Seq [Lit (LInt 2)])
+
+    it "parses a recursive function" $ do
+      parse "" "(define (pow x n) ( if (< n 2) (x) (* x (pow x (- n 1)))))"
+        `shouldBe` Right
+          ( AST
+              [ Define
+                  "pow"
+                  ( Lambda
+                      ["x", "n"]
+                      ( If
+                          ( Op Lt (Var "n") (Lit (LInt 2))
+                          )
+                          (Seq [Var "x"])
+                          ( Op
+                              Mult
+                              (Var "x")
+                              ( Call
+                                  (Var "pow")
+                                  ( Seq
+                                      [ Var "x",
+                                        Op Sub (Var "n") (Lit (LInt 1))
+                                      ]
+                                  )
+                              )
+                          )
+                      )
+                  )
               ]
           )
 
@@ -296,6 +323,13 @@ spec = do
               [ Define "x" (Lit (LInt 5)),
                 Op Add (Var "x") (Lit (LInt 3))
               ]
+          )
+  -- \** Comment Tests **
+  describe "Comments" $ do
+    it "parses a comment" $ do
+      parse "" "(define x 10) ; This is a comment"
+        `shouldBe` Right
+          ( AST [Define "x" (Lit (LInt 10))]
           )
 
   -- \**Error Handling Tests **
