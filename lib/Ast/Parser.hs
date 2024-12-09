@@ -171,7 +171,7 @@ parseVar = do
 -- Returns a `String` representing the variable name.
 parseVarName :: Parser String
 parseVarName = do
-  name <- M.some (MC.alphaNumChar <|> M.oneOf "_")
+  name <- M.some (MC.alphaNumChar <|> M.oneOf "_$")
   CM.when (name `elem` keywords) $ M.customFailure $ ReservedKeywordUsed name
   CM.when (all (`elem` ['0' .. '9']) name) $ M.customFailure $ InvalidVarName name
   return name

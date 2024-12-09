@@ -62,6 +62,19 @@ spec = do
               ]
           )
 
+    it "parses a simple define with a variable" $ do
+      parse "" "(define ($$generated x) (* x x))"
+        `shouldBe` Right
+          ( AST
+              [ Define
+                  "$$generated"
+                  ( Lambda
+                      ["x"]
+                      (Op Mult (Var "x") (Var "x"))
+                  )
+              ]
+          )
+
     it "fails to parse a define with invalid arguments" $ do
       parse "" "(define 42 10)" `shouldSatisfy` isLeft
 
