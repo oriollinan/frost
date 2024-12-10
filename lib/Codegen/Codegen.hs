@@ -72,7 +72,10 @@ codegen (AT.AST exprs) =
 generateTopLevel :: (MonadCodegen m) => AT.Expr -> m ()
 generateTopLevel = \case
   AT.Define name (AT.Lit var) -> CM.void $ buildGlobaVariable (AST.mkName name) var
-  AT.Define name body -> CM.void $ buildLambda (AST.mkName name) [] body
+  AT.Define name (AT.Lambda params body) ->
+    CM.void $
+      buildFunction (AST.mkName name) params (AT.Lambda params body)
+  AT.Define name body -> CM.void $ buildFunction (AST.mkName name) [] body
   expr -> E.throwError $ UnsupportedTopLevel expr
 
 -- | Maps binary operators to LLVM instructions.
@@ -139,6 +142,19 @@ buildLambda name params body = do
     results <- generateExpr body
     S.put oldState
     I.ret results
+
+-- | Generates LLVM code for a lambda expression.
+-- The `buildFunction` will  build both a lambda and a named function.
+-- The function generated will just call the lambda function and return the result.
+buildFunction :: (MonadCodegen m) => AST.Name -> [String] -> AT.Expr -> m AST.Operand
+buildFunction name params body = do
+  M.function name [toParamType param | param <- params] T.i64 $ \paramOps -> do
+    oldState <- S.get
+    CM.forM_ (zip params paramOps) $ uncurry addVarBinding
+    results <- generateExpr body
+    S.put oldState
+    call' <- I.call results [(arg, []) | arg <- paramOps]
+    I.ret call'
 
 -- | Generates an LLVM operand for an expression.
 -- The `generateExpr` function recursively processes different expression types
@@ -210,6 +226,7 @@ generateDefine name = \case
     _ -> E.throwError $ UnsupportedLocalVar var
   AT.Lambda params body -> buildLambda (AST.mkName name) params body
   AT.Var var -> generateVar var
+  AT.Seq exprs -> generateSeq exprs
   expr -> E.throwError $ UnsupportedDefinition expr
 
 -- | Generates an LLVM operand for a lambda expression.
