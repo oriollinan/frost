@@ -142,7 +142,7 @@ buildLambda name params body = do
     results <- generateExpr body
     S.put oldState
     I.ret results
-  addVarBinding name func'
+  addVarBinding (U.nameToString name) func'
   return func'
 
 -- | Generates LLVM code for a lambda expression.
@@ -231,10 +231,7 @@ generateDefine name = \case
       addVarBinding name op
       generateExpr (AT.Lit var)
     _ -> E.throwError $ UnsupportedLocalVar var
-  AT.Lambda params body -> do
-    op <- buildLambda (AST.mkName name) params body
-    addVarBinding name op
-    pure op
+  AT.Lambda params body -> buildLambda (AST.mkName name) params body
   AT.Var var -> generateVar var
   AT.Seq exprs -> generateSeq exprs
   expr -> E.throwError $ UnsupportedDefinition expr
