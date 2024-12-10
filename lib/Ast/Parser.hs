@@ -1,4 +1,4 @@
-module Ast.Parser (parse, ParseErrorCustom (..)) where
+module Ast.Parser where
 
 import qualified Ast.Env as E
 import Ast.Types (AST (..), Expr (..), Literal (..), Operation (..))
