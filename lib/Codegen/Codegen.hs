@@ -75,7 +75,7 @@ generateTopLevel = \case
   AT.Define name (AT.Lambda params body) ->
     CM.void $
       buildFunction (AST.mkName name) params (AT.Lambda params body)
-  AT.Define name body -> CM.void $ buildFunction (AST.mkName name) [] body
+  AT.Define name body -> CM.void $ buildLambda (AST.mkName name) [] body
   expr -> E.throwError $ UnsupportedTopLevel expr
 
 -- | Maps binary operators to LLVM instructions.
@@ -136,12 +136,14 @@ buildGlobaVariable name = \case
 -- and returns an LLVM operand representing the lambda function.
 buildLambda :: (MonadCodegen m) => AST.Name -> [String] -> AT.Expr -> m AST.Operand
 buildLambda name params body = do
-  M.function name [toParamType param | param <- params] T.i64 $ \paramOps -> do
+  func' <- M.function name [toParamType param | param <- params] T.i64 $ \paramOps -> do
     oldState <- S.get
     CM.forM_ (zip params paramOps) $ uncurry addVarBinding
     results <- generateExpr body
     S.put oldState
     I.ret results
+  addVarBinding name func'
+  return func'
 
 -- | Generates LLVM code for a lambda expression.
 -- The `buildFunction` will  build both a lambda and a named function.
@@ -193,8 +195,13 @@ generateCall func args = do
         Just op -> pure op
         Nothing -> E.throwError $ VariableNotFound name
     _ -> generateExpr func
-  args' <- generateExpr args
-  I.call func' [(args', [])]
+  case args of
+    (AT.Seq args') -> do
+      argOps <- mapM generateExpr args'
+      I.call func' [(argOp, []) | argOp <- argOps]
+    _ -> do
+      args' <- generateExpr args
+      I.call func' [(args', [])]
 
 -- | Generates an LLVM operand for a variable.
 -- The `generateVar` function takes a variable name and returns the corresponding LLVM operand.
@@ -224,7 +231,10 @@ generateDefine name = \case
       addVarBinding name op
       generateExpr (AT.Lit var)
     _ -> E.throwError $ UnsupportedLocalVar var
-  AT.Lambda params body -> buildLambda (AST.mkName name) params body
+  AT.Lambda params body -> do
+    op <- buildLambda (AST.mkName name) params body
+    addVarBinding name op
+    pure op
   AT.Var var -> generateVar var
   AT.Seq exprs -> generateSeq exprs
   expr -> E.throwError $ UnsupportedDefinition expr
