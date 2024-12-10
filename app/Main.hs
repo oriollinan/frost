@@ -39,6 +39,7 @@ optionsParser =
       )
     <*> O.strOption
       ( O.long "out"
+          <> O.short 'o'
           <> O.metavar "FILENAME"
           <> O.help "Output file for the generated LLVM IR"
           <> O.value "demo/generated.ll"
