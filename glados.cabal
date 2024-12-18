@@ -25,6 +25,7 @@ library
     Ast.Types
     Ast.Utils
     Ast.Operation
+    Ast.UnaryOperation
     Codegen.Codegen
     Codegen.Utils
     Misc
@@ -62,6 +63,7 @@ test-suite glados-test
   other-modules:
     Ast.ParserSpec
     Ast.OperationSpec
+    Ast.UnaryOperationSpec
     Misc.MiscSpec
 
   hs-source-dirs: test
