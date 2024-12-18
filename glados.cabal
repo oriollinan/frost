@@ -21,7 +21,6 @@ common warnings
 library
   import: warnings
   exposed-modules:
-    Ast.Env
     Ast.Parser
     Ast.Types
     Codegen.Codegen
@@ -60,7 +59,6 @@ test-suite glados-test
   type: exitcode-stdio-1.0
   other-modules:
     Ast.ParserSpec
-    Ast.TypesSpec
     Misc.MiscSpec
 
   hs-source-dirs: test

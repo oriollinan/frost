@@ -1,46 +1,164 @@
-module Ast.Types
-  ( AST (..),
-    Literal (..),
-    Expr (..),
-    Operation (..),
-  )
-where
+module Ast.Types where
 
--- | Literal values that can appear in the LISP AST.
+-- | Source location for better error reporting
+data SrcLoc = SrcLoc
+  { srcFile :: String,
+    srcLine :: Int,
+    srcCol :: Int
+  }
+  deriving (Show, Eq, Ord)
+
+-- | Enhanced literal values including characters and floating-point numbers
 data Literal
   = LInt Integer
+  | LFloat Double
+  | LChar Char
   | LBool Bool
-  | LSymbol String
+  | LArray [Literal]
+  | LNull
   deriving (Show, Eq, Ord)
 
--- | Expression nodes in the LISP AST.
+-- | Enhanced type system with size information and qualifiers
+-- | TInt: Int with bit width (8, 16, 32, 64)
+-- | TFloat: 32-bit float
+-- | TDouble: 64-bit float
+-- | TArray: Array type with optional size
+-- | TTypedef: Type aliases
+data Type
+  = TInt Int
+  | TFloat
+  | TDouble
+  | TChar
+  | TBoolean
+  | TVoid
+  | TMutable Type
+  | TPointer Type
+  | TArray Type (Maybe Int)
+  | TFunction
+      { returnType :: Type,
+        paramTypes :: [Type],
+        isVariadic :: Bool
+      }
+  | TStruct
+      { structName :: String,
+        fields :: [(String, Type)]
+      }
+  | TUnion
+      { unionName :: String,
+        variants :: [(String, Type)]
+      }
+  | TTypedef String Type
+  deriving (Show, Eq, Ord)
+
+-- | Enhanced expression nodes
+-- | StructAccess: For accessing struct fields
+-- | ArrayAccess: For array indexing
 data Expr
-  = Lit Literal
-  | Var String
-  | Define String Expr
-  | Call Expr Expr
-  | Lambda [String] Expr
-  | If Expr Expr Expr
-  | Op Operation Expr Expr
-  | Seq [Expr]
+  = Lit SrcLoc Literal
+  | Var SrcLoc String Type
+  | Function
+      { funcLoc :: SrcLoc,
+        funcName :: String,
+        funcType :: Type,
+        funcParams :: [String],
+        funcBody :: Expr
+      }
+  | Declaration
+      { declLoc :: SrcLoc,
+        declName :: String,
+        declType :: Type,
+        declInit :: Maybe Expr
+      }
+  | Assignment
+      { assignLoc :: SrcLoc,
+        assignTarget :: Expr,
+        assignValue :: Expr
+      }
+  | Call
+      { callLoc :: SrcLoc,
+        callFunc :: Expr,
+        callArgs :: [Expr]
+      }
+  | If
+      { ifLoc :: SrcLoc,
+        ifCond :: Expr,
+        ifThen :: Expr,
+        ifElse :: Maybe Expr
+      }
+  | While
+      { whileLoc :: SrcLoc,
+        whileCond :: Expr,
+        whileBody :: Expr
+      }
+  | For
+      { forLoc :: SrcLoc,
+        forInit :: Expr,
+        forCond :: Expr,
+        forStep :: Expr,
+        forBody :: Expr
+      }
+  | Block [Expr]
+  | Return SrcLoc (Maybe Expr)
+  | Break SrcLoc
+  | Continue SrcLoc
+  | Op SrcLoc Operation Expr Expr
+  | UnaryOp SrcLoc UnaryOperation Expr
+  | StructAccess SrcLoc Expr String
+  | ArrayAccess SrcLoc Expr Expr
+  | Cast SrcLoc Type Expr
   deriving (Show, Eq, Ord)
 
--- | Operations supported by the language, such as addition, subtraction, etc.
+-- | Enhanced operations including bitwise operations
 data Operation
   = Add
   | Sub
-  | Mult
+  | Mul
   | Div
   | Mod
+  | BitAnd
+  | BitOr
+  | BitXor
+  | BitShl
+  | BitShr
   | Lt
   | Gt
   | Lte
   | Gte
-  | Equal
+  | Eq
   | Ne
   | And
   | Or
   deriving (Show, Eq, Ord)
 
--- | Top-level AST representation for the program.
-newtype AST = AST [Expr] deriving (Show, Eq)
+-- | Unary operations
+-- | Negate: Arithmetic negation
+-- | Not: Logical not
+-- | BitNot: Bitwise not
+-- | Deref: Pointer dereference
+-- | AddrOf: Address-of operator
+-- | PreInc: Pre-increment
+-- | PreDec: Pre-decrement
+-- | PostInc: Post-increment
+-- | PostDec: Post-decrement
+data UnaryOperation
+  = Negate
+  | Not
+  | BitNot
+  | Deref
+  | AddrOf
+  | PreInc
+  | PreDec
+  | PostInc
+  | PostDec
+  deriving (Show, Eq, Ord)
+
+-- | Program representation with global scope information
+-- | globals: Global variables and functions
+-- | types: Type definitions
+-- | sourceFile: Source file name
+data Program = Program
+  { globals :: [(String, Expr)],
+    types :: [(String, Type)],
+    sourceFile :: String
+  }
+  deriving (Show, Eq)
