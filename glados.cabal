@@ -24,6 +24,7 @@ library
     Ast.Parser
     Ast.Types
     Ast.Utils
+    Ast.Literal
     Ast.Operation
     Codegen.Codegen
     Codegen.Utils
@@ -61,6 +62,7 @@ test-suite glados-test
   type: exitcode-stdio-1.0
   other-modules:
     Ast.ParserSpec
+    Ast.LiteralSpec
     Ast.OperationSpec
     Misc.MiscSpec
 
