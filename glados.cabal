@@ -23,6 +23,8 @@ library
   exposed-modules:
     Ast.Parser
     Ast.Types
+    Ast.Utils
+    Ast.Operation
     Codegen.Codegen
     Codegen.Utils
     Misc
@@ -59,6 +61,7 @@ test-suite glados-test
   type: exitcode-stdio-1.0
   other-modules:
     Ast.ParserSpec
+    Ast.OperationSpec
     Misc.MiscSpec
 
   hs-source-dirs: test
@@ -69,3 +72,4 @@ test-suite glados-test
     glados,
     hspec,
     hspec-discover,
+    megaparsec >=9.7.0,
