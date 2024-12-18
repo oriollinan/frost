@@ -131,7 +131,6 @@ data Operation
   deriving (Show, Eq, Ord)
 
 -- | Unary operations
--- | Negate: Arithmetic negation
 -- | Not: Logical not
 -- | BitNot: Bitwise not
 -- | Deref: Pointer dereference
@@ -141,8 +140,7 @@ data Operation
 -- | PostInc: Post-increment
 -- | PostDec: Post-decrement
 data UnaryOperation
-  = Negate
-  | Not
+  = Not
   | BitNot
   | Deref
   | AddrOf
