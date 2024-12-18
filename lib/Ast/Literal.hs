@@ -16,8 +16,8 @@ falseSymbol = "false"
 nullSymbol :: String
 nullSymbol = "null"
 
-parseElement :: AU.Parser AT.Literal
-parseElement = M.choice [parseInt, parseFloat, parseChar, parseBool, parseNull, parseArray]
+parseLiteral :: AU.Parser AT.Literal
+parseLiteral = AU.triedChoice [parseArray, parseChar, parseFloat, parseInt, parseBool, parseNull]
 
 -- | Parses an integer literal, supporting signed values.
 -- Returns a `Literal` of type `LInt`.
@@ -45,14 +45,9 @@ parseChar = AT.LChar <$> M.between (MC.char '\'') (MC.char '\'') M.anySingle
 parseArray :: AU.Parser AT.Literal
 parseArray =
   M.choice
-    [ parseStringArray, -- Handles string literals as arrays of characters
-      AT.LArray <$> M.between (AU.symbol "[") (AU.symbol "]") (M.sepBy parseElement (AU.symbol ","))
+    [ AT.LArray . map AT.LChar <$> M.between (MC.char '\"') (MC.char '\"') (M.many (M.noneOf ['"'])),
+      AT.LArray <$> M.between (AU.symbol "[") (AU.symbol "]") (M.sepBy parseLiteral (AU.symbol ","))
     ]
-
--- | Parses a string literal as an array of characters.
--- Returns a `Literal` of type `LArray` containing `LChar` elements.
-parseStringArray :: AU.Parser AT.Literal
-parseStringArray = AT.LArray . map AT.LChar <$> (MC.char '"' *> M.manyTill M.anySingle (MC.char '"'))
 
 -- | Parses a `null` literal.
 -- Returns a `Literal` of type `LNull`.
