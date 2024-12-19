@@ -9,6 +9,7 @@ module Codegen.Codegen where
 
 import qualified Ast.Types as AT
 import qualified Codegen.Utils as U
+import qualified Control.Monad as CM
 import qualified Control.Monad.Except as E
 import qualified Control.Monad.Fix as F
 import qualified Control.Monad.State as S
@@ -79,31 +80,25 @@ codegen program =
 
 -- | Generates LLVM code for a global variable.
 generateGlobal :: (MonadCodegen m) => AT.Expr -> m ()
-generateGlobal expr = case expr of
-  AT.Function _ name typ params body -> undefined
-  left -> E.throwError . UnsupportedTopLevel $ left
+generateGlobal = \case
+  AT.Function loc name typ params body ->
+    CM.void $
+      generateFunction (AT.Function loc name typ params body)
+  expr -> E.throwError $ UnsupportedTopLevel expr
 
 -- | Generates LLVM code for an expression.
 generateExpr :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateExpr = \case
-  AT.Lit loc lit -> generateLiteral lit
-  AT.Var loc name typ -> generateVar name
-  AT.Function loc name typ params body -> undefined
-  AT.Declaration loc name typ init -> undefined
-  AT.Assignment loc target val -> undefined
-  AT.Call loc func args -> undefined
+  AT.Lit _ lit -> generateLiteral lit
+  AT.Var _ name _typ -> generateVar name
+  AT.Function loc name typ params body -> generateFunction (AT.Function loc name typ params body)
+  AT.Declaration loc name typ ini -> generateDeclaration (AT.Declaration loc name typ ini)
   AT.If loc cond then_ else_ -> generateIf cond then_ (MB.fromMaybe (AT.Lit loc (AT.LInt 0)) else_)
-  AT.While loc cond body -> undefined
-  AT.For loc init cond step body -> undefined
   AT.Block exprs -> generateBlock exprs
-  AT.Return loc expr -> undefined
-  AT.Break loc -> undefined
-  AT.Continue loc -> undefined
-  AT.Op loc op e1 e2 -> generateOp op e1 e2
-  AT.UnaryOp loc op e -> generateUnaryOp op e
-  AT.StructAccess loc expr field -> undefined
-  AT.ArrayAccess loc arr idx -> undefined
-  AT.Cast loc typ expr -> undefined
+  AT.Return loc expr -> generateReturn (AT.Return loc expr)
+  AT.Op _ op e1 e2 -> generateOp op e1 e2
+  AT.UnaryOp _ op e -> generateUnaryOp op e
+  _ -> undefined
 
 -- | Generates LLVM code for a literal.
 generateLiteral :: (MonadCodegen m) => AT.Literal -> m AST.Operand
@@ -171,9 +166,66 @@ generateIf cond then_ else_ = mdo
 -- | Generates an LLVM operand for a variable.
 -- The `generateVar` function takes a variable name and returns the corresponding LLVM operand.
 generateVar :: (MonadCodegen m) => String -> m AST.Operand
-generateVar = undefined
+generateVar name = do
+  var <- getVarBinding name
+  case var of
+    Just ptr -> I.load ptr 0
+    Nothing -> E.throwError $ VariableNotFound name
 
 -- | Generates LLVM code for a block expression.
 -- The `generateBlock` function takes a list of expressions and returns the corresponding LLVM operand.
 generateBlock :: (MonadCodegen m) => [AT.Expr] -> m AST.Operand
-generateBlock = undefined
+generateBlock exprs = do
+  _ <- IRM.block `IRM.named` "block"
+  results <- mapM generateExpr exprs
+  pure $ last results
+
+-- | Generates LLVM code for a function.
+-- The `generateFunction` function takes a function expression and returns the corresponding LLVM operand.
+generateFunction :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateFunction (AT.Function _loc name (AT.TFunction ret params False) names body) = do
+  let funcName = AST.Name (U.stringToByteString name)
+  let paramTypes =
+        zipWith
+          (\param name' -> (toLLVMType param, M.ParameterName (U.stringToByteString name')))
+          params
+          names
+
+  M.function funcName paramTypes (toLLVMType ret) $ \_ -> do
+    result <- generateExpr body
+    I.ret result
+generateFunction expr = E.throwError $ UnsupportedTopLevel expr
+
+-- | Checks if a type is a pointer type.
+isPointerType :: AT.Type -> Bool
+isPointerType (AT.TPointer _) = True
+isPointerType _ = False
+
+-- | Generates LLVM code for a declaration.
+-- The `generateDeclaration` function takes a declaration expression and returns the corresponding LLVM operand.
+generateDeclaration :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateDeclaration (AT.Declaration _ name typ (Just initExpr)) = do
+  let llvmType = toLLVMType typ
+  ptr <- I.alloca llvmType Nothing 0
+  initValue <- generateExpr initExpr
+  I.store ptr 0 initValue
+  addVarBinding name ptr
+  pure ptr
+generateDeclaration (AT.Declaration _ name typ Nothing) = do
+  let llvmType = toLLVMType typ
+  ptr <- I.alloca llvmType Nothing 0
+  addVarBinding name ptr
+  pure ptr
+generateDeclaration expr = E.throwError $ UnsupportedDefinition expr
+
+-- | Generates LLVM code for a return expression.
+-- The `generateReturn` function takes an expression and returns the corresponding LLVM operand.
+generateReturn :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateReturn (AT.Return _ expr) = do
+  result <- case expr of
+    Just e -> generateExpr e
+    Nothing -> pure $ AST.ConstantOperand $ C.Undef T.void
+  case expr of
+    Just _ -> I.ret result >> pure result
+    Nothing -> I.retVoid >> pure result
+generateReturn expr = E.throwError $ UnsupportedDefinition expr
