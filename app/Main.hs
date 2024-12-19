@@ -2,7 +2,8 @@
 
 module Main where
 
-import qualified Ast.Parser as P
+-- import qualified Ast.Parser as P
+import Ast.Types
 import qualified Codegen.Codegen as C
 import qualified Control.Monad as M
 import qualified Control.Monad.IO.Class as IO
@@ -59,16 +60,70 @@ optionsInfo =
         <> O.header "Scheme-to-LLVM Compiler"
     )
 
+sampleProgram :: Program
+sampleProgram =
+  Program
+    { globals =
+        [("main", mainFunction)],
+      types = [],
+      sourceFile = "main.c"
+    }
+  where
+    mainLoc = SrcLoc "main.c" 1 1
+    varALoc = SrcLoc "main.c" 2 3
+    varBLoc = SrcLoc "main.c" 3 3
+    sumLoc = SrcLoc "main.c" 4 3
+    returnLoc = SrcLoc "main.c" 5 3
+
+    mainFunction =
+      Function
+        { funcLoc = mainLoc,
+          funcName = "main",
+          funcType = TFunction (TInt 32) [] False,
+          funcParams = [],
+          funcBody =
+            Block
+              [ Declaration
+                  { declLoc = varALoc,
+                    declName = "a",
+                    declType = TInt 32,
+                    declInit = Just (Lit varALoc (LInt 5))
+                  },
+                Declaration
+                  { declLoc = varBLoc,
+                    declName = "b",
+                    declType = TInt 32,
+                    declInit = Just (Lit varBLoc (LInt 3))
+                  },
+                Declaration
+                  { declLoc = sumLoc,
+                    declName = "sum",
+                    declType = TInt 32,
+                    declInit =
+                      Just
+                        ( Op
+                            sumLoc
+                            Add
+                            (Var sumLoc "a" (TInt 32))
+                            (Var sumLoc "b" (TInt 32))
+                        )
+                  },
+                Return returnLoc (Just (Var returnLoc "sum" (TInt 32)))
+              ]
+        }
+
 compile :: String -> String -> Bool -> E.ExceptT CompileError IO String
-compile input source verbose = do
-  ast <- case P.parse input source of
-    Left err -> E.throwE $ ParseError err
-    Right res -> return res
+compile _ _ verbose = do
+  -- ast <- case P.parse input source of
+  --   Left err -> E.throwE $ ParseError err
+  --   Right res -> return res
+
+  let ast = sampleProgram
 
   IO.liftIO $ logMsg verbose (TL.unpack $ PS.pShow ast)
 
   case C.codegen ast of
-    Left err -> E.throwE $ CodegenError (show err)
+    Left err -> E.throwE $ CodegenError (TL.unpack $ PS.pShow err)
     Right lmod -> return $ TL.unpack $ LLVM.ppllvm lmod
 
 logMsg :: Bool -> String -> IO ()
@@ -87,7 +142,8 @@ handleError errType errMsg verbose = do
 main :: IO ()
 main = do
   Options {input, out, verbose} <- O.execParser optionsInfo
-  source <- readInput input
+  -- source <- readInput input
+  let source = ""
 
   logMsg verbose "Starting compilation..."
   result <- E.runExceptT $ compile (DM.fromMaybe "stdin" input) source verbose
