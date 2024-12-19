@@ -78,7 +78,7 @@ sampleProgram =
     mainFunction =
       Function
         { funcLoc = mainLoc,
-          funcName = "main",
+          funcName = "$$generated",
           funcType = TFunction (TInt 32) [] False,
           funcParams = [],
           funcBody =
