@@ -67,10 +67,10 @@ spec = do
       M.parse AO.parseOperation "" "and" `shouldBe` Right AT.And
 
     it "parses logical OR operator" $ do
-      M.parse AO.parseOperation "" "||" `shouldBe` Right AT.And
+      M.parse AO.parseOperation "" "||" `shouldBe` Right AT.Or
 
     it "parses 'or' logical operator" $ do
-      M.parse AO.parseOperation "" "or" `shouldBe` Right AT.And
+      M.parse AO.parseOperation "" "or" `shouldBe` Right AT.Or
 
     it "returns error for invalid operator" $ do
       M.parse AO.parseOperation "" "invalid" `shouldSatisfy` isLeft
