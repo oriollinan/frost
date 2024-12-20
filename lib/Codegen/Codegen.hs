@@ -124,17 +124,25 @@ instance ExprGen AT.Expr where
     AT.Op {} -> generateBinaryOp expr
     AT.UnaryOp {} -> generateUnaryOp expr
     AT.Call {} -> generateFunctionCall expr
+    AT.ArrayAccess {} -> generateArrayAccess expr
     _ -> E.throwError $ UnsupportedDefinition expr
+
+-- | Generate LLVM code for constants.
+generateConstant :: (MonadCodegen m) => AT.Literal -> m C.Constant
+generateConstant lit = case lit of
+  AT.LInt n -> return $ C.Int 32 (fromIntegral n)
+  AT.LChar c -> return $ C.Int 8 (fromIntegral $ fromEnum c)
+  AT.LBool b -> return $ C.Int 1 (if b then 1 else 0)
+  AT.LArray elems -> do
+    constants <- mapM generateConstant elems
+    return $ C.Array (TD.typeOf $ head constants) constants
+  _ -> E.throwError $ UnsupportedLiteral lit
 
 -- | Generate LLVM code for literals.
 generateLiteral :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateLiteral (AT.Lit _ lit) = case lit of
-  AT.LInt n -> pure . mkConstant $ C.Int 32 (fromIntegral n)
-  AT.LChar c -> pure . mkConstant $ C.Int 8 (fromIntegral $ fromEnum c)
-  AT.LBool b -> pure . mkConstant $ C.Int 1 (if b then 1 else 0)
-  _ -> E.throwError $ UnsupportedLiteral lit
-  where
-    mkConstant = AST.ConstantOperand
+generateLiteral (AT.Lit _ lit) = do
+  constant <- generateConstant lit
+  pure $ AST.ConstantOperand constant
 generateLiteral expr =
   E.throwError $ UnsupportedDefinition expr
 
@@ -313,3 +321,13 @@ generateRegularFunctionCall name args = do
       operandArgs <- mapM generateExpr args
       I.call funcOperand (map (,[]) operandArgs)
     Nothing -> E.throwError $ UnsupportedFunctionCall name
+
+-- | Generate LLVM code for array access.
+generateArrayAccess :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateArrayAccess (AT.ArrayAccess _ arrayExpr indexExpr) = do
+  arrayPtr <- generateExpr arrayExpr
+  index <- generateExpr indexExpr
+  elementPtr <- I.gep arrayPtr [index]
+  I.load elementPtr 0
+generateArrayAccess expr =
+  E.throwError $ UnsupportedDefinition expr
