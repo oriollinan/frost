@@ -19,6 +19,7 @@ import qualified Control.Monad.State as S
 import qualified Data.List as L
 import qualified LLVM.AST as AST
 import qualified LLVM.AST.Constant as C
+import qualified LLVM.AST.Float as FF
 import qualified LLVM.AST.IntegerPredicate as IP
 import qualified LLVM.AST.Type as T
 import qualified LLVM.AST.Typed as TD
@@ -89,10 +90,14 @@ instance ToLLVM AT.Type where
     AT.TChar -> T.IntegerType 8
     AT.TBoolean -> T.IntegerType 1
     AT.TVoid -> T.void
+    AT.TMutable t -> toLLVM t
     AT.TPointer t -> T.ptr (toLLVM t)
     AT.TArray t (Just n) -> T.ArrayType (fromIntegral n) (toLLVM t)
     AT.TArray t Nothing -> T.ptr (toLLVM t)
-    _ -> undefined
+    AT.TFunction ret params var -> T.FunctionType (toLLVM ret) (map toLLVM params) var
+    AT.TStruct _ fields -> T.StructureType False (map (toLLVM . snd) fields)
+    AT.TUnion _ variants -> T.StructureType False (map (toLLVM . snd) variants)
+    AT.TTypedef _ t -> toLLVM t
 
 -- | Generate LLVM code for a program.
 codegen :: AT.Program -> Either CodegenError AST.Module
@@ -124,16 +129,32 @@ instance ExprGen AT.Expr where
     AT.Op {} -> generateBinaryOp expr
     AT.UnaryOp {} -> generateUnaryOp expr
     AT.Call {} -> generateFunctionCall expr
+    AT.Assignment {} -> generateAssignment expr
+    AT.While {} -> generateWhile expr
+    AT.For {} -> generateFor expr
+    AT.Break {} -> generateBreak expr
+    AT.Continue {} -> generateContinue expr
+    AT.ArrayAccess {} -> generateArrayAccess expr
+    AT.Cast {} -> generateCast expr
     _ -> E.throwError $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for literals.
 generateLiteral :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateLiteral (AT.Lit _ lit) = case lit of
-  AT.LInt n -> pure . mkConstant $ C.Int 32 (fromIntegral n)
-  AT.LChar c -> pure . mkConstant $ C.Int 8 (fromIntegral $ fromEnum c)
-  AT.LBool b -> pure . mkConstant $ C.Int 1 (if b then 1 else 0)
-  _ -> E.throwError $ UnsupportedLiteral lit
+generateLiteral (AT.Lit loc lit) =
+  mkConstant <$> case lit of
+    AT.LInt n -> pure $ C.Int 32 (fromIntegral n)
+    AT.LChar c -> pure $ C.Int 8 (fromIntegral $ fromEnum c)
+    AT.LBool b -> pure $ C.Int 1 (if b then 1 else 0)
+    AT.LFloat f -> pure $ C.Float (FF.Single (realToFrac f))
+    AT.LArray lits -> do
+      operands <- mapM (generateLiteral . AT.Lit loc) lits
+      let constants = map extractConstant operands
+      let typ = TD.typeOf $ head operands
+      pure $ C.Array typ constants
+    AT.LNull -> pure $ C.Null T.void
   where
+    extractConstant (AST.ConstantOperand c) = c
+    extractConstant _ = error "Expected constant operand"
     mkConstant = AST.ConstantOperand
 generateLiteral expr =
   E.throwError $ UnsupportedDefinition expr
@@ -164,7 +185,14 @@ binaryOperators =
     BinaryOp AT.Sub I.sub,
     BinaryOp AT.Mul I.mul,
     BinaryOp AT.Div I.sdiv,
-    BinaryOp AT.Mod I.srem
+    BinaryOp AT.Mod I.srem,
+    BinaryOp AT.BitAnd I.and,
+    BinaryOp AT.BitOr I.or,
+    BinaryOp AT.BitXor I.xor,
+    BinaryOp AT.BitShl I.shl,
+    BinaryOp AT.BitShr I.ashr,
+    BinaryOp AT.And I.and,
+    BinaryOp AT.Or I.or
   ]
     ++ map mkComparisonOp comparisonOps
   where
@@ -181,16 +209,38 @@ binaryOperators =
 -- | Unary operation data type.
 data UnaryOp m = UnaryOp
   { unaryMapping :: AT.UnaryOperation,
-    unaryFunction :: AST.Operand -> IRM.IRBuilderT (M.ModuleBuilderT m) AST.Operand
+    unaryFunction :: AST.Operand -> m AST.Operand
   }
 
 -- | List of supported unary operators.
 unaryOperators :: (MonadCodegen m) => [UnaryOp m]
-unaryOperators = undefined
+unaryOperators =
+  [ UnaryOp AT.Not (\operand -> I.xor operand (AST.ConstantOperand $ C.Int 1 1)),
+    UnaryOp AT.BitNot (\operand -> I.xor operand (AST.ConstantOperand $ C.Int 32 (-1))),
+    UnaryOp AT.Deref (`I.load` 0),
+    UnaryOp AT.AddrOf pure,
+    UnaryOp AT.PreInc (\operand -> I.add operand (AST.ConstantOperand $ C.Int 32 1)),
+    UnaryOp AT.PreDec (\operand -> I.sub operand (AST.ConstantOperand $ C.Int 32 1)),
+    UnaryOp AT.PostInc (postOp I.add),
+    UnaryOp AT.PostDec (postOp I.sub)
+  ]
+  where
+    postOp op operand = do
+      result <- I.load operand 0
+      I.store operand 0 =<< op result (AST.ConstantOperand $ C.Int 32 1)
+      pure result
 
 -- | Generate LLVM code for unary operations.
 generateUnaryOp :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateUnaryOp = undefined
+generateUnaryOp (AT.UnaryOp _ op expr) = do
+  operand <- generateExpr expr
+  case findOperator op of
+    Just f -> f operand
+    Nothing -> E.throwError $ UnsupportedUnaryOperator op
+  where
+    findOperator op' = L.find ((== op') . unaryMapping) unaryOperators >>= Just . unaryFunction
+generateUnaryOp expr =
+  E.throwError $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for variable references.
 generateVar :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -235,17 +285,17 @@ generateIf expr =
 -- | Generate LLVM code for function definitions.
 generateFunction :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateFunction = \case
-  AT.Function _ name (AT.TFunction ret params False) paramNames body -> do
+  AT.Function _ name (AT.TFunction ret params var) paramNames body -> do
     let funcName = AST.Name $ U.stringToByteString name
         paramTypes = zipWith mkParam params paramNames
-        funcType = T.ptr $ T.FunctionType (toLLVM ret) (map fst paramTypes) False
+        funcType = T.ptr $ T.FunctionType (toLLVM ret) (map fst paramTypes) var
     addGlobalVar name $ AST.ConstantOperand $ C.GlobalReference funcType funcName
     M.function funcName paramTypes (toLLVM ret) $ \ops -> do
       S.modify (\s -> s {localState = []})
       S.zipWithM_ addVar paramNames ops
       result <- generateExpr body
       I.ret result
-  _ -> undefined
+  expr -> E.throwError $ UnsupportedDefinition expr
   where
     mkParam t n = (toLLVM t, M.ParameterName $ U.stringToByteString n)
 
@@ -313,3 +363,91 @@ generateRegularFunctionCall name args = do
       operandArgs <- mapM generateExpr args
       I.call funcOperand (map (,[]) operandArgs)
     Nothing -> E.throwError $ UnsupportedFunctionCall name
+
+-- | Generate LLVM code for assignment expressions.
+generateAssignment :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateAssignment (AT.Assignment _ target value) = do
+  targetOperand <- generateExpr target
+  valueOperand <- generateExpr value
+  I.store targetOperand 0 valueOperand
+  pure valueOperand
+generateAssignment expr =
+  E.throwError $ UnsupportedDefinition expr
+
+-- | Generate LLVM code for a while loop.
+generateWhile :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateWhile (AT.While _ cond body) = mdo
+  condBlock <- IRM.block `IRM.named` U.stringToByteString "cond"
+  I.br condBlock
+
+  condValue <- generateExpr cond
+  test <- I.icmp IP.NE condValue (AST.ConstantOperand $ C.Int 1 0)
+  I.condBr test bodyBlock mergeBlock
+
+  bodyBlock <- IRM.block `IRM.named` U.stringToByteString "body"
+  _ <- generateExpr body
+  I.br condBlock
+
+  mergeBlock <- IRM.block `IRM.named` U.stringToByteString "merge"
+  pure $ AST.ConstantOperand $ C.Undef T.void
+generateWhile expr =
+  E.throwError $ UnsupportedDefinition expr
+
+-- | Generate LLVM code for a for loop.
+generateFor :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateFor (AT.For _ ini cond update body) = mdo
+  _ <- generateExpr ini
+  I.br condBlock
+
+  condBlock <- IRM.block `IRM.named` U.stringToByteString "cond"
+  condValue <- generateExpr cond
+  test <- I.icmp IP.NE condValue (AST.ConstantOperand $ C.Int 1 0)
+  I.condBr test bodyBlock mergeBlock
+
+  bodyBlock <- IRM.block `IRM.named` U.stringToByteString "body"
+  _ <- generateExpr body
+  I.br updateBlock
+
+  updateBlock <- IRM.block `IRM.named` U.stringToByteString "update"
+  _ <- generateExpr update
+  I.br condBlock
+
+  mergeBlock <- IRM.block `IRM.named` U.stringToByteString "merge"
+  pure $ AST.ConstantOperand $ C.Undef T.void
+generateFor expr =
+  E.throwError $ UnsupportedDefinition expr
+
+-- | Generate LLVM code for a break statement.
+generateBreak :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateBreak (AT.Break _) = do
+  I.br =<< IRM.block `IRM.named` U.stringToByteString "break"
+  pure $ AST.ConstantOperand $ C.Undef T.void
+generateBreak expr =
+  E.throwError $ UnsupportedDefinition expr
+
+-- | Generate LLVM code for a continue statement.
+generateContinue :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateContinue (AT.Continue _) = do
+  I.br =<< IRM.block `IRM.named` U.stringToByteString "continue"
+  pure $ AST.ConstantOperand $ C.Undef T.void
+generateContinue expr =
+  E.throwError $ UnsupportedDefinition expr
+
+-- | Generate LLVM code for an array access expression.
+generateArrayAccess :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateArrayAccess (AT.ArrayAccess _ array index) = do
+  arrayOperand <- generateExpr array
+  indexOperand <- generateExpr index
+  arrayPtr <- I.gep arrayOperand [indexOperand]
+  I.load arrayPtr 0
+generateArrayAccess expr =
+  E.throwError $ UnsupportedDefinition expr
+
+-- | Generate LLVM code for a cast expression.
+generateCast :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateCast (AT.Cast _ typ expr) = do
+  operand <- generateExpr expr
+  let llvmType = toLLVM typ
+  I.bitcast operand llvmType
+generateCast expr =
+  E.throwError $ UnsupportedDefinition expr
