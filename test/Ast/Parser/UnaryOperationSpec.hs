@@ -1,7 +1,7 @@
-module Ast.UnaryOperationSpec where
+module Ast.Parser.UnaryOperationSpec where
 
+import qualified Ast.Parser.UnaryOperation as AUO
 import qualified Ast.Types as AT
-import qualified Ast.UnaryOperation as AUO
 import Data.Either (isLeft)
 import Test.Hspec
 import qualified Text.Megaparsec as M

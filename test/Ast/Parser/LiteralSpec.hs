@@ -1,6 +1,6 @@
-module Ast.LiteralSpec (spec) where
+module Ast.Parser.LiteralSpec (spec) where
 
-import qualified Ast.Literal as AL
+import qualified Ast.Parser.Literal as AL
 import qualified Ast.Types as AT
 import Data.Either (isLeft)
 import Test.Hspec

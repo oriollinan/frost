@@ -1,4 +1,4 @@
-module Ast.Literal where
+module Ast.Parser.Literal where
 
 import qualified Ast.Types as AT
 import qualified Ast.Utils as AU

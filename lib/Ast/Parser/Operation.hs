@@ -1,4 +1,4 @@
-module Ast.Operation where
+module Ast.Parser.Operation where
 
 import qualified Ast.Types as AT
 import qualified Ast.Utils as AU

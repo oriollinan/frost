@@ -1,6 +1,6 @@
-module Ast.OperationSpec where
+module Ast.Parser.OperationSpec where
 
-import qualified Ast.Operation as AO
+import qualified Ast.Parser.Operation as AO
 import qualified Ast.Types as AT
 import Data.Either (isLeft)
 import Test.Hspec
