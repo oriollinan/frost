@@ -64,16 +64,58 @@ sampleProgram :: Program
 sampleProgram =
   Program
     { globals =
-        [("main", mainFunction)],
+        [ ("fibonacci", fibonacciFunction),
+          ("main", mainFunction)
+        ],
       types = [],
-      sourceFile = "main.c"
+      sourceFile = "fibonacci.c"
     }
   where
-    mainLoc = SrcLoc "main.c" 1 1
-    varALoc = SrcLoc "main.c" 2 3
-    varBLoc = SrcLoc "main.c" 3 3
-    sumLoc = SrcLoc "main.c" 4 3
-    returnLoc = SrcLoc "main.c" 5 3
+    fibonacciLoc = SrcLoc "fibonacci.c" 1 1
+    nParamLoc = SrcLoc "fibonacci.c" 2 3
+    ifLoc = SrcLoc "fibonacci.c" 3 3
+    returnBaseCaseLoc = SrcLoc "fibonacci.c" 4 5
+    recursiveCallLoc = SrcLoc "fibonacci.c" 5 5
+    returnRecursiveLoc = SrcLoc "fibonacci.c" 6 5
+    mainLoc = SrcLoc "fibonacci.c" 8 1
+    resultLoc = SrcLoc "fibonacci.c" 9 3
+    returnLoc = SrcLoc "fibonacci.c" 10 3
+
+    fibonacciFunction =
+      Function
+        { funcLoc = fibonacciLoc,
+          funcName = "fibonacci",
+          funcType = TFunction (TInt 32) [TInt 32] False,
+          funcParams = ["n"],
+          funcBody =
+            Block
+              [ If
+                  { ifLoc = ifLoc,
+                    ifCond = Op ifLoc Lte (Var nParamLoc "n" (TInt 32)) (Lit nParamLoc (LInt 1)),
+                    ifThen = Return returnBaseCaseLoc (Just (Var nParamLoc "n" (TInt 32))),
+                    ifElse =
+                      Just $
+                        Return
+                          returnRecursiveLoc
+                          ( Just
+                              ( Op
+                                  recursiveCallLoc
+                                  Add
+                                  ( Call
+                                      recursiveCallLoc
+                                      (Var recursiveCallLoc "fibonacci" (TFunction (TInt 32) [TInt 32] False))
+                                      [Op recursiveCallLoc Sub (Var nParamLoc "n" (TInt 32)) (Lit recursiveCallLoc (LInt 1))]
+                                  )
+                                  ( Call
+                                      recursiveCallLoc
+                                      (Var recursiveCallLoc "fibonacci" (TFunction (TInt 32) [TInt 32] False))
+                                      [Op recursiveCallLoc Sub (Var nParamLoc "n" (TInt 32)) (Lit recursiveCallLoc (LInt 2))]
+                                  )
+                              )
+                          )
+                  }
+              ]
+        }
 
     mainFunction =
       Function
@@ -84,31 +126,24 @@ sampleProgram =
           funcBody =
             Block
               [ Declaration
-                  { declLoc = varALoc,
-                    declName = "a",
+                  { declLoc = resultLoc,
+                    declName = "n",
                     declType = TInt 32,
-                    declInit = Just (Lit varALoc (LInt 5))
+                    declInit = Just (Lit resultLoc (LInt 8))
                   },
                 Declaration
-                  { declLoc = varBLoc,
-                    declName = "b",
-                    declType = TInt 32,
-                    declInit = Just (Lit varBLoc (LInt 3))
-                  },
-                Declaration
-                  { declLoc = sumLoc,
-                    declName = "sum",
+                  { declLoc = resultLoc,
+                    declName = "result",
                     declType = TInt 32,
                     declInit =
                       Just
-                        ( Op
-                            sumLoc
-                            Add
-                            (Var sumLoc "a" (TInt 32))
-                            (Var sumLoc "b" (TInt 32))
+                        ( Call
+                            resultLoc
+                            (Var resultLoc "fibonacci" (TFunction (TInt 32) [TInt 32] False))
+                            [Var resultLoc "n" (TInt 32)]
                         )
                   },
-                Return returnLoc (Just (Var returnLoc "sum" (TInt 32)))
+                Return returnLoc (Just (Var returnLoc "result" (TInt 32)))
               ]
         }
 
