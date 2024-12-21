@@ -22,6 +22,7 @@ import qualified LLVM.AST.Constant as C
 import qualified LLVM.AST.IntegerPredicate as IP
 import qualified LLVM.AST.Type as T
 import qualified LLVM.AST.Typed as TD
+import qualified LLVM.IRBuilder.Constant as IC
 import qualified LLVM.IRBuilder.Instruction as I
 import qualified LLVM.IRBuilder.Module as M
 import qualified LLVM.IRBuilder.Monad as IRM
@@ -324,10 +325,13 @@ generateRegularFunctionCall name args = do
 
 -- | Generate LLVM code for array access.
 generateArrayAccess :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateArrayAccess (AT.ArrayAccess _ arrayExpr indexExpr) = do
-  arrayPtr <- generateExpr arrayExpr
+generateArrayAccess (AT.ArrayAccess _ (AT.Var _ name _) indexExpr) = do
+  maybeVar <- getVar name
+  ptr <- case maybeVar of
+    Just arrayPtr -> return arrayPtr
+    Nothing -> E.throwError $ VariableNotFound name
   index <- generateExpr indexExpr
-  elementPtr <- I.gep arrayPtr [index]
+  elementPtr <- I.gep ptr [IC.int32 0, index]
   I.load elementPtr 0
 generateArrayAccess expr =
   E.throwError $ UnsupportedDefinition expr
