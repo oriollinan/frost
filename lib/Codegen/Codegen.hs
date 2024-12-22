@@ -126,6 +126,7 @@ instance ExprGen AT.Expr where
     AT.UnaryOp {} -> generateUnaryOp expr
     AT.Call {} -> generateFunctionCall expr
     AT.ArrayAccess {} -> generateArrayAccess expr
+    AT.Assignment {} -> generateAssignment expr
     _ -> E.throwError $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for constants.
@@ -334,4 +335,29 @@ generateArrayAccess (AT.ArrayAccess _ (AT.Var _ name _) indexExpr) = do
   elementPtr <- I.gep ptr [IC.int32 0, index]
   I.load elementPtr 0
 generateArrayAccess expr =
+  E.throwError $ UnsupportedDefinition expr
+
+-- | Generate LLVM code for assignment expressions.
+generateAssignment :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateAssignment (AT.Assignment _ expr valueExpr) = do
+  value <- generateExpr valueExpr
+  case expr of
+    AT.Var _ name _ -> do
+      maybeVar <- getVar name
+      case maybeVar of
+        Just ptr -> do
+          I.store ptr 0 value
+          pure value
+        Nothing -> E.throwError $ VariableNotFound name
+    AT.ArrayAccess _ (AT.Var _ name _) indexExpr -> do
+      maybeVar <- getVar name
+      ptr <- case maybeVar of
+        Just arrayPtr -> return arrayPtr
+        Nothing -> E.throwError $ VariableNotFound name
+      index <- generateExpr indexExpr
+      elementPtr <- I.gep ptr [IC.int32 0, index]
+      I.store elementPtr 0 value
+      pure value
+    _ -> E.throwError $ UnsupportedDefinition expr
+generateAssignment expr =
   E.throwError $ UnsupportedDefinition expr
