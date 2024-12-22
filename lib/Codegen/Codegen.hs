@@ -60,6 +60,8 @@ data CodegenError
   | UnsupportedGlobalVar AT.Literal
   | UnsupportedLocalVar AT.Literal
   | UnsupportedDefinition AT.Expr
+  | UnsupportedForDefinition AT.Expr
+  | UnsupportedWhileDefinition AT.Expr
   | VariableNotFound String
   | UnsupportedFunctionCall String
   deriving (Show)
@@ -128,6 +130,8 @@ instance ExprGen AT.Expr where
     AT.Call {} -> generateFunctionCall expr
     AT.ArrayAccess {} -> generateArrayAccess expr
     AT.Cast {} -> generateCast expr
+    AT.For {} -> generateForLoop expr
+    AT.While {} -> generateWhileLoop expr
     _ -> E.throwError $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for constants.
@@ -359,3 +363,42 @@ generateCast (AT.Cast _ typ expr) = do
     _ -> E.throwError $ UnsupportedType typ
 generateCast expr =
   E.throwError $ UnsupportedDefinition expr
+
+-- | Generate LLVM code for for loops.
+generateForLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateForLoop (AT.For _ init' cond update body) = mdo
+  _ <- generateExpr init'
+  I.br condBlock
+
+  condBlock <- IRM.block `IRM.named` U.stringToByteString "cond"
+  condValue <- generateExpr cond
+  I.condBr condValue bodyBlock mergeBlock
+
+  bodyBlock <- IRM.block `IRM.named` U.stringToByteString "body"
+  _ <- generateExpr body
+  I.br stepBlock
+
+  stepBlock <- IRM.block `IRM.named` U.stringToByteString "step"
+  _ <- generateExpr update
+  I.br condBlock
+
+  mergeBlock <- IRM.block `IRM.named` U.stringToByteString "merge"
+  pure $ AST.ConstantOperand $ C.Undef T.void
+generateForLoop expr = E.throwError $ UnsupportedForDefinition expr
+
+-- | Generate LLVM code for while loops.
+generateWhileLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateWhileLoop (AT.While _ cond body) = mdo
+  I.br condBlock
+
+  condBlock <- IRM.block `IRM.named` U.stringToByteString "cond"
+  condValue <- generateExpr cond
+  I.condBr condValue bodyBlock mergeBlock
+
+  bodyBlock <- IRM.block `IRM.named` U.stringToByteString "body"
+  _ <- generateExpr body
+  I.br condBlock
+
+  mergeBlock <- IRM.block `IRM.named` U.stringToByteString "merge"
+  pure $ AST.ConstantOperand $ C.Undef T.void
+generateWhileLoop expr = E.throwError $ UnsupportedWhileDefinition expr
