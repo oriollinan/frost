@@ -19,6 +19,7 @@ import qualified Control.Monad.State as S
 import qualified Data.List as L
 import qualified LLVM.AST as AST
 import qualified LLVM.AST.Constant as C
+import qualified LLVM.AST.Float as FF
 import qualified LLVM.AST.IntegerPredicate as IP
 import qualified LLVM.AST.Type as T
 import qualified LLVM.AST.Typed as TD
@@ -126,6 +127,7 @@ instance ExprGen AT.Expr where
     AT.UnaryOp {} -> generateUnaryOp expr
     AT.Call {} -> generateFunctionCall expr
     AT.ArrayAccess {} -> generateArrayAccess expr
+    AT.Cast {} -> generateCast expr
     _ -> E.throwError $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for constants.
@@ -134,10 +136,11 @@ generateConstant lit = case lit of
   AT.LInt n -> return $ C.Int 32 (fromIntegral n)
   AT.LChar c -> return $ C.Int 8 (fromIntegral $ fromEnum c)
   AT.LBool b -> return $ C.Int 1 (if b then 1 else 0)
+  AT.LNull -> return $ C.Null T.i8
+  AT.LFloat f -> pure $ C.Float (FF.Single (realToFrac f))
   AT.LArray elems -> do
     constants <- mapM generateConstant elems
     return $ C.Array (TD.typeOf $ head constants) constants
-  _ -> E.throwError $ UnsupportedLiteral lit
 
 -- | Generate LLVM code for literals.
 generateLiteral :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -334,4 +337,23 @@ generateArrayAccess (AT.ArrayAccess _ (AT.Var _ name _) indexExpr) = do
   elementPtr <- I.gep ptr [IC.int32 0, index]
   I.load elementPtr 0
 generateArrayAccess expr =
+  E.throwError $ UnsupportedDefinition expr
+
+-- | Generate LLVM code for type casts.
+generateCast :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateCast (AT.Cast _ typ expr) = do
+  operand <- generateExpr expr
+  let fromType = TD.typeOf operand
+      toType = toLLVM typ
+  case (fromType, toType) of
+    (T.IntegerType fromBits, T.IntegerType toBits) | fromBits < toBits -> I.zext operand toType
+    (T.IntegerType fromBits, T.IntegerType toBits) | fromBits > toBits -> I.trunc operand toType
+    (T.IntegerType _, T.FloatingPointType _) -> I.sitofp operand toType
+    (T.FloatingPointType _, T.IntegerType _) -> I.fptosi operand toType
+    (T.FloatingPointType _, T.FloatingPointType _) -> I.fptrunc operand toType
+    (T.ArrayType _ _, T.PointerType _ _) -> I.bitcast operand toType
+    (T.ArrayType _ _, T.ArrayType _ _) -> I.bitcast operand toType
+    (T.IntegerType _, T.PointerType _ _) -> I.inttoptr operand toType
+    _ -> E.throwError $ UnsupportedType typ
+generateCast expr =
   E.throwError $ UnsupportedDefinition expr
