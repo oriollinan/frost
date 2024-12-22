@@ -346,8 +346,10 @@ generateCast (AT.Cast _ typ expr) = do
   let fromType = TD.typeOf operand
       toType = toLLVM typ
   case (fromType, toType) of
-    (T.IntegerType fromBits, T.IntegerType toBits) | fromBits < toBits -> I.zext operand toType
-    (T.IntegerType fromBits, T.IntegerType toBits) | fromBits > toBits -> I.trunc operand toType
+    (T.IntegerType fromBits, T.IntegerType toBits)
+      | fromBits < toBits -> I.zext operand toType
+    (T.IntegerType fromBits, T.IntegerType toBits)
+      | fromBits > toBits -> I.trunc operand toType
     (T.IntegerType _, T.FloatingPointType _) -> I.sitofp operand toType
     (T.FloatingPointType _, T.IntegerType _) -> I.fptosi operand toType
     (T.FloatingPointType _, T.FloatingPointType _) -> I.fptrunc operand toType
