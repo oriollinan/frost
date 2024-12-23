@@ -34,10 +34,13 @@ type LocalState = [(String, AST.Operand)]
 -- | Type alias for the global code generation state.
 type GlobalState = [(String, AST.Operand)]
 
+type LoopState = Maybe (AST.Name, AST.Name)
+
 -- | Combined state for code generation.
 data CodegenState = CodegenState
   { localState :: LocalState,
-    globalState :: GlobalState
+    globalState :: GlobalState,
+    loopState :: LoopState
   }
   deriving (Show)
 
@@ -64,6 +67,8 @@ data CodegenError
   | UnsupportedWhileDefinition AT.Expr
   | VariableNotFound String
   | UnsupportedFunctionCall String
+  | ContinueOutsideLoop
+  | BreakOutsideLoop
   deriving (Show)
 
 -- | Variable binding typeclass.
@@ -104,7 +109,7 @@ codegen program =
   E.runExcept $
     M.buildModuleT (U.stringToByteString $ AT.sourceFile program) $
       IRM.runIRBuilderT IRM.emptyIRBuilder $
-        S.evalStateT (mapM_ (generateGlobal . snd) (AT.globals program)) (CodegenState [] [])
+        S.evalStateT (mapM_ (generateGlobal . snd) (AT.globals program)) (CodegenState [] [] Nothing)
 
 -- | Generate LLVM code for global expressions.
 generateGlobal :: (MonadCodegen m) => AT.Expr -> m ()
@@ -132,6 +137,8 @@ instance ExprGen AT.Expr where
     AT.Cast {} -> generateCast expr
     AT.For {} -> generateForLoop expr
     AT.While {} -> generateWhileLoop expr
+    AT.Break {} -> generateBreak expr
+    AT.Continue {} -> generateContinue expr
     _ -> E.throwError $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for constants.
@@ -235,15 +242,15 @@ generateIf (AT.If _ cond then_ else_) = mdo
   test <- I.icmp IP.NE condValue (AST.ConstantOperand $ C.Int 1 0)
   I.condBr test thenBlock elseBlock
 
-  thenBlock <- IRM.block `IRM.named` U.stringToByteString "then"
+  thenBlock <- IRM.block `IRM.named` U.stringToByteString "ifThen"
   thenValue <- generateExpr then_
   I.br mergeBB
 
-  elseBlock <- IRM.block `IRM.named` U.stringToByteString "else"
+  elseBlock <- IRM.block `IRM.named` U.stringToByteString "ifElse"
   elseValue <- maybe (pure $ AST.ConstantOperand $ C.Undef T.void) generateExpr else_
   I.br mergeBB
 
-  mergeBB <- IRM.block `IRM.named` U.stringToByteString "merge"
+  mergeBB <- IRM.block `IRM.named` U.stringToByteString "ifMerge"
   I.phi [(thenValue, thenBlock), (elseValue, elseBlock)]
 generateIf expr =
   E.throwError $ UnsupportedDefinition expr
@@ -370,19 +377,22 @@ generateForLoop (AT.For _ init' cond update body) = mdo
   _ <- generateExpr init'
   I.br condBlock
 
-  condBlock <- IRM.block `IRM.named` U.stringToByteString "cond"
+  condBlock <- IRM.block `IRM.named` U.stringToByteString "forCond"
   condValue <- generateExpr cond
   I.condBr condValue bodyBlock mergeBlock
 
-  bodyBlock <- IRM.block `IRM.named` U.stringToByteString "body"
+  bodyBlock <- IRM.block `IRM.named` U.stringToByteString "forBody"
+  state <- S.gets loopState
+  S.modify (\s -> s {loopState = Just (condBlock, mergeBlock)})
   _ <- generateExpr body
+  S.modify (\s -> s {loopState = state})
   I.br stepBlock
 
-  stepBlock <- IRM.block `IRM.named` U.stringToByteString "step"
+  stepBlock <- IRM.block `IRM.named` U.stringToByteString "forStep"
   _ <- generateExpr update
   I.br condBlock
 
-  mergeBlock <- IRM.block `IRM.named` U.stringToByteString "merge"
+  mergeBlock <- IRM.block `IRM.named` U.stringToByteString "forMerge"
   pure $ AST.ConstantOperand $ C.Undef T.void
 generateForLoop expr = E.throwError $ UnsupportedForDefinition expr
 
@@ -391,14 +401,35 @@ generateWhileLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateWhileLoop (AT.While _ cond body) = mdo
   I.br condBlock
 
-  condBlock <- IRM.block `IRM.named` U.stringToByteString "cond"
+  condBlock <- IRM.block `IRM.named` U.stringToByteString "whileCond"
   condValue <- generateExpr cond
   I.condBr condValue bodyBlock mergeBlock
 
-  bodyBlock <- IRM.block `IRM.named` U.stringToByteString "body"
+  bodyBlock <- IRM.block `IRM.named` U.stringToByteString "whileBody"
+  state <- S.gets loopState
+  S.modify (\s -> s {loopState = Just (condBlock, mergeBlock)})
   _ <- generateExpr body
+  S.modify (\s -> s {loopState = state})
   I.br condBlock
 
-  mergeBlock <- IRM.block `IRM.named` U.stringToByteString "merge"
+  mergeBlock <- IRM.block `IRM.named` U.stringToByteString "whileMerge"
   pure $ AST.ConstantOperand $ C.Undef T.void
 generateWhileLoop expr = E.throwError $ UnsupportedWhileDefinition expr
+
+generateBreak :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateBreak (AT.Break _) = do
+  state <- S.get
+  case loopState state of
+    Just (_, breakBlock) -> I.br breakBlock >> pure (AST.ConstantOperand $ C.Undef T.void)
+    Nothing -> E.throwError ContinueOutsideLoop
+generateBreak expr =
+  E.throwError $ UnsupportedDefinition expr
+
+generateContinue :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateContinue (AT.Continue _) = do
+  state <- S.get
+  case loopState state of
+    Just (continueBlock, _) -> I.br continueBlock >> pure (AST.ConstantOperand $ C.Undef T.void)
+    Nothing -> E.throwError ContinueOutsideLoop
+generateContinue expr =
+  E.throwError $ UnsupportedDefinition expr
