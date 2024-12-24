@@ -2,7 +2,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ImpredicativeTypes #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE TupleSections #-}
@@ -106,7 +105,7 @@ class ToLLVM a where
   toLLVM :: a -> T.Type
 
 instance ToLLVM AT.Type where
-  toLLVM = \case
+  toLLVM expr = case expr of
     AT.TInt width -> T.IntegerType (fromIntegral width)
     AT.TFloat -> T.FloatingPointType T.FloatFP
     AT.TDouble -> T.FloatingPointType T.DoubleFP
@@ -116,7 +115,11 @@ instance ToLLVM AT.Type where
     AT.TPointer t -> T.ptr (toLLVM t)
     AT.TArray t (Just n) -> T.ArrayType (fromIntegral n) (toLLVM t)
     AT.TArray t Nothing -> T.ptr (toLLVM t)
-    _ -> undefined
+    AT.TFunction ret params var -> T.FunctionType (toLLVM ret) (map toLLVM params) var
+    AT.TStruct _ fields -> T.StructureType False (map (toLLVM . snd) fields)
+    AT.TUnion _ variants -> T.StructureType False (map (toLLVM . snd) variants)
+    AT.TTypedef _ t -> toLLVM t
+    AT.TMutable t -> toLLVM t
 
 -- | Generate LLVM code for a program.
 codegen :: AT.Program -> Either CodegenError AST.Module
@@ -170,6 +173,7 @@ instance ExprGen AT.Expr where
     AT.While {} -> generateWhileLoop expr
     AT.Break {} -> generateBreak expr
     AT.Continue {} -> generateContinue expr
+    AT.Assignment {} -> generateAssignment expr
     _ -> E.throwError $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for constants.
@@ -218,7 +222,14 @@ binaryOperators =
     BinaryOp AT.Sub I.sub,
     BinaryOp AT.Mul I.mul,
     BinaryOp AT.Div I.sdiv,
-    BinaryOp AT.Mod I.srem
+    BinaryOp AT.Mod I.srem,
+    BinaryOp AT.BitAnd I.and,
+    BinaryOp AT.BitOr I.or,
+    BinaryOp AT.BitXor I.xor,
+    BinaryOp AT.BitShl I.shl,
+    BinaryOp AT.BitShr I.ashr,
+    BinaryOp AT.And I.and,
+    BinaryOp AT.Or I.or
   ]
     ++ map mkComparisonOp comparisonOps
   where
@@ -235,16 +246,38 @@ binaryOperators =
 -- | Unary operation data type.
 data UnaryOp m = UnaryOp
   { unaryMapping :: AT.UnaryOperation,
-    unaryFunction :: AST.Operand -> IRM.IRBuilderT (M.ModuleBuilderT m) AST.Operand
+    unaryFunction :: AST.Operand -> m AST.Operand
   }
 
 -- | List of supported unary operators.
 unaryOperators :: (MonadCodegen m) => [UnaryOp m]
-unaryOperators = undefined
+unaryOperators =
+  [ UnaryOp AT.Not (\operand -> I.xor operand (AST.ConstantOperand $ C.Int 1 1)),
+    UnaryOp AT.BitNot (\operand -> I.xor operand (AST.ConstantOperand $ C.Int 32 (-1))),
+    UnaryOp AT.Deref (`I.load` 0),
+    UnaryOp AT.AddrOf pure,
+    UnaryOp AT.PreInc (\operand -> I.add operand (AST.ConstantOperand $ C.Int 32 1)),
+    UnaryOp AT.PreDec (\operand -> I.sub operand (AST.ConstantOperand $ C.Int 32 1)),
+    UnaryOp AT.PostInc (postOp I.add),
+    UnaryOp AT.PostDec (postOp I.sub)
+  ]
+  where
+    postOp op operand = do
+      result <- I.load operand 0
+      I.store operand 0 =<< op result (AST.ConstantOperand $ C.Int 32 1)
+      pure result
 
 -- | Generate LLVM code for unary operations.
 generateUnaryOp :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateUnaryOp = undefined
+generateUnaryOp (AT.UnaryOp _ op expr) = do
+  operand <- generateExpr expr
+  case findOperator op of
+    Just f -> f operand
+    Nothing -> E.throwError $ UnsupportedUnaryOperator op
+  where
+    findOperator op' = L.find ((== op') . unaryMapping) unaryOperators >>= Just . unaryFunction
+generateUnaryOp expr =
+  E.throwError $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for variable references.
 generateVar :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -288,20 +321,20 @@ generateIf expr =
 
 -- | Generate LLVM code for function definitions.
 generateFunction :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateFunction = \case
-  AT.Function _ name (AT.TFunction ret params False) paramNames body -> do
-    let funcName = AST.Name $ U.stringToByteString name
-        paramTypes = zipWith mkParam params paramNames
-        funcType = T.ptr $ T.FunctionType (toLLVM ret) (map fst paramTypes) False
-    addGlobalVar name $ AST.ConstantOperand $ C.GlobalReference funcType funcName
-    M.function funcName paramTypes (toLLVM ret) $ \ops -> do
-      S.modify (\s -> s {localState = []})
-      S.zipWithM_ addVar paramNames ops
-      result <- generateExpr body
-      I.ret result
-  _ -> undefined
+generateFunction (AT.Function _ name (AT.TFunction ret params False) paramNames body) = do
+  let funcName = AST.Name $ U.stringToByteString name
+      paramTypes = zipWith mkParam params paramNames
+      funcType = T.ptr $ T.FunctionType (toLLVM ret) (map fst paramTypes) False
+  addGlobalVar name $ AST.ConstantOperand $ C.GlobalReference funcType funcName
+  M.function funcName paramTypes (toLLVM ret) $ \ops -> do
+    S.modify (\s -> s {localState = []})
+    S.zipWithM_ addVar paramNames ops
+    result <- generateExpr body
+    I.ret result
   where
     mkParam t n = (toLLVM t, M.ParameterName $ U.stringToByteString n)
+generateFunction expr =
+  E.throwError $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for declarations.
 generateDeclaration :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -447,15 +480,17 @@ generateWhileLoop (AT.While _ cond body) = mdo
   pure $ AST.ConstantOperand $ C.Undef T.void
 generateWhileLoop expr = E.throwError $ UnsupportedWhileDefinition expr
 
+-- | Generate LLVM code for break statements.
 generateBreak :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateBreak (AT.Break _) = do
   state <- S.get
   case loopState state of
     Just (_, breakBlock) -> I.br breakBlock >> pure (AST.ConstantOperand $ C.Undef T.void)
-    Nothing -> E.throwError ContinueOutsideLoop
+    Nothing -> E.throwError BreakOutsideLoop
 generateBreak expr =
   E.throwError $ UnsupportedDefinition expr
 
+-- | Generate LLVM code for continue statements.
 generateContinue :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateContinue (AT.Continue _) = do
   state <- S.get
@@ -463,4 +498,29 @@ generateContinue (AT.Continue _) = do
     Just (continueBlock, _) -> I.br continueBlock >> pure (AST.ConstantOperand $ C.Undef T.void)
     Nothing -> E.throwError ContinueOutsideLoop
 generateContinue expr =
+  E.throwError $ UnsupportedDefinition expr
+
+-- | Generate LLVM code for assignments.
+generateAssignment :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateAssignment (AT.Assignment _ expr valueExpr) = do
+  value <- generateExpr valueExpr
+  case expr of
+    AT.Var _ name _ -> do
+      maybeVar <- getVar name
+      case maybeVar of
+        Just ptr -> do
+          I.store ptr 0 value
+          pure value
+        Nothing -> E.throwError $ VariableNotFound name
+    AT.ArrayAccess _ (AT.Var _ name _) indexExpr -> do
+      maybeVar <- getVar name
+      ptr <- case maybeVar of
+        Just arrayPtr -> return arrayPtr
+        Nothing -> E.throwError $ VariableNotFound name
+      index <- generateExpr indexExpr
+      elementPtr <- I.gep ptr [IC.int32 0, index]
+      I.store elementPtr 0 value
+      pure value
+    _ -> E.throwError $ UnsupportedDefinition expr
+generateAssignment expr =
   E.throwError $ UnsupportedDefinition expr
