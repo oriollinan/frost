@@ -294,7 +294,6 @@ generateVar expr =
 -- | Generate LLVM code for blocks.
 generateBlock :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateBlock (AT.Block exprs) = do
-  _ <- IRM.block `IRM.named` U.stringToByteString "block"
   last <$> traverse generateExpr exprs
 generateBlock expr =
   E.throwError $ UnsupportedDefinition expr
@@ -306,15 +305,15 @@ generateIf (AT.If _ cond then_ else_) = mdo
   test <- I.icmp IP.NE condValue (AST.ConstantOperand $ C.Int 1 0)
   I.condBr test thenBlock elseBlock
 
-  thenBlock <- IRM.block `IRM.named` U.stringToByteString "ifThen"
+  thenBlock <- IRM.block `IRM.named` U.stringToByteString "if.then"
   thenValue <- generateExpr then_
   I.br mergeBB
 
-  elseBlock <- IRM.block `IRM.named` U.stringToByteString "ifElse"
+  elseBlock <- IRM.block `IRM.named` U.stringToByteString "if.else"
   elseValue <- maybe (pure $ AST.ConstantOperand $ C.Undef T.void) generateExpr else_
   I.br mergeBB
 
-  mergeBB <- IRM.block `IRM.named` U.stringToByteString "ifMerge"
+  mergeBB <- IRM.block `IRM.named` U.stringToByteString "if.merge"
   I.phi [(thenValue, thenBlock), (elseValue, elseBlock)]
 generateIf expr =
   E.throwError $ UnsupportedDefinition expr
@@ -437,47 +436,48 @@ generateCast expr =
 
 -- | Generate LLVM code for for loops.
 generateForLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateForLoop (AT.For _ init' cond update body) = mdo
-  _ <- generateExpr init'
+generateForLoop (AT.For _ forInit forCond forStep forBody) = mdo
+  _ <- generateExpr forInit
+
   I.br condBlock
 
-  condBlock <- IRM.block `IRM.named` U.stringToByteString "forCond"
-  condValue <- generateExpr cond
-  I.condBr condValue bodyBlock mergeBlock
+  condBlock <- IRM.block `IRM.named` U.stringToByteString "for.cond"
+  condResult <- generateExpr forCond
+  I.condBr condResult bodyBlock exitBlock
 
-  bodyBlock <- IRM.block `IRM.named` U.stringToByteString "forBody"
-  state <- S.gets loopState
-  S.modify (\s -> s {loopState = Just (condBlock, mergeBlock)})
-  _ <- generateExpr body
-  S.modify (\s -> s {loopState = state})
+  bodyBlock <- IRM.block `IRM.named` U.stringToByteString "for.body"
+  case forBody of
+    AT.Block exprs -> mapM_ generateExpr exprs
+    expr -> CM.void $ generateExpr expr
   I.br stepBlock
 
-  stepBlock <- IRM.block `IRM.named` U.stringToByteString "forStep"
-  _ <- generateExpr update
+  stepBlock <- IRM.block `IRM.named` U.stringToByteString "for.step"
+  _ <- generateExpr forStep
   I.br condBlock
 
-  mergeBlock <- IRM.block `IRM.named` U.stringToByteString "forMerge"
-  pure $ AST.ConstantOperand $ C.Undef T.void
-generateForLoop expr = E.throwError $ UnsupportedForDefinition expr
+  exitBlock <- IRM.block `IRM.named` U.stringToByteString "for.exit"
+  return $ AST.ConstantOperand (C.Null T.i8)
+generateForLoop expr =
+  E.throwError $ UnsupportedForDefinition expr
 
 -- | Generate LLVM code for while loops.
 generateWhileLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateWhileLoop (AT.While _ cond body) = mdo
   I.br condBlock
 
-  condBlock <- IRM.block `IRM.named` U.stringToByteString "whileCond"
-  condValue <- generateExpr cond
-  I.condBr condValue bodyBlock mergeBlock
+  condBlock <- IRM.block `IRM.named` U.stringToByteString "while.cond"
+  condOperand <- generateExpr cond
+  I.condBr condOperand bodyBlock exitBlock
 
-  bodyBlock <- IRM.block `IRM.named` U.stringToByteString "whileBody"
-  state <- S.gets loopState
-  S.modify (\s -> s {loopState = Just (condBlock, mergeBlock)})
-  _ <- generateExpr body
-  S.modify (\s -> s {loopState = state})
+  bodyBlock <- IRM.block `IRM.named` U.stringToByteString "while.body"
+  case body of
+    AT.Block stmts -> mapM_ generateExpr stmts
+    _ -> CM.void $ generateExpr body
   I.br condBlock
 
-  mergeBlock <- IRM.block `IRM.named` U.stringToByteString "whileMerge"
-  pure $ AST.ConstantOperand $ C.Undef T.void
+  exitBlock <- IRM.block `IRM.named` U.stringToByteString "while.exit"
+
+  pure $ AST.ConstantOperand (C.Null T.i8)
 generateWhileLoop expr = E.throwError $ UnsupportedWhileDefinition expr
 
 -- | Generate LLVM code for break statements.
