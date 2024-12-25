@@ -32,7 +32,11 @@ import qualified LLVM.IRBuilder.Monad as IRM
 type LocalState = [(String, AST.Operand)]
 
 -- | Type alias for the global code generation state.
-type GlobalState = [(String, AST.Operand)]
+data GlobalState = GlobalState
+  { globalOperands :: [(String, AST.Operand)],
+    globalTypes :: [(String, AST.Type)]
+  }
+  deriving (Show)
 
 type LoopState = Maybe (AST.Name, AST.Name)
 
@@ -77,16 +81,27 @@ class (Monad m) => VarBinding m where
   addVar :: String -> AST.Operand -> m ()
   getGlobalVar :: String -> m (Maybe AST.Operand)
   addGlobalVar :: String -> AST.Operand -> m ()
+  getGlobalType :: String -> m (Maybe AST.Type)
+  addGlobalType :: String -> AST.Type -> m ()
 
+-- | Implementation of the VarBinding typeclass.
 instance (MonadCodegen m, Monad m) => VarBinding m where
   getVar name = do
     state <- S.get
-    return $ lookup name (localState state) `S.mplus` lookup name (globalState state)
-  addVar name operand = S.modify (\s -> s {localState = (name, operand) : localState s})
-  getGlobalVar name = S.gets (lookup name . globalState)
-  addGlobalVar name operand = S.modify (\s -> s {globalState = (name, operand) : globalState s})
+    let local = lookup name (localState state)
+        global = lookup name (globalOperands (globalState state))
+    return $ local `S.mplus` global
+  addVar name operand = S.modify $ \s ->
+    s {localState = (name, operand) : localState s}
+  getGlobalVar name = S.gets (lookup name . globalOperands . globalState)
+  addGlobalVar name operand = S.modify $ \s ->
+    let gs = globalState s
+     in s {globalState = gs {globalOperands = (name, operand) : globalOperands gs}}
+  getGlobalType name = S.gets (lookup name . globalTypes . globalState)
+  addGlobalType name typ = S.modify $ \s ->
+    let gs = globalState s
+     in s {globalState = gs {globalTypes = (name, typ) : globalTypes gs}}
 
--- | Type conversion to LLVM IR.
 class ToLLVM a where
   toLLVM :: a -> T.Type
 
@@ -109,13 +124,29 @@ codegen program =
   E.runExcept $
     M.buildModuleT (U.stringToByteString $ AT.sourceFile program) $
       IRM.runIRBuilderT IRM.emptyIRBuilder $
-        S.evalStateT (mapM_ (generateGlobal . snd) (AT.globals program)) (CodegenState [] [] Nothing)
+        S.evalStateT codegenAction (CodegenState [] (GlobalState [] []) Nothing)
+  where
+    codegenAction = do
+      mapM_ (generateGlobalOperands . snd) (AT.globals program)
+      mapM_ (generateGlobalTypes . snd) (AT.types program)
 
 -- | Generate LLVM code for global expressions.
-generateGlobal :: (MonadCodegen m) => AT.Expr -> m ()
-generateGlobal expr = case expr of
+generateGlobalOperands :: (MonadCodegen m) => AT.Expr -> m ()
+generateGlobalOperands expr = case expr of
   AT.Function {} -> CM.void $ generateFunction expr
   _ -> E.throwError $ UnsupportedTopLevel expr
+
+-- | Generate LLVM code for global expressions.
+generateGlobalTypes :: (MonadCodegen m) => AT.Type -> m ()
+generateGlobalTypes expr = case expr of
+  AT.TStruct {} -> generateStructType expr
+  _ -> E.throwError $ UnsupportedType expr
+
+generateStructType :: (MonadCodegen m) => AT.Type -> m ()
+generateStructType (AT.TStruct name fields) = do
+  let structType = T.StructureType False (map (toLLVM . snd) fields)
+  addGlobalType name structType
+generateStructType _ = E.throwError $ UnsupportedType AT.TVoid
 
 -- | Generate LLVM code for an expression.
 class ExprGen a where
