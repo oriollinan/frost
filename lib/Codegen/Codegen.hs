@@ -436,23 +436,21 @@ generateCast expr =
 
 -- | Generate LLVM code for for loops.
 generateForLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateForLoop (AT.For _ forInit forCond forStep forBody) = mdo
-  _ <- generateExpr forInit
+generateForLoop (AT.For _ init' cond step body) = mdo
+  _ <- generateExpr init'
 
   I.br condBlock
 
   condBlock <- IRM.block `IRM.named` U.stringToByteString "for.cond"
-  condResult <- generateExpr forCond
+  condResult <- generateExpr cond
   I.condBr condResult bodyBlock exitBlock
 
   bodyBlock <- IRM.block `IRM.named` U.stringToByteString "for.body"
-  case forBody of
-    AT.Block exprs -> mapM_ generateExpr exprs
-    expr -> CM.void $ generateExpr expr
+  CM.void $ generateExpr body
   I.br stepBlock
 
   stepBlock <- IRM.block `IRM.named` U.stringToByteString "for.step"
-  _ <- generateExpr forStep
+  _ <- generateExpr step
   I.br condBlock
 
   exitBlock <- IRM.block `IRM.named` U.stringToByteString "for.exit"
@@ -470,9 +468,7 @@ generateWhileLoop (AT.While _ cond body) = mdo
   I.condBr condOperand bodyBlock exitBlock
 
   bodyBlock <- IRM.block `IRM.named` U.stringToByteString "while.body"
-  case body of
-    AT.Block stmts -> mapM_ generateExpr stmts
-    _ -> CM.void $ generateExpr body
+  CM.void $ generateExpr body
   I.br condBlock
 
   exitBlock <- IRM.block `IRM.named` U.stringToByteString "while.exit"
