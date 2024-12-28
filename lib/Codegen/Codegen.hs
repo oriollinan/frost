@@ -33,6 +33,7 @@ type LocalState = [(String, AST.Operand)]
 -- | Type alias for the global code generation state.
 type GlobalState = [(String, AST.Operand)]
 
+-- | Type alias for the loop code generation state.
 type LoopState = Maybe (AST.Name, AST.Name)
 
 -- | Combined state for code generation.
@@ -308,18 +309,18 @@ generateIf (AT.If _ cond then_ else_) = mdo
   I.condBr test thenBlock elseBlock
 
   thenBlock <- IRM.block `IRM.named` U.stringToByteString "if.then"
-  CM.void $ generateExpr then_
+  thenValue <- generateExpr then_
   I.br mergeBB
 
   elseBlock <- IRM.block `IRM.named` U.stringToByteString "if.else"
-  case else_ of
-    Just elseExpr -> CM.void $ generateExpr elseExpr
-    Nothing -> pure ()
+  elseValue <- case else_ of
+    Just e -> generateExpr e
+    Nothing -> pure $ AST.ConstantOperand $ C.Undef T.void
   I.br mergeBB
 
   mergeBB <- IRM.block `IRM.named` U.stringToByteString "if.merge"
 
-  pure $ AST.ConstantOperand $ C.Undef T.void
+  I.phi [(thenValue, thenBlock), (elseValue, elseBlock)]
 generateIf expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 
