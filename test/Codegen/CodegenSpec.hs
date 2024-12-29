@@ -122,6 +122,7 @@ spec = H.describe "Codegen" $ do
     H.it "should have the correct number of basic blocks" $ withModule $ \mod' -> do
       let mainFunc = getMainFunc mod'
       length (G.basicBlocks mainFunc) `H.shouldBe` 4
+
     H.it "should have correct module name" $ withModule $ \mod' ->
       AST.moduleName mod' `H.shouldBe` U.stringToByteString "sample.c"
 
@@ -144,3 +145,105 @@ spec = H.describe "Codegen" $ do
       case terminator of
         AST.Do (AST.CondBr {}) -> return ()
         _ -> H.expectationFailure "Expected conditional branch instruction"
+
+  H.context "when testing individual codegen functions" $ do
+    let wrapInFunction expr =
+          AT.Function
+            { AT.funcLoc = sampleLoc,
+              AT.funcName = "test",
+              AT.funcType = AT.TFunction (AT.TInt 32) [] False,
+              AT.funcParams = [],
+              AT.funcBody =
+                AT.Block
+                  [ expr,
+                    AT.Return sampleLoc (Just (AT.Lit sampleLoc (AT.LInt 0)))
+                  ]
+            }
+
+    H.describe "generateIf" $ do
+      H.it "should generate correct branch structure" $ do
+        let ifExpr =
+              AT.If
+                sampleLoc
+                (AT.Lit sampleLoc (AT.LBool True))
+                (AT.Lit sampleLoc (AT.LInt 1))
+                (Just (AT.Lit sampleLoc (AT.LInt 0)))
+
+        let blocks = generateTestBlocks (wrapInFunction ifExpr)
+        length blocks `H.shouldBe` 4
+
+    H.describe "generateVar" $ do
+      H.it "should handle variable lookup correctly" $ do
+        let varExpr = AT.Var sampleLoc "x" (AT.TInt 32)
+        let varDecl =
+              AT.Declaration
+                sampleLoc
+                "x"
+                (AT.TInt 32)
+                (Just (AT.Lit sampleLoc (AT.LInt 42)))
+
+        let blocks = generateTestBlocks (wrapInFunction (AT.Block [varDecl, varExpr]))
+        length blocks `H.shouldBe` 1
+
+    H.describe "generateBinaryOp" $ do
+      H.it "should generate correct arithmetic operations" $ do
+        let addExpr =
+              AT.Op
+                sampleLoc
+                AT.Add
+                (AT.Lit sampleLoc (AT.LInt 5))
+                (AT.Lit sampleLoc (AT.LInt 3))
+
+        let blocks = generateTestBlocks (wrapInFunction addExpr)
+        let instrs = getInstructions blocks
+        any isAddInstr instrs `H.shouldBe` True
+
+    H.describe "generateFunction" $ do
+      H.it "should create function with correct signature" $ do
+        let funcExpr =
+              AT.Function
+                sampleLoc
+                "test"
+                (AT.TFunction (AT.TInt 32) [] False)
+                []
+                (AT.Block [AT.Return sampleLoc (Just (AT.Lit sampleLoc (AT.LInt 0)))])
+
+        let blocks = generateTestBlocks funcExpr
+        length blocks `H.shouldBe` 1
+
+    H.describe "generateDeclaration" $ do
+      H.it "should allocate and initialize variables" $ do
+        let declExpr =
+              AT.Declaration
+                sampleLoc
+                "x"
+                (AT.TInt 32)
+                (Just (AT.Lit sampleLoc (AT.LInt 42)))
+
+        let blocks = generateTestBlocks (wrapInFunction declExpr)
+        let instrs = getInstructions blocks
+        any isAllocaInstr instrs `H.shouldBe` True
+        any isStoreInstr instrs `H.shouldBe` True
+  where
+    sampleLoc = AT.SrcLoc "test.c" 1 1
+
+    generateTestBlocks expr = case C.codegen testProg of
+      Right mod' -> concatMap G.basicBlocks $ getDefinitions mod'
+      Left _ -> []
+      where
+        testProg = AT.Program [("test", expr)] [] "test.c"
+
+    getDefinitions mod' =
+      [f | AST.GlobalDefinition f@(AST.Function {}) <- AST.moduleDefinitions mod']
+
+    getInstructions blocks =
+      [i | G.BasicBlock _ instrs _ <- blocks, i <- instrs]
+
+    isAddInstr (AST.UnName _ AST.:= AST.Add {}) = True
+    isAddInstr _ = False
+
+    isAllocaInstr (AST.UnName _ AST.:= AST.Alloca {}) = True
+    isAllocaInstr _ = False
+
+    isStoreInstr (AST.Do (AST.Store {})) = True
+    isStoreInstr _ = False
