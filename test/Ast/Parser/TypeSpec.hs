@@ -37,6 +37,16 @@ spec = do
     it "parses mutable int" $ do
       parse P.parseType "" "mutable int" `shouldBe` Right (AT.TMutable (AT.TInt 0))
 
+  describe "Array Types" $ do
+    it "parses []int" $ do
+      parse P.parseType "" "[]int" `shouldBe` Right (AT.TArray (AT.TInt 0) Nothing)
+
+    it "parses [10]int" $ do
+      parse P.parseType "" "[10]int" `shouldBe` Right (AT.TArray (AT.TInt 0) (Just 10))
+
+    it "parses []float" $ do
+      parse P.parseType "" "[]float" `shouldBe` Right (AT.TArray AT.TFloat Nothing)
+
   describe "Function Types" $ do
     it "parses int -> float" $ do
       parse P.parseType "" ": int -> float" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TFloat, AT.paramTypes = [AT.TInt 0], AT.isVariadic = False})

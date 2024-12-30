@@ -11,7 +11,7 @@ import qualified Text.Megaparsec.Char.Lexer as ML
 -- | Parse a general type. This function combines multiple specific type parsers.
 -- It tries to match typedefs, structs, unions, functions, mutable types, pointers, and base types.
 parseType :: AU.Parser AT.Type
-parseType = AU.triedChoice [structType, unionType, typedefType, functionType, mutableType, pointerType, baseType]
+parseType = AU.triedChoice [structType, unionType, typedefType, functionType, mutableType, arrayType, pointerType, baseType]
 
 -- | A list of predefined base types along with their associated keywords.
 -- These include basic types such as int, float, double, char, bool, and void.
@@ -41,6 +41,15 @@ pointerType = AT.TPointer <$> (MC.char '*' *> parseType)
 -- Example: "mutable int" indicates a mutable integer type.
 mutableType :: AU.Parser AT.Type
 mutableType = AT.TMutable <$> (MC.string "mutable" *> AU.sc *> parseType)
+
+-- | Parses an array type.
+-- An array type is denoted by square brackets "[]" followed by the type.
+-- Example: "[]int" results in an array of integers.
+arrayType :: AU.Parser AT.Type
+arrayType = do
+  size <- M.between (MC.char '[') (MC.char ']') $ M.optional (ML.decimal <* AU.sc)
+  elemType <- parseType
+  return $ AT.TArray elemType size
 
 -- | Parses a struct type definition.
 -- A struct is defined with the "struct" keyword followed by an optional name and a list of fields enclosed in braces.
