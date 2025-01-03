@@ -1,7 +1,9 @@
 module Ast.Parser.UnaryOperationSpec where
 
+import qualified Ast.Parser.Env as E
 import qualified Ast.Parser.UnaryOperation as AUO
 import qualified Ast.Types as AT
+import qualified Control.Monad.State as S
 import Data.Either (isLeft)
 import Test.Hspec
 import qualified Text.Megaparsec as M
@@ -9,43 +11,38 @@ import qualified Text.Megaparsec.Char as MC
 
 spec :: Spec
 spec = do
+  let initialEnv = E.emptyEnv
+  let parseWithEnv input =
+        fst $ S.runState (M.runParserT (AUO.parseUnaryOperation (MC.string "x")) "" input) initialEnv
+
   describe "parseUnaryOperation" $ do
     it "parses logical NOT" $ do
-      M.parse (AUO.parseUnaryOperation (MC.string "x")) "" "!x"
-        `shouldBe` Right AT.Not
+      parseWithEnv "!x" `shouldBe` Right AT.Not
 
     it "parses 'not' logical unary operator" $ do
-      M.parse (AUO.parseUnaryOperation (MC.string "x")) "" "not x"
-        `shouldBe` Right AT.Not
+      parseWithEnv "not x" `shouldBe` Right AT.Not
 
     it "parses bitwise NOT" $ do
-      M.parse (AUO.parseUnaryOperation (MC.string "x")) "" "~x"
-        `shouldBe` Right AT.BitNot
+      parseWithEnv "~x" `shouldBe` Right AT.BitNot
 
     it "parses address-of operator" $ do
-      M.parse (AUO.parseUnaryOperation (MC.string "x")) "" "&x"
-        `shouldBe` Right AT.AddrOf
+      parseWithEnv "&x" `shouldBe` Right AT.AddrOf
 
     it "parses pre-unary increment" $ do
-      M.parse (AUO.parseUnaryOperation (MC.string "x")) "" "++x"
-        `shouldBe` Right AT.PreInc
+      parseWithEnv "++x" `shouldBe` Right AT.PreInc
 
     it "parses pre-unary decrement" $ do
-      M.parse (AUO.parseUnaryOperation (MC.string "x")) "" "--x"
-        `shouldBe` Right AT.PreDec
+      parseWithEnv "--x" `shouldBe` Right AT.PreDec
 
     it "parses dereference operator" $ do
-      M.parse (AUO.parseUnaryOperation (MC.string "x")) "" "x."
-        `shouldBe` Right AT.Deref
+      parseWithEnv "x." `shouldBe` Right AT.Deref
 
     it "parses post-unary increment" $ do
-      M.parse (AUO.parseUnaryOperation (MC.string "x")) "" "x++"
-        `shouldBe` Right AT.PostInc
+      parseWithEnv "x++" `shouldBe` Right AT.PostInc
 
     it "parses post-unary decrement" $ do
-      M.parse (AUO.parseUnaryOperation (MC.string "x")) "" "x--"
-        `shouldBe` Right AT.PostDec
+      parseWithEnv "x--" `shouldBe` Right AT.PostDec
 
     it "returns error for invalid operator" $ do
-      M.parse (AUO.parseUnaryOperation (MC.string "x")) "" "invalid"
-        `shouldSatisfy` isLeft
+      let result = parseWithEnv "invalid"
+      isLeft result `shouldBe` True

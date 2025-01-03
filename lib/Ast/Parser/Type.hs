@@ -1,7 +1,9 @@
 module Ast.Parser.Type where
 
+import qualified Ast.Parser.Env as E
 import qualified Ast.Types as AT
 import qualified Ast.Utils as AU
+import qualified Control.Monad.State as S
 import Data.Functor (($>))
 import Text.Megaparsec ((<|>))
 import qualified Text.Megaparsec as M
@@ -11,7 +13,7 @@ import qualified Text.Megaparsec.Char.Lexer as ML
 -- | Parse a general type. This function combines multiple specific type parsers.
 -- It tries to match typedefs, structs, unions, functions, mutable types, pointers, and base types.
 parseType :: AU.Parser AT.Type
-parseType = AU.triedChoice [structType, unionType, typedefType, functionType, mutableType, arrayType, pointerType, baseType]
+parseType = AU.triedChoice [structType, unionType, typedefType, functionType, mutableType, arrayType, pointerType, baseType, customType]
 
 -- | A list of predefined base types along with their associated keywords.
 -- These include basic types such as int, float, double, char, bool, and void.
@@ -59,7 +61,9 @@ structType = do
   name <- identifier
   _ <- AU.symbol "::" <* AU.symbol "struct"
   fields <- M.between (MC.char '{') (MC.char '}') $ M.many (AU.sc *> parseField)
-  return $ AT.TStruct {AT.structName = name, AT.fields = fields}
+  let structType = AT.TStruct {AT.structName = name, AT.fields = fields}
+  S.modify (E.insertType name structType)
+  return structType
 
 -- | Parses a union type definition.
 -- A union is defined with the "union" keyword followed by an optional name and a list of variants enclosed in braces.
@@ -69,7 +73,9 @@ unionType = do
   name <- identifier
   _ <- AU.symbol "::" <* AU.symbol "union"
   variants <- M.between (MC.char '{') (MC.char '}') $ M.many (AU.sc *> parseField)
-  return $ AT.TUnion {AT.unionName = name, AT.variants = variants}
+  let unionType = AT.TUnion {AT.unionName = name, AT.variants = variants}
+  S.modify (E.insertType name unionType)
+  return unionType
 
 -- | Parses a typedef.
 -- A typedef associates a new name with an existing type using the "::" syntax.
@@ -78,7 +84,10 @@ typedefType :: AU.Parser AT.Type
 typedefType = do
   name <- identifier
   _ <- AU.symbol "::"
-  AT.TTypedef name <$> parseType
+  baseType <- parseType
+  let typedef = AT.TTypedef name baseType
+  S.modify (E.insertType name typedef)
+  return typedef
 
 -- | Parses a function type.
 -- A function type is defined by its parameter types separated by spaces, followed by "->" and the return type.
@@ -90,6 +99,14 @@ functionType = do
   _ <- AU.symbol "->"
   returnType <- parseType
   return $ AT.TFunction {AT.returnType = returnType, AT.paramTypes = paramTypes, AT.isVariadic = False}
+
+customType :: AU.Parser AT.Type
+customType = do
+  name <- identifier
+  env <- S.get
+  case E.lookupType name env of
+    Just ty -> return ty
+    Nothing -> fail $ "Unknown type: " ++ name
 
 identifier :: AU.Parser String
 identifier = AU.lexeme ((:) <$> MC.letterChar <*> M.many MC.alphaNumChar)

@@ -24,6 +24,7 @@ library
     Ast.Parser
     Ast.Types
     Ast.Utils
+    Ast.Parser.Env
     Ast.Parser.Literal
     Ast.Parser.Operation
     Ast.Parser.UnaryOperation
@@ -79,3 +80,4 @@ test-suite glados-test
     hspec,
     hspec-discover,
     megaparsec >=9.7.0,
+    mtl >=2.2.2 && <2.3
