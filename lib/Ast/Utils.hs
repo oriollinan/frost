@@ -27,3 +27,6 @@ triedChoice :: [Parser a] -> Parser a
 triedChoice ps =
   let triedPs = map M.try (init ps) ++ [last ps]
    in M.choice triedPs
+
+identifier :: Parser String
+identifier = lexeme ((:) <$> MC.letterChar <*> M.many MC.alphaNumChar)

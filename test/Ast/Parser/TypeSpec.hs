@@ -20,6 +20,9 @@ spec = do
     it "parses int" $ do
       parseWithEnv "int" `shouldBe` Right (AT.TInt 0)
 
+    it "parses custon int" $ do
+      parseWithEnv "int8" `shouldBe` Right (AT.TInt 8)
+
     it "parses float" $ do
       parseWithEnv "float" `shouldBe` Right AT.TFloat
 
@@ -44,7 +47,7 @@ spec = do
 
   describe "Mutable Types" $ do
     it "parses mutable int" $ do
-      parseWithEnv "mutable int" `shouldBe` Right (AT.TMutable (AT.TInt 0))
+      parseWithEnv "mut int" `shouldBe` Right (AT.TMutable (AT.TInt 0))
 
   describe "Array Types" $ do
     it "parses []int" $ do
