@@ -1,12 +1,14 @@
 module Ast.Utils where
 
+import qualified Ast.Parser.Env as E
+import qualified Control.Monad.State as S
 import Data.Void (Void)
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
 import qualified Text.Megaparsec.Char.Lexer as ML
 
 -- | A type alias for the parser, based on `Parsec` with `Void` error type and `String` input.
-type Parser = M.Parsec Void String
+type Parser = M.ParsecT Void String (S.State E.Env)
 
 -- | Skips whitespace and comments (starting with `%`). Ensures proper handling of spacing in parsers.
 sc :: Parser ()
@@ -25,3 +27,6 @@ triedChoice :: [Parser a] -> Parser a
 triedChoice ps =
   let triedPs = map M.try (init ps) ++ [last ps]
    in M.choice triedPs
+
+identifier :: Parser String
+identifier = lexeme ((:) <$> MC.letterChar <*> M.many MC.alphaNumChar)

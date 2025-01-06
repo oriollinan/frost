@@ -24,9 +24,11 @@ library
     Ast.Parser
     Ast.Types
     Ast.Utils
-    Ast.Literal
-    Ast.Operation
-    Ast.UnaryOperation
+    Ast.Parser.Env
+    Ast.Parser.Literal
+    Ast.Parser.Operation
+    Ast.Parser.UnaryOperation
+    Ast.Parser.Type
     Codegen.Codegen
     Codegen.Utils
     Misc
@@ -63,9 +65,10 @@ test-suite glados-test
   type: exitcode-stdio-1.0
   other-modules:
     Ast.ParserSpec
-    Ast.LiteralSpec
-    Ast.OperationSpec
-    Ast.UnaryOperationSpec
+    Ast.Parser.TypeSpec
+    Ast.Parser.LiteralSpec
+    Ast.Parser.OperationSpec
+    Ast.Parser.UnaryOperationSpec
     Misc.MiscSpec
 
   hs-source-dirs: test
@@ -77,3 +80,4 @@ test-suite glados-test
     hspec,
     hspec-discover,
     megaparsec >=9.7.0,
+    mtl >=2.2.2 && <2.3
