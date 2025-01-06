@@ -6,7 +6,6 @@ import qualified Ast.Types as AT
 import qualified Control.Monad.State as S
 import Data.Either (isLeft)
 import Test.Hspec
-import Text.Megaparsec (errorBundlePretty)
 import qualified Text.Megaparsec as M
 
 spec :: Spec
@@ -61,10 +60,10 @@ spec = do
 
   describe "Function Types" $ do
     it "parses int -> float" $ do
-      parseWithEnv ": int -> float" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TFloat, AT.paramTypes = [AT.TInt 0], AT.isVariadic = False})
+      parseWithEnv "(int) -> (float)" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TFloat, AT.paramTypes = [AT.TInt 0], AT.isVariadic = False})
 
     it "parses int int -> void" $ do
-      parseWithEnv ": int int -> void" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 0, AT.TInt 0], AT.isVariadic = False})
+      parseWithEnv "(int int) -> (void)" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 0, AT.TInt 0], AT.isVariadic = False})
 
   describe "Struct Types" $ do
     it "parses struct { name -> int }" $ do

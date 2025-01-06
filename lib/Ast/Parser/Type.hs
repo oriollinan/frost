@@ -4,7 +4,6 @@ import qualified Ast.Parser.Env as E
 import qualified Ast.Types as AT
 import qualified Ast.Utils as AU
 import qualified Control.Monad.State as S
-import Text.Megaparsec ((<|>))
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
 import qualified Text.Megaparsec.Char.Lexer as ML
@@ -66,7 +65,7 @@ structType :: AU.Parser AT.Type
 structType = do
   name <- AU.identifier
   _ <- AU.symbol "::" <* AU.symbol "struct"
-  fields <- M.between (MC.char '{') (MC.char '}') $ M.many (AU.lexeme parseField)
+  fields <- M.between (AU.symbol "{") (AU.symbol "}") $ M.many parseField
   let newStructType = AT.TStruct {AT.structName = name, AT.fields = fields}
   S.modify (E.insertType name newStructType)
   return newStructType
@@ -78,7 +77,7 @@ unionType :: AU.Parser AT.Type
 unionType = do
   name <- AU.identifier
   _ <- AU.symbol "::" <* AU.symbol "union"
-  variants <- M.between (MC.char '{') (MC.char '}') $ M.many (AU.lexeme parseField)
+  variants <- M.between (AU.symbol "{") (AU.symbol "}") $ M.many parseField
   let newUnionType = AT.TUnion {AT.unionName = name, AT.variants = variants}
   S.modify (E.insertType name newUnionType)
   return newUnionType
@@ -96,14 +95,14 @@ typedefType = do
   return typedef
 
 -- | Parses a function type.
--- A function type is defined by its parameter types separated by spaces, followed by "->" and the return type.
--- Example: ": Vector2i -> Response" or ": int float -> double".
+-- A function type is defined by its parameter types enclosed in parentheses, followed by "->", and the return type also enclosed in parentheses.
+-- Example: "(int) -> (float)" or "(int int) -> (void)".
+-- TODO: find a way to do it without the parenthesis and avoid the infinite loop of parseType
 functionType :: AU.Parser AT.Type
 functionType = do
-  _ <- AU.symbol ":"
-  paramTypes <- M.some (parseType <* AU.sc)
-  _ <- AU.symbol "->"
-  returnType <- parseType
+  paramTypes <- M.between (AU.symbol "(") (AU.symbol ")") $ M.some (parseType <* AU.sc)
+  _ <- AU.sc *> AU.symbol "->" <* AU.sc
+  returnType <- M.between (AU.symbol "(") (AU.symbol ")") parseType
   return $ AT.TFunction {AT.returnType = returnType, AT.paramTypes = paramTypes, AT.isVariadic = False}
 
 customType :: AU.Parser AT.Type
@@ -119,7 +118,7 @@ customType = do
 -- Example: "x -> int".
 parseField :: AU.Parser (String, AT.Type)
 parseField = do
-  fieldName <- AU.identifier
+  fieldName <- AU.identifier <* AU.sc
   _ <- AU.symbol "->"
   fieldType <- parseType
   return (fieldName, fieldType)
