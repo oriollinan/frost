@@ -17,7 +17,7 @@ parseType = AU.triedChoice [structType, unionType, typedefType, functionType, mu
 -- These include basic types such as int, float, double, char, bool, and void.
 baseTypes :: [(String, AT.Type)]
 baseTypes =
-  [ ("int", AT.TInt 0),
+  [ ("int", AT.TInt 32),
     ("float", AT.TFloat),
     ("double", AT.TDouble),
     ("char", AT.TChar),
@@ -47,14 +47,14 @@ pointerType = AT.TPointer <$> (MC.char '*' *> parseType)
 -- A mutable type is prefixed by the keyword "mut" followed by the type.
 -- Example: "mut int" indicates a mutable integer type.
 mutableType :: AU.Parser AT.Type
-mutableType = AT.TMutable <$> (AU.symbol "mut" *> AU.sc *> parseType)
+mutableType = AT.TMutable <$> (AU.symbol "mut" *> parseType)
 
 -- | Parses an array type.
 -- An array type is denoted by square brackets "[]" followed by the type.
 -- Example: "[]int" results in an array of integers.
 arrayType :: AU.Parser AT.Type
 arrayType = do
-  size <- M.between (MC.char '[') (MC.char ']') $ M.optional (ML.decimal <* AU.sc)
+  size <- M.between (MC.char '[') (MC.char ']') $ M.optional ML.decimal
   elemType <- parseType
   return $ AT.TArray elemType size
 
@@ -89,8 +89,8 @@ typedefType :: AU.Parser AT.Type
 typedefType = do
   name <- AU.identifier
   _ <- AU.symbol "::"
-  baseType <- parseType
-  let typedef = AT.TTypedef name baseType
+  parentType <- parseType
+  let typedef = AT.TTypedef name parentType
   S.modify (E.insertType name typedef)
   return typedef
 
@@ -100,8 +100,8 @@ typedefType = do
 -- TODO: find a way to do it without the parenthesis and avoid the infinite loop of parseType
 functionType :: AU.Parser AT.Type
 functionType = do
-  paramTypes <- M.between (AU.symbol "(") (AU.symbol ")") $ M.some (parseType <* AU.sc)
-  _ <- AU.sc *> AU.symbol "->" <* AU.sc
+  paramTypes <- M.between (AU.symbol "(") (AU.symbol ")") $ M.some (AU.lexeme parseType)
+  _ <- AU.sc *> AU.symbol "->"
   returnType <- M.between (AU.symbol "(") (AU.symbol ")") parseType
   return $ AT.TFunction {AT.returnType = returnType, AT.paramTypes = paramTypes, AT.isVariadic = False}
 
@@ -118,7 +118,7 @@ customType = do
 -- Example: "x -> int".
 parseField :: AU.Parser (String, AT.Type)
 parseField = do
-  fieldName <- AU.identifier <* AU.sc
+  fieldName <- AU.lexeme AU.identifier
   _ <- AU.symbol "->"
   fieldType <- parseType
   return (fieldName, fieldType)

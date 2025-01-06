@@ -17,7 +17,7 @@ spec = do
 
   describe "Base Types" $ do
     it "parses int" $ do
-      parseWithEnv "int" `shouldBe` Right (AT.TInt 0)
+      parseWithEnv "int" `shouldBe` Right (AT.TInt 32)
 
     it "parses custon int" $ do
       parseWithEnv "int8" `shouldBe` Right (AT.TInt 8)
@@ -39,65 +39,65 @@ spec = do
 
   describe "Pointer Types" $ do
     it "parses *int" $ do
-      parseWithEnv "*int" `shouldBe` Right (AT.TPointer (AT.TInt 0))
+      parseWithEnv "*int" `shouldBe` Right (AT.TPointer (AT.TInt 32))
 
     it "parses *void" $ do
       parseWithEnv "*void" `shouldBe` Right (AT.TPointer AT.TVoid)
 
   describe "Mutable Types" $ do
     it "parses mutable int" $ do
-      parseWithEnv "mut int" `shouldBe` Right (AT.TMutable (AT.TInt 0))
+      parseWithEnv "mut int" `shouldBe` Right (AT.TMutable (AT.TInt 32))
 
   describe "Array Types" $ do
     it "parses []int" $ do
-      parseWithEnv "[]int" `shouldBe` Right (AT.TArray (AT.TInt 0) Nothing)
+      parseWithEnv "[]int" `shouldBe` Right (AT.TArray (AT.TInt 32) Nothing)
 
     it "parses [10]int" $ do
-      parseWithEnv "[10]int" `shouldBe` Right (AT.TArray (AT.TInt 0) (Just 10))
+      parseWithEnv "[10]int" `shouldBe` Right (AT.TArray (AT.TInt 32) (Just 10))
 
     it "parses []float" $ do
       parseWithEnv "[]float" `shouldBe` Right (AT.TArray AT.TFloat Nothing)
 
   describe "Function Types" $ do
     it "parses int -> float" $ do
-      parseWithEnv "(int) -> (float)" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TFloat, AT.paramTypes = [AT.TInt 0], AT.isVariadic = False})
+      parseWithEnv "(int) -> (float)" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TFloat, AT.paramTypes = [AT.TInt 32], AT.isVariadic = False})
 
     it "parses int int -> void" $ do
-      parseWithEnv "(int int) -> (void)" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 0, AT.TInt 0], AT.isVariadic = False})
+      parseWithEnv "(int int) -> (void)" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 32, AT.TInt 32], AT.isVariadic = False})
 
   describe "Struct Types" $ do
     it "parses struct { name -> int }" $ do
-      parseWithEnv "test :: struct { name -> int }" `shouldBe` Right (AT.TStruct {AT.structName = "test", AT.fields = [("name", AT.TInt 0)]})
+      parseWithEnv "test :: struct { name -> int }" `shouldBe` Right (AT.TStruct {AT.structName = "test", AT.fields = [("name", AT.TInt 32)]})
 
     it "parses struct with multiple fields" $ do
       parseWithEnv "vec :: struct { x -> float y -> float }" `shouldBe` Right (AT.TStruct {AT.structName = "vec", AT.fields = [("x", AT.TFloat), ("y", AT.TFloat)]})
 
   describe "Union Types" $ do
     it "parses union { name -> int }" $ do
-      parseWithEnv "test :: union { name -> int }" `shouldBe` Right (AT.TUnion {AT.unionName = "test", AT.variants = [("name", AT.TInt 0)]})
+      parseWithEnv "test :: union { name -> int }" `shouldBe` Right (AT.TUnion {AT.unionName = "test", AT.variants = [("name", AT.TInt 32)]})
 
     it "parses union with multiple fields" $ do
       parseWithEnv "vec :: union { x -> float y -> float }" `shouldBe` Right (AT.TUnion {AT.unionName = "vec", AT.variants = [("x", AT.TFloat), ("y", AT.TFloat)]})
 
   describe "Typedefs" $ do
     it "parses typedef alias" $ do
-      parseWithEnv "Alias :: int" `shouldBe` Right (AT.TTypedef "Alias" (AT.TInt 0))
+      parseWithEnv "Alias :: int" `shouldBe` Right (AT.TTypedef "Alias" (AT.TInt 32))
 
   describe "Custom Types" $ do
     it "parses a defined custom struct type" $ do
-      let env = E.insertType "Point" (AT.TStruct "Point" [("x", AT.TInt 0), ("y", AT.TInt 0)]) E.emptyEnv
-      parseWithCustomEnv "Point" env `shouldBe` Right (AT.TStruct "Point" [("x", AT.TInt 0), ("y", AT.TInt 0)])
+      let env = E.insertType "Point" (AT.TStruct "Point" [("x", AT.TInt 32), ("y", AT.TInt 32)]) E.emptyEnv
+      parseWithCustomEnv "Point" env `shouldBe` Right (AT.TStruct "Point" [("x", AT.TInt 32), ("y", AT.TInt 32)])
 
     it "parses a defined custom alias type" $ do
-      let env = E.insertType "Vector2" (AT.TTypedef "Vector2" (AT.TStruct "Point" [("x", AT.TInt 0), ("y", AT.TInt 0)])) E.emptyEnv
-      parseWithCustomEnv "Vector2" env `shouldBe` Right (AT.TTypedef "Vector2" (AT.TStruct "Point" [("x", AT.TInt 0), ("y", AT.TInt 0)]))
+      let env = E.insertType "Vector2" (AT.TTypedef "Vector2" (AT.TStruct "Point" [("x", AT.TInt 32), ("y", AT.TInt 32)])) E.emptyEnv
+      parseWithCustomEnv "Vector2" env `shouldBe` Right (AT.TTypedef "Vector2" (AT.TStruct "Point" [("x", AT.TInt 32), ("y", AT.TInt 32)]))
 
     it "returns an error for an undefined custom type" $ do
       let env = E.emptyEnv
       parseWithCustomEnv "UnknownType" env `shouldSatisfy` isLeft
 
     it "parses nested custom types" $ do
-      let pointType = AT.TStruct "Point" [("x", AT.TInt 0), ("y", AT.TInt 0)]
+      let pointType = AT.TStruct "Point" [("x", AT.TInt 32), ("y", AT.TInt 32)]
       let env =
             E.insertType "Point" pointType $
               E.insertType "Shape" (AT.TStruct "Shape" [("center", pointType)]) E.emptyEnv
