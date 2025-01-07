@@ -75,4 +75,4 @@ customType = do
   env <- S.get
   case E.lookupType name env of
     Just ty -> return ty
-    Nothing -> fail $ "Unknown type: " ++ name
+    Nothing -> M.customFailure $ PU.UnknownType name

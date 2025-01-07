@@ -1,8 +1,8 @@
 module Ast.Parser where
 
 import qualified Ast.Parser.Env as E
+import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
-import qualified Ast.Utils as AU
 import qualified Control.Monad.State as S
 import qualified Text.Megaparsec as M
 
@@ -16,5 +16,5 @@ parse filename input =
 
 -- | Parses the top-level structure of a program.
 -- Returns an `AST` object containing a list of parsed expressions.
-parseProgram :: AU.Parser AT.Program
+parseProgram :: PU.Parser AT.Program
 parseProgram = fail "undefined"

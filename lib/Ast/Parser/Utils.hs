@@ -8,7 +8,18 @@ import qualified Text.Megaparsec.Char as MC
 import qualified Text.Megaparsec.Char.Lexer as ML
 
 -- | A type alias for the parser, based on `Parsec` with `Void` error type and `String` input.
-type Parser = M.ParsecT Void String (S.State E.Env)
+type Parser = M.ParsecT ParseErrorCustom String (S.State E.Env)
+
+data ParseErrorCustom
+  = UnknownType String
+  | UndefinedVar String
+  deriving (Show, Ord, Eq)
+
+instance M.ShowErrorComponent ParseErrorCustom where
+  showErrorComponent (UnknownType n) =
+    "Unknown type: type \"" ++ n ++ "\" does not exist"
+  showErrorComponent (UndefinedVar n) =
+    "Undefined Variable: variable \"" ++ n ++ "\" is not defined"
 
 -- | Skips whitespace and comments (starting with `%`). Ensures proper handling of spacing in parsers.
 sc :: Parser ()
