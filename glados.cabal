@@ -66,12 +66,12 @@ test-suite glados-test
   default-language: Haskell2010
   type: exitcode-stdio-1.0
   other-modules:
-    Ast.ParserSpec
-    Ast.Parser.TypeSpec
-    Ast.Parser.TypeDefinitionSpec
     Ast.Parser.LiteralSpec
     Ast.Parser.OperationSpec
+    Ast.Parser.TypeDefinitionSpec
+    Ast.Parser.TypeSpec
     Ast.Parser.UnaryOperationSpec
+    Ast.ParserSpec
     Misc.MiscSpec
 
   hs-source-dirs: test
