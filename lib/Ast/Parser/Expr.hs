@@ -52,12 +52,12 @@ parseFunction = do
   t <- PU.symbol ":" *> PT.parseType
   params <- PU.symbol "=" *> M.many (PU.lexeme PU.identifier)
   mapM_ (\p -> S.modify (E.insertVar p $ AT.TInt 32)) params
+  S.modify (E.insertVar name t)
   (AT.Block exprs) <- parseBlock
   srcLoc <- parseSrcLoc
   body <- case last exprs of
     (AT.Return _ _) -> return $ AT.Block exprs
     e -> return $ AT.Block $ init exprs ++ [AT.Return srcLoc $ Just e]
-  S.modify (E.insertVar name t)
   return $ AT.Function {AT.funcLoc = srcLoc, AT.funcName = name, AT.funcType = t, AT.funcParams = params, AT.funcBody = body}
 
 parseDeclaration :: PU.Parser AT.Expr

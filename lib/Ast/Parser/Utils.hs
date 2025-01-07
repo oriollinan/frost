@@ -43,4 +43,4 @@ triedChoice ps =
 
 -- | An identifier in our language syntax
 identifier :: Parser String
-identifier = lexeme ((:) <$> MC.letterChar <*> M.many MC.alphaNumChar)
+identifier = lexeme ((:) <$> (MC.letterChar M.<|> M.oneOf "$") <*> M.many (MC.alphaNumChar M.<|> M.oneOf "$"))
