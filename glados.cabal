@@ -34,7 +34,6 @@ library
     Ast.Types
     Codegen.Codegen
     Codegen.Utils
-    Misc
 
   build-depends:
     base ^>=4.17.2.1,
@@ -74,6 +73,7 @@ test-suite glados-test
     Ast.Parser.UnaryOperationSpec
     Ast.ParserSpec
     Misc.MiscSpec
+    Codegen.CodegenSpec
 
   hs-source-dirs: test
   main-is: Spec.hs
@@ -83,5 +83,6 @@ test-suite glados-test
     glados,
     hspec,
     hspec-discover,
+    llvm-hs-pure >=9.0.0 && <9.1,
     megaparsec >=9.7.0,
-    mtl >=2.2.2 && <2.3
+    mtl >=2.2.2 && <2.3,
