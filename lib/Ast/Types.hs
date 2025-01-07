@@ -16,6 +16,7 @@ data Literal
   | LBool Bool
   | LArray [Literal]
   | LNull
+  | LStruct [(String, Literal)]
   deriving (Show, Eq, Ord)
 
 -- | Enhanced type system with size information and qualifiers
