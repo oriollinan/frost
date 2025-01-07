@@ -2,7 +2,6 @@ module Ast.Parser.Utils where
 
 import qualified Ast.Parser.Env as E
 import qualified Control.Monad.State as S
-import Data.Void (Void)
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
 import qualified Text.Megaparsec.Char.Lexer as ML

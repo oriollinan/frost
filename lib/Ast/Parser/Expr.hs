@@ -25,7 +25,7 @@ parseVar = do
   env <- S.get
   case E.lookupVar name env of
     (Just t) -> return $ AT.Var srcLoc name t
-    _ -> fail ""
+    _ -> M.customFailure $ PU.UndefinedVar name
 
 parseDeclaration :: PU.Parser AT.Expr
 parseDeclaration = do
