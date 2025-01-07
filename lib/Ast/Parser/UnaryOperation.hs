@@ -4,6 +4,8 @@ import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
 import qualified Text.Megaparsec as M
 
+data UnaryOperationType = Pre | Post
+
 -- | Defines unary operator symbols that precede the operand, mapped to their AST representation.
 -- Examples: `++x`, `--x`, `!x`.
 preUnaryOperations :: [(String, AT.UnaryOperation)]
@@ -25,6 +27,16 @@ postUnaryOperations =
     ("--", AT.PostDec)
   ]
 
+unaryOperationType :: PU.Parser a -> PU.Parser UnaryOperationType
+unaryOperationType operandParser =
+  M.choice
+    [ Pre <$ parseUnaryOperation' preUnaryOperations <* M.lookAhead operandParser,
+      Post <$ M.lookAhead (operandParser *> parseUnaryOperation' postUnaryOperations)
+    ]
+
+parseUnaryOperation' :: [(String, AT.UnaryOperation)] -> PU.Parser AT.UnaryOperation
+parseUnaryOperation' ops = M.choice $ (\(o, c) -> c <$ PU.symbol o) <$> ops
+
 -- | Parses a unary operator and determines whether it appears before or after the operand.
 --
 -- The function uses lookahead to avoid consuming the operand during parsing.
@@ -32,12 +44,6 @@ postUnaryOperations =
 -- - Post-unary operators are parsed if they appear after the operand.
 --
 -- `operandParser`: A parser for the operand, used to determine the position of the operator.
-parseUnaryOperation :: PU.Parser a -> PU.Parser AT.UnaryOperation
-parseUnaryOperation operandParser =
-  M.choice
-    [ parseUnaryOperation' preUnaryOperations <* M.lookAhead operandParser,
-      M.lookAhead (operandParser *> parseUnaryOperation' postUnaryOperations)
-    ]
-  where
-    parseUnaryOperation' :: [(String, AT.UnaryOperation)] -> PU.Parser AT.UnaryOperation
-    parseUnaryOperation' ops = M.choice $ (\(o, c) -> c <$ PU.symbol o) <$> ops
+parseUnaryOperation :: PU.Parser a -> UnaryOperationType -> PU.Parser AT.UnaryOperation
+parseUnaryOperation operandParser Pre = parseUnaryOperation' preUnaryOperations <* M.lookAhead operandParser
+parseUnaryOperation operandParser Post = M.lookAhead (operandParser *> parseUnaryOperation' postUnaryOperations)

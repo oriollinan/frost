@@ -86,6 +86,13 @@ parseOp = do
   srcLoc <- parseSrcLoc
   return $ AT.Op srcLoc op e1 e2
 
+-- parseUnaryOp :: PU.Parser AT.Expr
+-- parseUnaryOp = do
+--   e <- parseExpr
+--   op <- PO.parseOperation
+--   srcLoc <- parseSrcLoc
+--   return $ AT.Op srcLoc op e1 e2
+
 parseSrcLoc :: PU.Parser AT.SrcLoc
 parseSrcLoc = do
   (MP.SourcePos {MP.sourceName = _sourceName, MP.sourceLine = _sourceLine, MP.sourceColumn = _sourceColumn}) <- M.getSourcePos
