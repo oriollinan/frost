@@ -29,13 +29,39 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: Install Chrome dependencies
+        if: github.ref == 'refs/heads/main'
+        run: |
+          sudo apt install -y --no-install-recommends \
+            libnss3 \
+            libdbus-1-3 \
+            libatk1.0-0 \
+            libasound2t64 \
+            libxrandr2 \
+            libxkbcommon-dev \
+            libxfixes3 \
+            libxcomposite1 \
+            libxdamage1 \
+            libgbm-dev \
+            libatk-bridge2.0-0 \
+            binutils \
+            libglib2.0-0 \
+            libgdk-pixbuf2.0-0 \
+            libgtk-3-0 \
+            libnss3-dev \
+            libxss-dev \
+            xvfb \
+            fonts-liberation \
+            libu2f-udev \
+            xdg-utils
+
       - name: Setup Chrome
         uses: ./external/setup-chrome
         if: github.ref == 'refs/heads/main'
         id: setup-chrome
         with:
           chrome-version: stable
-          install-dependencies: true
+          install-dependencies: false
 
       - name: Install dependencies
         run: |
