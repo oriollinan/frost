@@ -12,6 +12,7 @@ type Parser = M.ParsecT ParseErrorCustom String (S.State E.Env)
 data ParseErrorCustom
   = UnknownType String
   | UndefinedVar String
+  | UndefinedFunction String
   deriving (Show, Ord, Eq)
 
 instance M.ShowErrorComponent ParseErrorCustom where
@@ -19,6 +20,8 @@ instance M.ShowErrorComponent ParseErrorCustom where
     "Unknown type: type \"" ++ n ++ "\" does not exist"
   showErrorComponent (UndefinedVar n) =
     "Undefined Variable: variable \"" ++ n ++ "\" is not defined"
+  showErrorComponent (UndefinedFunction n) =
+    "Undefined Function: function \"" ++ n ++ "\" is not defined"
 
 -- | Skips whitespace and comments (starting with `%`). Ensures proper handling of spacing in parsers.
 sc :: Parser ()
