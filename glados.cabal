@@ -22,13 +22,14 @@ library
   import: warnings
   exposed-modules:
     Ast.Parser
-    Ast.Types
-    Ast.Utils
     Ast.Parser.Env
     Ast.Parser.Literal
     Ast.Parser.Operation
-    Ast.Parser.UnaryOperation
     Ast.Parser.Type
+    Ast.Parser.TypeDefinition
+    Ast.Parser.UnaryOperation
+    Ast.Types
+    Ast.Utils
     Codegen.Codegen
     Codegen.Utils
     Misc

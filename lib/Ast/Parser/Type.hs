@@ -11,7 +11,7 @@ import qualified Text.Megaparsec.Char.Lexer as ML
 -- | Parse a general type. This function combines multiple specific type parsers.
 -- It tries to match typedefs, structs, unions, functions, mutable types, pointers, and base types.
 parseType :: AU.Parser AT.Type
-parseType = AU.triedChoice [structType, unionType, typedefType, functionType, mutableType, arrayType, pointerType, customIntType, baseType, customType]
+parseType = AU.triedChoice [functionType, mutableType, arrayType, pointerType, customIntType, baseType, customType]
 
 -- | A list of predefined base types along with their associated keywords.
 -- These include basic types such as int, float, double, char, bool, and void.
@@ -58,42 +58,6 @@ arrayType = do
   elemType <- parseType
   return $ AT.TArray elemType size
 
--- | Parses a struct type definition.
--- A struct is defined with the "struct" keyword followed by an optional name and a list of fields enclosed in braces.
--- Example: "struct { x -> int, y -> float }".
-structType :: AU.Parser AT.Type
-structType = do
-  name <- AU.identifier
-  _ <- AU.symbol "::" <* AU.symbol "struct"
-  fields <- M.between (AU.symbol "{") (AU.symbol "}") $ M.many parseField
-  let newStructType = AT.TStruct {AT.structName = name, AT.fields = fields}
-  S.modify (E.insertType name newStructType)
-  return newStructType
-
--- | Parses a union type definition.
--- A union is defined with the "union" keyword followed by an optional name and a list of variants enclosed in braces.
--- Example: "union { data -> *char, error -> int }".
-unionType :: AU.Parser AT.Type
-unionType = do
-  name <- AU.identifier
-  _ <- AU.symbol "::" <* AU.symbol "union"
-  variants <- M.between (AU.symbol "{") (AU.symbol "}") $ M.many parseField
-  let newUnionType = AT.TUnion {AT.unionName = name, AT.variants = variants}
-  S.modify (E.insertType name newUnionType)
-  return newUnionType
-
--- | Parses a typedef.
--- A typedef associates a new name with an existing type using the "::" syntax.
--- Example: "Vector2i :: Vector".
-typedefType :: AU.Parser AT.Type
-typedefType = do
-  name <- AU.identifier
-  _ <- AU.symbol "::"
-  parentType <- parseType
-  let typedef = AT.TTypedef name parentType
-  S.modify (E.insertType name typedef)
-  return typedef
-
 -- | Parses a function type.
 -- A function type is defined by its parameter types enclosed in parentheses, followed by "->", and the return type also enclosed in parentheses.
 -- Example: "(int) -> (float)" or "(int int) -> (void)".
@@ -112,13 +76,3 @@ customType = do
   case E.lookupType name env of
     Just ty -> return ty
     Nothing -> fail $ "Unknown type: " ++ name
-
--- | Parses a single field within a struct or union.
--- Each field consists of a name followed by "->" and its type.
--- Example: "x -> int".
-parseField :: AU.Parser (String, AT.Type)
-parseField = do
-  fieldName <- AU.lexeme AU.identifier
-  _ <- AU.symbol "->"
-  fieldType <- parseType
-  return (fieldName, fieldType)
