@@ -21,11 +21,13 @@ common warnings
 library
   import: warnings
   exposed-modules:
-    Ast.Literal
-    Ast.Operation
     Ast.Parser
+    Ast.Parser.Env
+    Ast.Parser.Literal
+    Ast.Parser.Operation
+    Ast.Parser.Type
+    Ast.Parser.UnaryOperation
     Ast.Types
-    Ast.UnaryOperation
     Ast.Utils
     Codegen.Codegen
     Codegen.Utils
@@ -61,10 +63,11 @@ test-suite glados-test
   default-language: Haskell2010
   type: exitcode-stdio-1.0
   other-modules:
-    Ast.LiteralSpec
-    Ast.OperationSpec
+    Ast.Parser.LiteralSpec
+    Ast.Parser.OperationSpec
+    Ast.Parser.TypeSpec
+    Ast.Parser.UnaryOperationSpec
     Ast.ParserSpec
-    Ast.UnaryOperationSpec
     Codegen.CodegenSpec
 
   hs-source-dirs: test
@@ -77,3 +80,4 @@ test-suite glados-test
     hspec-discover,
     llvm-hs-pure >=9.0.0 && <9.1,
     megaparsec >=9.7.0,
+    mtl >=2.2.2 && <2.3,

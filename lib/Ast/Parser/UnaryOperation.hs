@@ -1,4 +1,4 @@
-module Ast.UnaryOperation where
+module Ast.Parser.UnaryOperation where
 
 import qualified Ast.Types as AT
 import qualified Ast.Utils as AU
