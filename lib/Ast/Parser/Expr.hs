@@ -4,6 +4,7 @@ import qualified Ast.Parser.Env as E
 import qualified Ast.Parser.Literal as PL
 import qualified Ast.Parser.Operation as PO
 import qualified Ast.Parser.Type as PT
+import qualified Ast.Parser.UnaryOperation as PUO
 import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
 import qualified Control.Monad.State as S
@@ -86,12 +87,20 @@ parseOp = do
   srcLoc <- parseSrcLoc
   return $ AT.Op srcLoc op e1 e2
 
--- parseUnaryOp :: PU.Parser AT.Expr
--- parseUnaryOp = do
---   e <- parseExpr
---   op <- PO.parseOperation
---   srcLoc <- parseSrcLoc
---   return $ AT.Op srcLoc op e1 e2
+parseUnaryOp :: PU.Parser AT.Expr
+parseUnaryOp = do
+  uoType <- PUO.unaryOperationType parseExpr
+  case uoType of
+    PUO.Pre -> do
+      uo <- PUO.parseUnaryOperation uoType
+      e <- parseExpr
+      srcLoc <- parseSrcLoc
+      return $ AT.UnaryOp srcLoc uo e
+    PUO.Post -> do
+      e <- parseExpr
+      uo <- PUO.parseUnaryOperation uoType
+      srcLoc <- parseSrcLoc
+      return $ AT.UnaryOp srcLoc uo e
 
 parseSrcLoc :: PU.Parser AT.SrcLoc
 parseSrcLoc = do
