@@ -28,8 +28,6 @@ parseExpr =
       -- parseUnaryOp,
     ]
 
--- parseExpr = M.choice [parseIf, parseReturn, parseDeclaration, parseFunction, parseBlock, parseCall, parseLit, parseVar, parseOp, parseUnaryOp, parseAssignment]
-
 parseLit :: PU.Parser AT.Expr
 parseLit = do
   lit <- PL.parseLiteral
@@ -93,6 +91,13 @@ parseIf = do
   else' <- M.optional $ PU.symbol "else" *> parseBlock
   srcLoc <- parseSrcLoc
   return $ AT.If {AT.ifLoc = srcLoc, AT.ifCond = cond, AT.ifThen = then', AT.ifElse = else'}
+
+parseWhile :: PU.Parser AT.Expr
+parseWhile = do
+  cond <- PU.symbol "loop" *> parseExpr
+  body <- parseBlock
+  srcLoc <- parseSrcLoc
+  return $ AT.While {AT.whileLoc = srcLoc, AT.whileCond = cond, AT.whileBody = body}
 
 parseBlock :: PU.Parser AT.Expr
 parseBlock = do
