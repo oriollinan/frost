@@ -23,9 +23,9 @@ parseExpr =
       M.try parseCall,
       parseLit,
       M.try parseAssignment,
-      parseVar,
+      parseOp,
+      parseVar
       -- parseUnaryOp,
-      parseOp
     ]
 
 -- parseExpr = M.choice [parseIf, parseReturn, parseDeclaration, parseFunction, parseBlock, parseCall, parseLit, parseVar, parseOp, parseUnaryOp, parseAssignment]
@@ -51,6 +51,7 @@ parseFunction = do
   name <- PU.identifier
   t <- PU.symbol ":" *> PT.parseType
   params <- PU.symbol "=" *> M.many (PU.lexeme PU.identifier)
+  mapM_ (\p -> S.modify (E.insertVar p $ AT.TInt 32)) params
   (AT.Block exprs) <- parseBlock
   srcLoc <- parseSrcLoc
   body <- case last exprs of
