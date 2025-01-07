@@ -26,6 +26,7 @@ library
     Ast.Parser.Expr
     Ast.Parser.Literal
     Ast.Parser.Operation
+    Ast.Parser.Program
     Ast.Parser.Type
     Ast.Parser.TypeDefinition
     Ast.Parser.UnaryOperation

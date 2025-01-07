@@ -10,44 +10,44 @@ import qualified Text.Megaparsec as M
 -- | Parse a type definition. This function combines multiple specific type
 -- definition.
 -- It tries to match typedefs, structs, and unions.
-parseTypeDefinition :: PU.Parser ()
+parseTypeDefinition :: PU.Parser AT.Type
 parseTypeDefinition = PU.triedChoice [structType, unionType, typedefType]
 
 -- | Parses a struct type definition.
 -- A struct is defined with the "struct" keyword followed by an optional name and a list of fields enclosed in braces.
 -- Example: "struct { x -> int, y -> float }".
-structType :: PU.Parser ()
+structType :: PU.Parser AT.Type
 structType = do
   name <- PU.identifier
   _ <- PU.symbol "::" <* PU.symbol "struct"
   fields <- M.between (PU.symbol "{") (PU.symbol "}") $ M.many parseField
   let newStructType = AT.TStruct {AT.structName = name, AT.fields = fields}
   S.modify (E.insertType name newStructType)
-  return ()
+  return newStructType
 
 -- | Parses a union type definition.
 -- A union is defined with the "union" keyword followed by an optional name and a list of variants enclosed in braces.
 -- Example: "union { data -> *char, error -> int }".
-unionType :: PU.Parser ()
+unionType :: PU.Parser AT.Type
 unionType = do
   name <- PU.identifier
   _ <- PU.symbol "::" <* PU.symbol "union"
   variants <- M.between (PU.symbol "{") (PU.symbol "}") $ M.many parseField
   let newUnionType = AT.TUnion {AT.unionName = name, AT.variants = variants}
   S.modify (E.insertType name newUnionType)
-  return ()
+  return newUnionType
 
 -- | Parses a typedef.
 -- A typedef associates a new name with an existing type using the "::" syntax.
 -- Example: "Vector2i :: Vector".
-typedefType :: PU.Parser ()
+typedefType :: PU.Parser AT.Type
 typedefType = do
   name <- PU.identifier
   _ <- PU.symbol "::"
   parentType <- T.parseType
   let typedef = AT.TTypedef name parentType
   S.modify (E.insertType name typedef)
-  return ()
+  return typedef
 
 -- | Parses a single field within a struct or union.
 -- Each field consists of a name followed by "->" and its type.
