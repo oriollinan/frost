@@ -36,6 +36,13 @@ parseDeclaration = do
   S.modify (E.insertVar name t)
   return $ AT.Declaration {AT.declLoc = srcLoc, AT.declName = name, AT.declType = t, AT.declInit = value}
 
+parseAssignment :: PU.Parser AT.Expr
+parseAssignment = do
+  target <- parseExpr <* PU.symbol "="
+  value <- parseExpr
+  srcLoc <- parseSrcLoc
+  return $ AT.Assignment {AT.assignLoc = srcLoc, AT.assignTarget = target, AT.assignValue = value}
+
 parseSrcLoc :: PU.Parser AT.SrcLoc
 parseSrcLoc = do
   (MP.SourcePos {MP.sourceName = _sourceName, MP.sourceLine = _sourceLine, MP.sourceColumn = _sourceColumn}) <- M.getSourcePos
