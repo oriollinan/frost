@@ -7,6 +7,7 @@ data Env = Env
   { types :: [(String, AT.Type)],
     vars :: [(String, AT.Type)]
   }
+  deriving (Show, Eq)
 
 -- | Creates an empty environment.
 emptyEnv :: Env

@@ -13,7 +13,22 @@ import qualified Text.Megaparsec.Pos as MP
 
 -- TODO: rethink order
 parseExpr :: PU.Parser AT.Expr
-parseExpr = PU.triedChoice [parseLit, parseVar, parseFunction, parseDeclaration, parseAssignment, parseCall, parseIf, parseBlock, parseOp]
+parseExpr =
+  M.choice
+    [ parseIf,
+      parseReturn,
+      parseBlock,
+      M.try parseFunction,
+      M.try parseDeclaration,
+      M.try parseCall,
+      parseLit,
+      M.try parseAssignment,
+      parseVar,
+      -- parseUnaryOp,
+      parseOp
+    ]
+
+-- parseExpr = M.choice [parseIf, parseReturn, parseDeclaration, parseFunction, parseBlock, parseCall, parseLit, parseVar, parseOp, parseUnaryOp, parseAssignment]
 
 parseLit :: PU.Parser AT.Expr
 parseLit = do
@@ -35,7 +50,7 @@ parseFunction :: PU.Parser AT.Expr
 parseFunction = do
   name <- PU.identifier
   t <- PU.symbol ":" *> PT.parseType
-  params <- PU.symbol "=" *> M.many PU.identifier
+  params <- PU.symbol "=" *> M.many (PU.lexeme PU.identifier)
   (AT.Block exprs) <- parseBlock
   srcLoc <- parseSrcLoc
   body <- case last exprs of
@@ -46,7 +61,7 @@ parseFunction = do
 
 parseDeclaration :: PU.Parser AT.Expr
 parseDeclaration = do
-  name <- PU.lexeme PU.identifier
+  name <- PU.identifier
   t <- PU.symbol ":" *> PT.parseType
   value <- M.optional $ PU.symbol "=" *> parseExpr
   srcLoc <- parseSrcLoc
@@ -55,7 +70,7 @@ parseDeclaration = do
 
 parseAssignment :: PU.Parser AT.Expr
 parseAssignment = do
-  target <- parseExpr <* PU.symbol "="
+  target <- parseVar <* PU.symbol "="
   value <- parseExpr
   srcLoc <- parseSrcLoc
   return $ AT.Assignment {AT.assignLoc = srcLoc, AT.assignTarget = target, AT.assignValue = value}
@@ -80,7 +95,7 @@ parseIf = do
 
 parseBlock :: PU.Parser AT.Expr
 parseBlock = do
-  es <- M.between (PU.symbol "{") (PU.symbol "}") $ M.many parseExpr
+  es <- M.between (PU.symbol "{") (PU.symbol "}") $ M.many $ PU.lexeme parseExpr
   return $ AT.Block es
 
 parseReturn :: PU.Parser AT.Expr
@@ -91,26 +106,17 @@ parseReturn = do
 
 parseOp :: PU.Parser AT.Expr
 parseOp = do
-  e1 <- parseExpr
   op <- PO.parseOperation
+  e1 <- parseExpr
   e2 <- parseExpr
   srcLoc <- parseSrcLoc
   return $ AT.Op srcLoc op e1 e2
 
 parseUnaryOp :: PU.Parser AT.Expr
 parseUnaryOp = do
-  uoType <- PUO.unaryOperationType parseExpr
-  case uoType of
-    PUO.Pre -> do
-      uo <- PUO.parseUnaryOperation uoType
-      e <- parseExpr
-      srcLoc <- parseSrcLoc
-      return $ AT.UnaryOp srcLoc uo e
-    PUO.Post -> do
-      e <- parseExpr
-      uo <- PUO.parseUnaryOperation uoType
-      srcLoc <- parseSrcLoc
-      return $ AT.UnaryOp srcLoc uo e
+  (uo, e) <- PUO.parseUnaryOperation parseExpr
+  srcLoc <- parseSrcLoc
+  return $ AT.UnaryOp srcLoc uo e
 
 parseSrcLoc :: PU.Parser AT.SrcLoc
 parseSrcLoc = do
