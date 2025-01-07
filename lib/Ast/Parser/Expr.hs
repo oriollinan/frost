@@ -30,14 +30,13 @@ parseExpr =
 
 parseLit :: PU.Parser AT.Expr
 parseLit = do
-  lit <- PL.parseLiteral
   srcLoc <- parseSrcLoc
-  return $ AT.Lit srcLoc lit
+  AT.Lit srcLoc <$> PL.parseLiteral
 
 parseVar :: PU.Parser AT.Expr
 parseVar = do
-  name <- PU.identifier
   srcLoc <- parseSrcLoc
+  name <- PU.identifier
   env <- S.get
   case E.lookupVar name env of
     (Just t) -> return $ AT.Var srcLoc name t
@@ -46,13 +45,13 @@ parseVar = do
 -- TODO: improve implicit return to handle ifs
 parseFunction :: PU.Parser AT.Expr
 parseFunction = do
+  srcLoc <- parseSrcLoc
   name <- PU.identifier
   t <- PU.symbol ":" *> PT.parseType
   params <- PU.symbol "=" *> M.many (PU.lexeme PU.identifier)
   mapM_ (\p -> S.modify (E.insertVar p $ AT.TInt 32)) params
   S.modify (E.insertVar name t)
   (AT.Block exprs) <- parseBlock
-  srcLoc <- parseSrcLoc
   body <- case last exprs of
     (AT.Return _ _) -> return $ AT.Block exprs
     e -> return $ AT.Block $ init exprs ++ [AT.Return srcLoc $ Just e]
@@ -60,25 +59,25 @@ parseFunction = do
 
 parseDeclaration :: PU.Parser AT.Expr
 parseDeclaration = do
+  srcLoc <- parseSrcLoc
   name <- PU.identifier
   t <- PU.symbol ":" *> PT.parseType
   value <- M.optional $ PU.symbol "=" *> parseExpr
-  srcLoc <- parseSrcLoc
   S.modify (E.insertVar name t)
   return $ AT.Declaration {AT.declLoc = srcLoc, AT.declName = name, AT.declType = t, AT.declInit = value}
 
 parseAssignment :: PU.Parser AT.Expr
 parseAssignment = do
+  srcLoc <- parseSrcLoc
   target <- parseVar <* PU.symbol "="
   value <- parseExpr
-  srcLoc <- parseSrcLoc
   return $ AT.Assignment {AT.assignLoc = srcLoc, AT.assignTarget = target, AT.assignValue = value}
 
 parseCall :: PU.Parser AT.Expr
 parseCall = do
+  srcLoc <- parseSrcLoc
   name <- PU.identifier
   args <- M.between (PU.symbol "(") (PU.symbol ")") $ M.many parseExpr
-  srcLoc <- parseSrcLoc
   env <- S.get
   case E.lookupVar name env of
     (Just t@(AT.TFunction {})) -> return $ AT.Call {AT.callLoc = srcLoc, AT.callFunc = AT.Var srcLoc name t, AT.callArgs = args}
@@ -86,17 +85,17 @@ parseCall = do
 
 parseIf :: PU.Parser AT.Expr
 parseIf = do
+  srcLoc <- parseSrcLoc
   cond <- PU.symbol "if" *> parseExpr
   then' <- parseBlock
   else' <- M.optional $ PU.symbol "else" *> parseBlock
-  srcLoc <- parseSrcLoc
   return $ AT.If {AT.ifLoc = srcLoc, AT.ifCond = cond, AT.ifThen = then', AT.ifElse = else'}
 
 parseWhile :: PU.Parser AT.Expr
 parseWhile = do
+  srcLoc <- parseSrcLoc
   cond <- PU.symbol "loop" *> parseExpr
   body <- parseBlock
-  srcLoc <- parseSrcLoc
   return $ AT.While {AT.whileLoc = srcLoc, AT.whileCond = cond, AT.whileBody = body}
 
 parseBlock :: PU.Parser AT.Expr
@@ -106,22 +105,21 @@ parseBlock = do
 
 parseReturn :: PU.Parser AT.Expr
 parseReturn = do
-  _ <- PU.symbol "return"
   srcLoc <- parseSrcLoc
+  _ <- PU.symbol "return"
   AT.Return srcLoc <$> M.optional parseExpr
 
 parseOp :: PU.Parser AT.Expr
 parseOp = do
+  srcLoc <- parseSrcLoc
   op <- PO.parseOperation
   e1 <- parseExpr
-  e2 <- parseExpr
-  srcLoc <- parseSrcLoc
-  return $ AT.Op srcLoc op e1 e2
+  AT.Op srcLoc op e1 <$> parseExpr
 
 parseUnaryOp :: PU.Parser AT.Expr
 parseUnaryOp = do
-  (uo, e) <- PUO.parseUnaryOperation parseExpr
   srcLoc <- parseSrcLoc
+  (uo, e) <- PUO.parseUnaryOperation parseExpr
   return $ AT.UnaryOp srcLoc uo e
 
 parseSrcLoc :: PU.Parser AT.SrcLoc
