@@ -23,12 +23,15 @@ library
   exposed-modules:
     Ast.Parser
     Ast.Parser.Env
+    Ast.Parser.Expr
     Ast.Parser.Literal
     Ast.Parser.Operation
+    Ast.Parser.Program
     Ast.Parser.Type
+    Ast.Parser.TypeDefinition
     Ast.Parser.UnaryOperation
+    Ast.Parser.Utils
     Ast.Types
-    Ast.Utils
     Codegen.Codegen
     Codegen.Utils
 
@@ -65,9 +68,11 @@ test-suite glados-test
   other-modules:
     Ast.Parser.LiteralSpec
     Ast.Parser.OperationSpec
+    Ast.Parser.TypeDefinitionSpec
     Ast.Parser.TypeSpec
     Ast.Parser.UnaryOperationSpec
     Ast.ParserSpec
+    Misc.MiscSpec
     Codegen.CodegenSpec
 
   hs-source-dirs: test
