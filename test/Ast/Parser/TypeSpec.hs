@@ -65,24 +65,6 @@ spec = do
     it "parses int int -> void" $ do
       parseWithEnv "(int int) -> (void)" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 32, AT.TInt 32], AT.isVariadic = False})
 
-  describe "Struct Types" $ do
-    it "parses struct { name -> int }" $ do
-      parseWithEnv "test :: struct { name -> int }" `shouldBe` Right (AT.TStruct {AT.structName = "test", AT.fields = [("name", AT.TInt 32)]})
-
-    it "parses struct with multiple fields" $ do
-      parseWithEnv "vec :: struct { x -> float y -> float }" `shouldBe` Right (AT.TStruct {AT.structName = "vec", AT.fields = [("x", AT.TFloat), ("y", AT.TFloat)]})
-
-  describe "Union Types" $ do
-    it "parses union { name -> int }" $ do
-      parseWithEnv "test :: union { name -> int }" `shouldBe` Right (AT.TUnion {AT.unionName = "test", AT.variants = [("name", AT.TInt 32)]})
-
-    it "parses union with multiple fields" $ do
-      parseWithEnv "vec :: union { x -> float y -> float }" `shouldBe` Right (AT.TUnion {AT.unionName = "vec", AT.variants = [("x", AT.TFloat), ("y", AT.TFloat)]})
-
-  describe "Typedefs" $ do
-    it "parses typedef alias" $ do
-      parseWithEnv "Alias :: int" `shouldBe` Right (AT.TTypedef "Alias" (AT.TInt 32))
-
   describe "Custom Types" $ do
     it "parses a defined custom struct type" $ do
       let env = E.insertType "Point" (AT.TStruct "Point" [("x", AT.TInt 32), ("y", AT.TInt 32)]) E.emptyEnv

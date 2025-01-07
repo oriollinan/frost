@@ -67,6 +67,7 @@ test-suite glados-test
   other-modules:
     Ast.ParserSpec
     Ast.Parser.TypeSpec
+    Ast.Parser.TypeDefinitionSpec
     Ast.Parser.LiteralSpec
     Ast.Parser.OperationSpec
     Ast.Parser.UnaryOperationSpec
