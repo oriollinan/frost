@@ -102,11 +102,11 @@ parseWhile = do
   body <- parseBlock
   return $ AT.While {AT.whileLoc = srcLoc, AT.whileCond = cond, AT.whileBody = body}
 
--- TODO: manage new state in blocks
-
 parseBlock :: PU.Parser AT.Expr
 parseBlock = do
+  env <- S.get
   es <- M.between (PU.symbol "{") (PU.symbol "}") $ M.many $ PU.lexeme parseExpr
+  S.modify $ const env
   return $ AT.Block es
 
 parseReturn :: PU.Parser AT.Expr
