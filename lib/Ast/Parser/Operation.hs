@@ -1,7 +1,7 @@
 module Ast.Parser.Operation where
 
+import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
-import qualified Ast.Utils as AU
 import qualified Text.Megaparsec as M
 
 -- | Operator symbols mapped to their AST representation.
@@ -32,5 +32,5 @@ operations =
 
 -- | Parses a symbol into an `AT.Operation` using the `operations` list.
 -- Returns the corresponding `AT.Operation` if a match is found.
-parseOperation :: AU.Parser AT.Operation
-parseOperation = M.choice $ (\(o, c) -> c <$ AU.symbol o) <$> operations
+parseOperation :: PU.Parser AT.Operation
+parseOperation = M.choice $ (\(o, c) -> c <$ PU.symbol o) <$> operations

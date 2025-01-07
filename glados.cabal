@@ -23,13 +23,14 @@ library
   exposed-modules:
     Ast.Parser
     Ast.Parser.Env
+    Ast.Parser.Expr
     Ast.Parser.Literal
     Ast.Parser.Operation
     Ast.Parser.Type
     Ast.Parser.TypeDefinition
     Ast.Parser.UnaryOperation
+    Ast.Parser.Utils
     Ast.Types
-    Ast.Utils
     Codegen.Codegen
     Codegen.Utils
     Misc

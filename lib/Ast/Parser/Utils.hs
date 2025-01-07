@@ -1,4 +1,4 @@
-module Ast.Utils where
+module Ast.Parser.Utils where
 
 import qualified Ast.Parser.Env as E
 import qualified Control.Monad.State as S
@@ -28,5 +28,6 @@ triedChoice ps =
   let triedPs = map M.try (init ps) ++ [last ps]
    in M.choice triedPs
 
+-- | An identifier in our language syntax
 identifier :: Parser String
 identifier = lexeme ((:) <$> MC.letterChar <*> M.many MC.alphaNumChar)

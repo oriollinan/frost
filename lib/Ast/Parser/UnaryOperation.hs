@@ -1,7 +1,7 @@
 module Ast.Parser.UnaryOperation where
 
+import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
-import qualified Ast.Utils as AU
 import qualified Text.Megaparsec as M
 
 -- | Defines unary operator symbols that precede the operand, mapped to their AST representation.
@@ -32,12 +32,12 @@ postUnaryOperations =
 -- - Post-unary operators are parsed if they appear after the operand.
 --
 -- `operandParser`: A parser for the operand, used to determine the position of the operator.
-parseUnaryOperation :: AU.Parser a -> AU.Parser AT.UnaryOperation
+parseUnaryOperation :: PU.Parser a -> PU.Parser AT.UnaryOperation
 parseUnaryOperation operandParser =
   M.choice
     [ parseUnaryOperation' preUnaryOperations <* M.lookAhead operandParser,
       M.lookAhead (operandParser *> parseUnaryOperation' postUnaryOperations)
     ]
   where
-    parseUnaryOperation' :: [(String, AT.UnaryOperation)] -> AU.Parser AT.UnaryOperation
-    parseUnaryOperation' ops = M.choice $ (\(o, c) -> c <$ AU.symbol o) <$> ops
+    parseUnaryOperation' :: [(String, AT.UnaryOperation)] -> PU.Parser AT.UnaryOperation
+    parseUnaryOperation' ops = M.choice $ (\(o, c) -> c <$ PU.symbol o) <$> ops
