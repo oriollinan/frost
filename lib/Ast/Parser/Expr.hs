@@ -30,13 +30,17 @@ parseVar = do
     (Just t) -> return $ AT.Var srcLoc name t
     _ -> M.customFailure $ PU.UndefinedVar name
 
+-- TODO: improve implicit return to handle ifs
 parseFunction :: PU.Parser AT.Expr
 parseFunction = do
   name <- PU.identifier
   t <- PU.symbol ":" *> PT.parseType
   params <- PU.symbol "=" *> M.many PU.identifier
-  body <- parseBlock
+  (AT.Block exprs) <- parseBlock
   srcLoc <- parseSrcLoc
+  body <- case last exprs of
+    (AT.Return _ _) -> return $ AT.Block exprs
+    e -> return $ AT.Block $ init exprs ++ [AT.Return srcLoc $ Just e]
   S.modify (E.insertVar name t)
   return $ AT.Function {AT.funcLoc = srcLoc, AT.funcName = name, AT.funcType = t, AT.funcParams = params, AT.funcBody = body}
 
@@ -78,6 +82,12 @@ parseBlock :: PU.Parser AT.Expr
 parseBlock = do
   es <- M.between (PU.symbol "{") (PU.symbol "}") $ M.many parseExpr
   return $ AT.Block es
+
+parseReturn :: PU.Parser AT.Expr
+parseReturn = do
+  _ <- PU.symbol "return"
+  srcLoc <- parseSrcLoc
+  AT.Return srcLoc <$> M.optional parseExpr
 
 parseOp :: PU.Parser AT.Expr
 parseOp = do
