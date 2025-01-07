@@ -17,6 +17,7 @@ parseExpr :: PU.Parser AT.Expr
 parseExpr =
   M.choice
     [ parseIf,
+      parseWhile,
       parseReturn,
       parseBlock,
       M.try parseFunction,

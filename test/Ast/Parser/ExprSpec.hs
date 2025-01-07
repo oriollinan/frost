@@ -16,14 +16,14 @@ spec = do
   describe "parseExpr" $ do
     it "parses a literal expression" $ do
       let result = normalizeExpr <$> parseWithEnv "123"
-      let expected = Right (AT.Lit (AT.SrcLoc "" 0 0) (AT.LInt 123))
+      let expected = Right (AT.Lit normalizeLoc (AT.LInt 123))
       result `shouldBe` expected
 
     it "parses a variable expression" $
       do
         let env = E.insertVar "x" (AT.TInt 32) initialEnv
         let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" "x") env)
-        let expected = Right (AT.Var (AT.SrcLoc "" 0 0) "x" (AT.TInt 32))
+        let expected = Right (AT.Var normalizeLoc "x" (AT.TInt 32))
         result `shouldBe` expected
 
     it "fails for an undefined variable" $ do
@@ -37,11 +37,11 @@ spec = do
       let expected =
             Right $
               AT.Function
-                (AT.SrcLoc "" 0 0)
+                normalizeLoc
                 "add"
                 (AT.TFunction {AT.returnType = AT.TInt 32, AT.paramTypes = [AT.TInt 32, AT.TInt 32], AT.isVariadic = False})
                 ["x", "y"]
-                (AT.Block [AT.Return (AT.SrcLoc "" 0 0) (Just (AT.Lit (AT.SrcLoc "" 0 0) (AT.LInt 1)))])
+                (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 1)))])
       let result = normalizeExpr <$> parseWithEnv input
       result `shouldBe` expected
 
@@ -50,11 +50,11 @@ spec = do
       let result = normalizeExpr <$> parseWithEnv input
       let expected =
             AT.Function
-              (AT.SrcLoc "" 0 0)
+              normalizeLoc
               "add"
               (AT.TFunction {AT.returnType = AT.TInt 32, AT.paramTypes = [AT.TInt 32, AT.TInt 32], AT.isVariadic = False})
               ["x", "y"]
-              (AT.Block [AT.Return (AT.SrcLoc "" 0 0) (Just (AT.Lit (AT.SrcLoc "" 0 0) (AT.LInt 1)))])
+              (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 1)))])
       result `shouldBe` Right expected
 
     it "parses a variable declaration with initialization" $
@@ -75,7 +75,7 @@ spec = do
       let input = "x = 42"
       let env = E.insertVar "x" (AT.TInt 0) initialEnv
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
-      let expected = Right (AT.Assignment (AT.SrcLoc "" 0 0) (AT.Var (AT.SrcLoc "" 0 0) "x" (AT.TInt 0)) (AT.Lit (AT.SrcLoc "" 0 0) (AT.LInt 42)))
+      let expected = Right (AT.Assignment normalizeLoc (AT.Var normalizeLoc "x" (AT.TInt 0)) (AT.Lit normalizeLoc (AT.LInt 42)))
       result `shouldBe` expected
 
     it "parses a function call" $ do
@@ -83,7 +83,7 @@ spec = do
       let input = "foo(123)"
       normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
         `shouldBe` Right
-          (AT.Call (AT.SrcLoc "" 0 0) (AT.Var (AT.SrcLoc "" 0 0) "foo" (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 0], AT.isVariadic = False})) [AT.Lit (AT.SrcLoc "" 0 0) (AT.LInt 123)])
+          (AT.Call normalizeLoc (AT.Var normalizeLoc "foo" (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 0], AT.isVariadic = False})) [AT.Lit normalizeLoc (AT.LInt 123)])
 
     it "parses an if-else expression" $ do
       let input = "if x { return 1 } else { return 0 }"
@@ -92,11 +92,33 @@ spec = do
       let expected =
             Right $
               AT.If
-                (AT.SrcLoc "" 0 0)
-                (AT.Var (AT.SrcLoc "" 0 0) "x" AT.TBoolean)
-                (AT.Block [AT.Return (AT.SrcLoc "" 0 0) (Just (AT.Lit (AT.SrcLoc "" 0 0) (AT.LInt 1)))])
-                (Just (AT.Block [AT.Return (AT.SrcLoc "" 0 0) (Just (AT.Lit (AT.SrcLoc "" 0 0) (AT.LInt 0)))]))
+                normalizeLoc
+                (AT.Var normalizeLoc "x" AT.TBoolean)
+                (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 1)))])
+                (Just (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 0)))]))
 
+      result `shouldBe` expected
+
+    it "parses a while loop" $ do
+      let input = "loop z { z = 0 }"
+      let env = E.insertVar "z" (AT.TInt 32) initialEnv
+      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let expected =
+            Right $
+              AT.While
+                normalizeLoc
+                ( AT.Var
+                    normalizeLoc
+                    "z"
+                    (AT.TInt 32)
+                )
+                ( AT.Block
+                    [ AT.Assignment
+                        normalizeLoc
+                        (AT.Var normalizeLoc "z" (AT.TInt 32))
+                        (AT.Lit normalizeLoc (AT.LInt 0))
+                    ]
+                )
       result `shouldBe` expected
 
 normalizeLoc :: AT.SrcLoc
@@ -121,10 +143,10 @@ normalizeExpr (AT.Op _ op e1 e2) =
   AT.Op normalizeLoc op (normalizeExpr e1) (normalizeExpr e2)
 normalizeExpr (AT.UnaryOp _ op e) =
   AT.UnaryOp normalizeLoc op (normalizeExpr e)
-normalizeExpr (AT.For _ i c s b) = AT.For normalizeLoc i c s b
-normalizeExpr (AT.While _ c b) = AT.While normalizeLoc c b
+normalizeExpr (AT.For _ i c s b) = AT.For normalizeLoc (normalizeExpr i) (normalizeExpr c) (normalizeExpr s) (normalizeExpr b)
+normalizeExpr (AT.While _ c b) = AT.While normalizeLoc (normalizeExpr c) (normalizeExpr b)
 normalizeExpr (AT.Continue _) = AT.Continue normalizeLoc
 normalizeExpr (AT.Break _) = AT.Break normalizeLoc
-normalizeExpr (AT.StructAccess _ e s) = AT.StructAccess normalizeLoc e s
-normalizeExpr (AT.ArrayAccess _ e1 e2) = AT.ArrayAccess normalizeLoc e1 e2
-normalizeExpr (AT.Cast _ t e) = AT.Cast normalizeLoc t e
+normalizeExpr (AT.StructAccess _ e s) = AT.StructAccess normalizeLoc (normalizeExpr e) s
+normalizeExpr (AT.ArrayAccess _ e1 e2) = AT.ArrayAccess normalizeLoc (normalizeExpr e1) (normalizeExpr e2)
+normalizeExpr (AT.Cast _ t e) = AT.Cast normalizeLoc t (normalizeExpr e)
