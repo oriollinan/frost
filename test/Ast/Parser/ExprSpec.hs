@@ -121,6 +121,48 @@ spec = do
                 )
       result `shouldBe` expected
 
+    it "parses a for loop" $ do
+      let input = "from 0 to 10 by 2 |i: int| { i = 0 }"
+      let env = E.emptyEnv
+      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let expected =
+            Right $
+              AT.For
+                { AT.forLoc = normalizeLoc,
+                  AT.forInit =
+                    AT.Declaration
+                      { AT.declLoc = normalizeLoc,
+                        AT.declName = "i",
+                        AT.declType = AT.TInt 32,
+                        AT.declInit = Just (AT.Lit normalizeLoc (AT.LInt 0))
+                      },
+                  AT.forCond =
+                    AT.Op
+                      normalizeLoc
+                      AT.Lt
+                      (AT.Var normalizeLoc "i" (AT.TInt 32))
+                      (AT.Lit normalizeLoc (AT.LInt 10)),
+                  AT.forStep =
+                    AT.Assignment
+                      normalizeLoc
+                      (AT.Var normalizeLoc "i" (AT.TInt 32))
+                      ( AT.Op
+                          normalizeLoc
+                          AT.Add
+                          (AT.Var normalizeLoc "i" (AT.TInt 32))
+                          (AT.Lit normalizeLoc (AT.LInt 2))
+                      ),
+                  AT.forBody =
+                    AT.Block
+                      [ AT.Assignment
+                          normalizeLoc
+                          (AT.Var normalizeLoc "i" (AT.TInt 32))
+                          ( AT.Lit normalizeLoc (AT.LInt 0)
+                          )
+                      ]
+                }
+      result `shouldBe` expected
+
 normalizeLoc :: AT.SrcLoc
 normalizeLoc = AT.SrcLoc "" 0 0
 

@@ -10,6 +10,7 @@ import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
 import qualified Control.Monad.State as S
 import qualified Text.Megaparsec as M
+import qualified Text.Megaparsec.Char.Lexer as ML
 import qualified Text.Megaparsec.Pos as MP
 
 -- TODO: rethink order
@@ -18,6 +19,7 @@ parseExpr =
   M.choice
     [ parseIf,
       parseWhile,
+      parseFor,
       parseReturn,
       parseBlock,
       M.try parseFunction,
@@ -102,6 +104,27 @@ parseWhile = do
   cond <- PU.symbol "loop" *> parseExpr
   body <- parseBlock
   return $ AT.While {AT.whileLoc = srcLoc, AT.whileCond = cond, AT.whileBody = body}
+
+-- TODO: handle dynamic ranges
+parseFor :: PU.Parser AT.Expr
+parseFor = do
+  srcLoc <- parseSrcLoc
+  from <- PU.symbol "from" *> PU.lexeme parseExpr
+  to <- PU.symbol "to" *> PU.lexeme parseExpr
+  by <- M.optional $ PU.symbol "by" *> PU.lexeme ML.decimal
+  (name, type') <- M.between (PU.symbol "|") (PU.symbol "|") $ do
+    name <- PU.identifier
+    type' <- PU.symbol ":" *> PT.parseType
+    return (name, type')
+  let init' = AT.Declaration srcLoc name type' (Just from)
+  let var = AT.Var srcLoc name type'
+  S.modify (E.insertVar name type')
+  body <- parseBlock
+  let step = case by of
+        Just n -> AT.Assignment srcLoc var (AT.Op srcLoc AT.Add var (AT.Lit srcLoc (AT.LInt n)))
+        _ -> AT.UnaryOp srcLoc AT.PostInc var
+  let cond = (if maybe True (>= 0) by then AT.Op srcLoc AT.Lt var to else AT.Op srcLoc AT.Gt var to)
+  return $ AT.For {AT.forLoc = srcLoc, AT.forInit = init', AT.forCond = cond, AT.forStep = step, AT.forBody = body}
 
 parseBlock :: PU.Parser AT.Expr
 parseBlock = do
