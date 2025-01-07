@@ -72,7 +72,6 @@ test-suite glados-test
     Ast.Parser.TypeSpec
     Ast.Parser.UnaryOperationSpec
     Ast.ParserSpec
-    Misc.MiscSpec
     Codegen.CodegenSpec
 
   hs-source-dirs: test
