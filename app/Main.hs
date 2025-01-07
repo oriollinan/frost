@@ -2,8 +2,7 @@
 
 module Main where
 
--- import qualified Ast.Parser as P
-import Ast.Types
+import qualified Ast.Parser as P
 import qualified Codegen.Codegen as C
 import qualified Control.Monad as M
 import qualified Control.Monad.IO.Class as IO
@@ -56,104 +55,15 @@ optionsInfo =
   O.info
     (O.helper <*> optionsParser)
     ( O.fullDesc
-        <> O.progDesc "A compiler that generates LLVM IR from a scheme-like language"
-        <> O.header "Scheme-to-LLVM Compiler"
+        <> O.progDesc "Compile FrostLang source code to LLVM IR"
+        <> O.header "FrostLang Compiler"
     )
 
-sampleProgram :: Program
-sampleProgram =
-  Program
-    { globals =
-        [ ("fibonacci", fibonacciFunction),
-          ("main", mainFunction)
-        ],
-      types = [],
-      sourceFile = "fibonacci.c"
-    }
-  where
-    fibonacciLoc = SrcLoc "fibonacci.c" 1 1
-    nParamLoc = SrcLoc "fibonacci.c" 2 3
-    ifLoc = SrcLoc "fibonacci.c" 3 3
-    returnBaseCaseLoc = SrcLoc "fibonacci.c" 4 5
-    recursiveCallLoc = SrcLoc "fibonacci.c" 5 5
-    returnRecursiveLoc = SrcLoc "fibonacci.c" 6 5
-    mainLoc = SrcLoc "fibonacci.c" 8 1
-    resultLoc = SrcLoc "fibonacci.c" 9 3
-    returnLoc = SrcLoc "fibonacci.c" 10 3
-
-    fibonacciFunction =
-      Function
-        { funcLoc = fibonacciLoc,
-          funcName = "fibonacci",
-          funcType = TFunction (TInt 32) [TInt 32] False,
-          funcParams = ["n"],
-          funcBody =
-            Block
-              [ If
-                  { ifLoc = ifLoc,
-                    ifCond = Op ifLoc Lte (Var nParamLoc "n" (TInt 32)) (Lit nParamLoc (LInt 1)),
-                    ifThen = Return returnBaseCaseLoc (Just (Var nParamLoc "n" (TInt 32))),
-                    ifElse =
-                      Just $
-                        Return
-                          returnRecursiveLoc
-                          ( Just
-                              ( Op
-                                  recursiveCallLoc
-                                  Add
-                                  ( Call
-                                      recursiveCallLoc
-                                      (Var recursiveCallLoc "fibonacci" (TFunction (TInt 32) [TInt 32] False))
-                                      [Op recursiveCallLoc Sub (Var nParamLoc "n" (TInt 32)) (Lit recursiveCallLoc (LInt 1))]
-                                  )
-                                  ( Call
-                                      recursiveCallLoc
-                                      (Var recursiveCallLoc "fibonacci" (TFunction (TInt 32) [TInt 32] False))
-                                      [Op recursiveCallLoc Sub (Var nParamLoc "n" (TInt 32)) (Lit recursiveCallLoc (LInt 2))]
-                                  )
-                              )
-                          )
-                  }
-              ]
-        }
-
-    mainFunction =
-      Function
-        { funcLoc = mainLoc,
-          funcName = "$$generated",
-          funcType = TFunction (TInt 32) [] False,
-          funcParams = [],
-          funcBody =
-            Block
-              [ Declaration
-                  { declLoc = resultLoc,
-                    declName = "n",
-                    declType = TInt 32,
-                    declInit = Just (Lit resultLoc (LInt 8))
-                  },
-                Declaration
-                  { declLoc = resultLoc,
-                    declName = "result",
-                    declType = TInt 32,
-                    declInit =
-                      Just
-                        ( Call
-                            resultLoc
-                            (Var resultLoc "fibonacci" (TFunction (TInt 32) [TInt 32] False))
-                            [Var resultLoc "n" (TInt 32)]
-                        )
-                  },
-                Return returnLoc (Just (Var returnLoc "result" (TInt 32)))
-              ]
-        }
-
 compile :: String -> String -> Bool -> E.ExceptT CompileError IO String
-compile _ _ verbose = do
-  -- ast <- case P.parse input source of
-  --   Left err -> E.throwE $ ParseError err
-  --   Right res -> return res
-
-  let ast = sampleProgram
+compile input source verbose = do
+  ast <- case P.parse input source of
+    Left err -> E.throwE $ ParseError err
+    Right res -> return res
 
   IO.liftIO $ logMsg verbose (TL.unpack $ PS.pShow ast)
 
@@ -177,8 +87,7 @@ handleError errType errMsg verbose = do
 main :: IO ()
 main = do
   Options {input, out, verbose} <- O.execParser optionsInfo
-  -- source <- readInput input
-  let source = ""
+  source <- readInput input
 
   logMsg verbose "Starting compilation..."
   result <- E.runExceptT $ compile (DM.fromMaybe "stdin" input) source verbose
