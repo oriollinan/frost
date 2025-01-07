@@ -13,7 +13,7 @@ import qualified Text.Megaparsec.Pos as MP
 
 -- TODO: rethink order
 parseExpr :: PU.Parser AT.Expr
-parseExpr = PU.triedChoice [parseLit, parseVar, parseFunction, parseDeclaration, parseAssignment, parseCall, parseIf, parseBlock, parseOp]
+parseExpr = PU.triedChoice [parseIf, parseReturn, parseDeclaration, parseAssignment, parseFunction, parseBlock, parseCall, parseLit, parseVar]
 
 parseLit :: PU.Parser AT.Expr
 parseLit = do
@@ -35,7 +35,7 @@ parseFunction :: PU.Parser AT.Expr
 parseFunction = do
   name <- PU.identifier
   t <- PU.symbol ":" *> PT.parseType
-  params <- PU.symbol "=" *> M.many PU.identifier
+  params <- PU.symbol "=" *> M.many (PU.lexeme PU.identifier)
   (AT.Block exprs) <- parseBlock
   srcLoc <- parseSrcLoc
   body <- case last exprs of
@@ -80,7 +80,7 @@ parseIf = do
 
 parseBlock :: PU.Parser AT.Expr
 parseBlock = do
-  es <- M.between (PU.symbol "{") (PU.symbol "}") $ M.many parseExpr
+  es <- M.between (PU.symbol "{") (PU.symbol "}") $ M.many $ PU.lexeme parseExpr
   return $ AT.Block es
 
 parseReturn :: PU.Parser AT.Expr

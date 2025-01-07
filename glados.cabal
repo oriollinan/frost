@@ -71,6 +71,7 @@ test-suite glados-test
     Ast.Parser.TypeDefinitionSpec
     Ast.Parser.TypeSpec
     Ast.Parser.UnaryOperationSpec
+    Ast.Parser.ExprSpec
     Ast.ParserSpec
     Misc.MiscSpec
 
