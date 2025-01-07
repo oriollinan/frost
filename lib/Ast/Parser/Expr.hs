@@ -5,6 +5,7 @@ import qualified Ast.Parser.Literal as PL
 import qualified Ast.Parser.Operation as PO
 import qualified Ast.Parser.Type as PT
 import qualified Ast.Parser.UnaryOperation as PUO
+import qualified Ast.Parser.Utils as AU
 import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
 import qualified Control.Monad.State as S
@@ -47,15 +48,18 @@ parseFunction :: PU.Parser AT.Expr
 parseFunction = do
   srcLoc <- parseSrcLoc
   name <- PU.identifier
-  t <- PU.symbol ":" *> PT.parseType
-  params <- PU.symbol "=" *> M.many (PU.lexeme PU.identifier)
-  mapM_ (\p -> S.modify (E.insertVar p $ AT.TInt 32)) params
-  S.modify (E.insertVar name t)
-  (AT.Block exprs) <- parseBlock
-  body <- case last exprs of
-    (AT.Return _ _) -> return $ AT.Block exprs
-    e -> return $ AT.Block $ init exprs ++ [AT.Return srcLoc $ Just e]
-  return $ AT.Function {AT.funcLoc = srcLoc, AT.funcName = name, AT.funcType = t, AT.funcParams = params, AT.funcBody = body}
+  ft <- PU.symbol ":" *> PT.parseType
+  case ft of
+    (AT.TFunction {AT.paramTypes = pts}) -> do
+      params <- PU.symbol "=" *> M.many (PU.lexeme PU.identifier)
+      mapM_ (\(p, t) -> S.modify (E.insertVar p t)) $ zip params pts
+      S.modify (E.insertVar name ft)
+      (AT.Block exprs) <- parseBlock
+      body <- case last exprs of
+        (AT.Return _ _) -> return $ AT.Block exprs
+        e -> return $ AT.Block $ init exprs ++ [AT.Return srcLoc $ Just e]
+      return $ AT.Function {AT.funcLoc = srcLoc, AT.funcName = name, AT.funcType = ft, AT.funcParams = params, AT.funcBody = body}
+    _ -> M.customFailure $ AU.InvalidFunctionType name ft
 
 parseDeclaration :: PU.Parser AT.Expr
 parseDeclaration = do
@@ -97,6 +101,8 @@ parseWhile = do
   cond <- PU.symbol "loop" *> parseExpr
   body <- parseBlock
   return $ AT.While {AT.whileLoc = srcLoc, AT.whileCond = cond, AT.whileBody = body}
+
+-- TODO: manage new state in blocks
 
 parseBlock :: PU.Parser AT.Expr
 parseBlock = do

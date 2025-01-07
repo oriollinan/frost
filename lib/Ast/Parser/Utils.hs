@@ -1,6 +1,7 @@
 module Ast.Parser.Utils where
 
 import qualified Ast.Parser.Env as E
+import qualified Ast.Types as AT
 import qualified Control.Monad.State as S
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
@@ -13,6 +14,7 @@ data ParseErrorCustom
   = UnknownType String
   | UndefinedVar String
   | UndefinedFunction String
+  | InvalidFunctionType String AT.Type
   deriving (Show, Ord, Eq)
 
 instance M.ShowErrorComponent ParseErrorCustom where
@@ -22,6 +24,8 @@ instance M.ShowErrorComponent ParseErrorCustom where
     "Undefined Variable: variable \"" ++ n ++ "\" is not defined"
   showErrorComponent (UndefinedFunction n) =
     "Undefined Function: function \"" ++ n ++ "\" is not defined"
+  showErrorComponent (InvalidFunctionType n t) =
+    "Invalid Function Type: function \"" ++ n ++ "\" with type \"" ++ show t ++ "\" is not valid"
 
 -- | Skips whitespace and comments (starting with `%`). Ensures proper handling of spacing in parsers.
 sc :: Parser ()
