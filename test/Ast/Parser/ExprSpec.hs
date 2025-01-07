@@ -18,9 +18,9 @@ spec = do
       parseWithEnv "123" `shouldBe` Right (AT.Lit (AT.SrcLoc "" 1 4) (AT.LInt 123))
 
     it "parses a variable expression" $ do
-      let env = E.insertVar "x" (AT.TInt 0) initialEnv
+      let env = E.insertVar "x" (AT.TInt 32) initialEnv
       fst (S.runState (M.runParserT PE.parseExpr "" "x") env)
-        `shouldBe` Right (AT.Var (AT.SrcLoc "" 1 2) "x" (AT.TInt 0))
+        `shouldBe` Right (AT.Var (AT.SrcLoc "" 1 2) "x" (AT.TInt 32))
 
     it "fails for an undefined variable" $ do
       let result = parseWithEnv "y"
@@ -29,7 +29,19 @@ spec = do
         _ -> error "Expected failure"
 
     it "parses a function declaration" $ do
-      let input = "add : (int int) -> (int) = x y { return 1 }"
+      let input = "add: (int int) -> (int) = x y { return 1 }"
+      let expected =
+            AT.Function
+              (AT.SrcLoc "" 0 0)
+              "add"
+              (AT.TFunction {AT.returnType = AT.TInt 32, AT.paramTypes = [AT.TInt 32, AT.TInt 32], AT.isVariadic = False})
+              ["x", "y"]
+              (AT.Block [AT.Return (AT.SrcLoc "" 0 0) (Just (AT.Lit (AT.SrcLoc "" 0 0) (AT.LInt 1)))])
+      let result = normalizeExpr <$> parseWithEnv input
+      result `shouldBe` Right (normalizeExpr expected)
+
+    it "parses fibonacci" $ do
+      let input = "add: (int int) -> (int) = x y { return 1 }"
       let expected =
             AT.Function
               (AT.SrcLoc "" 0 0)
@@ -46,7 +58,7 @@ spec = do
             AT.Declaration
               { AT.declLoc = AT.SrcLoc "" 0 0,
                 AT.declName = "x",
-                AT.declType = AT.TInt 0,
+                AT.declType = AT.TInt 32,
                 AT.declInit = Just (AT.Lit (AT.SrcLoc "" 0 00) (AT.LInt 42))
               }
       normalizeExpr <$> parseWithEnv input `shouldBe` Right (normalizeExpr expected)
