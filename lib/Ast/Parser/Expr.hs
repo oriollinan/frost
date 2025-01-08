@@ -21,6 +21,8 @@ parseExpr =
       parseWhile,
       parseFor,
       parseReturn,
+      parseBreak,
+      parseContinue,
       parseBlock,
       M.try parseFunction,
       M.try parseDeclaration,
@@ -138,6 +140,18 @@ parseReturn = do
   srcLoc <- parseSrcLoc
   _ <- PU.symbol "return"
   AT.Return srcLoc <$> M.optional parseExpr
+
+parseBreak :: PU.Parser AT.Expr
+parseBreak = do
+  srcLoc <- parseSrcLoc
+  _ <- PU.symbol "stop"
+  return $ AT.Break srcLoc
+
+parseContinue :: PU.Parser AT.Expr
+parseContinue = do
+  srcLoc <- parseSrcLoc
+  _ <- PU.symbol "next"
+  return $ AT.Continue srcLoc
 
 parseOp :: PU.Parser AT.Expr
 parseOp = do

@@ -163,28 +163,33 @@ spec = do
                 }
       result `shouldBe` expected
 
+    it "parses a break statement" $ do
+      let input = "stop"
+      let result = normalizeExpr <$> parseWithEnv input
+      let expected = Right (AT.Break normalizeLoc)
+      result `shouldBe` expected
+
+    it "parses a continue statement" $ do
+      let input = "next"
+      let result = normalizeExpr <$> parseWithEnv input
+      let expected = Right (AT.Continue normalizeLoc)
+      result `shouldBe` expected
+
 normalizeLoc :: AT.SrcLoc
 normalizeLoc = AT.SrcLoc "" 0 0
 
 normalizeExpr :: AT.Expr -> AT.Expr
 normalizeExpr (AT.Lit _ lit) = AT.Lit normalizeLoc lit
 normalizeExpr (AT.Var _ name t) = AT.Var normalizeLoc name t
-normalizeExpr (AT.Function _ name t params body) =
-  AT.Function normalizeLoc name t params (normalizeExpr body)
-normalizeExpr (AT.Declaration _ name t initVal) =
-  AT.Declaration normalizeLoc name t (fmap normalizeExpr initVal)
-normalizeExpr (AT.Assignment _ target value) =
-  AT.Assignment normalizeLoc (normalizeExpr target) (normalizeExpr value)
-normalizeExpr (AT.Call _ func args) =
-  AT.Call normalizeLoc (normalizeExpr func) (map normalizeExpr args)
-normalizeExpr (AT.If _ cond thenBranch elseBranch) =
-  AT.If normalizeLoc (normalizeExpr cond) (normalizeExpr thenBranch) (fmap normalizeExpr elseBranch)
+normalizeExpr (AT.Function _ name t params body) = AT.Function normalizeLoc name t params (normalizeExpr body)
+normalizeExpr (AT.Declaration _ name t initVal) = AT.Declaration normalizeLoc name t (fmap normalizeExpr initVal)
+normalizeExpr (AT.Assignment _ target value) = AT.Assignment normalizeLoc (normalizeExpr target) (normalizeExpr value)
+normalizeExpr (AT.Call _ func args) = AT.Call normalizeLoc (normalizeExpr func) (map normalizeExpr args)
+normalizeExpr (AT.If _ cond thenBranch elseBranch) = AT.If normalizeLoc (normalizeExpr cond) (normalizeExpr thenBranch) (fmap normalizeExpr elseBranch)
 normalizeExpr (AT.Block exprs) = AT.Block (map normalizeExpr exprs)
 normalizeExpr (AT.Return _ value) = AT.Return normalizeLoc (fmap normalizeExpr value)
-normalizeExpr (AT.Op _ op e1 e2) =
-  AT.Op normalizeLoc op (normalizeExpr e1) (normalizeExpr e2)
-normalizeExpr (AT.UnaryOp _ op e) =
-  AT.UnaryOp normalizeLoc op (normalizeExpr e)
+normalizeExpr (AT.Op _ op e1 e2) = AT.Op normalizeLoc op (normalizeExpr e1) (normalizeExpr e2)
+normalizeExpr (AT.UnaryOp _ op e) = AT.UnaryOp normalizeLoc op (normalizeExpr e)
 normalizeExpr (AT.For _ i c s b) = AT.For normalizeLoc (normalizeExpr i) (normalizeExpr c) (normalizeExpr s) (normalizeExpr b)
 normalizeExpr (AT.While _ c b) = AT.While normalizeLoc (normalizeExpr c) (normalizeExpr b)
 normalizeExpr (AT.Continue _) = AT.Continue normalizeLoc
