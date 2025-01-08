@@ -30,6 +30,7 @@ parseExpr =
       M.try parseAssignment,
       M.try parseCall,
       M.try parseStructAccess,
+      M.try parseArrayAccess,
       parseVar,
       parseOp
       -- parseUnaryOp,
@@ -174,6 +175,14 @@ parseStructAccess = do
   value <- parseVar
   field <- PU.symbol "." *> PU.identifier
   return $ AT.StructAccess srcLoc value field
+
+-- TODO: parse nested arrays
+parseArrayAccess :: PU.Parser AT.Expr
+parseArrayAccess = do
+  srcLoc <- parseSrcLoc
+  value <- parseVar
+  pos <- PU.symbol "." *> parseExpr
+  return $ AT.ArrayAccess srcLoc value pos
 
 parseSrcLoc :: PU.Parser AT.SrcLoc
 parseSrcLoc = do

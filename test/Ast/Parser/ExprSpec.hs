@@ -208,6 +208,19 @@ spec = do
                 "field"
       result `shouldBe` expected
 
+    it "parses an array access" $ do
+      let input = "myArray.1"
+      let arrayType = AT.TArray AT.TChar Nothing
+      let env = E.insertVar "myArray" arrayType E.emptyEnv
+      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let expected =
+            Right $
+              AT.ArrayAccess
+                normalizeLoc
+                (AT.Var normalizeLoc "myArray" arrayType)
+                (AT.Lit normalizeLoc $ AT.LInt 1)
+      result `shouldBe` expected
+
 normalizeLoc :: AT.SrcLoc
 normalizeLoc = AT.SrcLoc "" 0 0
 
