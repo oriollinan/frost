@@ -24,13 +24,14 @@ parseExpr =
       parseBreak,
       parseContinue,
       parseBlock,
+      parseLit,
       M.try parseFunction,
       M.try parseDeclaration,
-      M.try parseCall,
-      parseLit,
       M.try parseAssignment,
-      parseOp,
-      parseVar
+      M.try parseCall,
+      M.try parseStructAccess,
+      parseVar,
+      parseOp
       -- parseUnaryOp,
     ]
 
@@ -165,6 +166,14 @@ parseUnaryOp = do
   srcLoc <- parseSrcLoc
   (uo, e) <- PUO.parseUnaryOperation parseExpr
   return $ AT.UnaryOp srcLoc uo e
+
+-- TODO: parse nested structs
+parseStructAccess :: PU.Parser AT.Expr
+parseStructAccess = do
+  srcLoc <- parseSrcLoc
+  value <- parseVar
+  field <- PU.symbol "." *> PU.identifier
+  return $ AT.StructAccess srcLoc value field
 
 parseSrcLoc :: PU.Parser AT.SrcLoc
 parseSrcLoc = do

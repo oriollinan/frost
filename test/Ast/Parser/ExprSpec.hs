@@ -15,19 +15,22 @@ spec = do
 
   describe "parseExpr" $ do
     it "parses a literal expression" $ do
-      let result = normalizeExpr <$> parseWithEnv "123"
+      let input = "123"
+      let result = normalizeExpr <$> parseWithEnv input
       let expected = Right (AT.Lit normalizeLoc (AT.LInt 123))
       result `shouldBe` expected
 
     it "parses a variable expression" $
       do
+        let input = "x"
         let env = E.insertVar "x" (AT.TInt 32) initialEnv
-        let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" "x") env)
+        let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
         let expected = Right (AT.Var normalizeLoc "x" (AT.TInt 32))
         result `shouldBe` expected
 
     it "fails for an undefined variable" $ do
-      let result = parseWithEnv "y"
+      let input = "y"
+      let result = parseWithEnv input
       case result of
         Left _ -> True `shouldBe` True
         _ -> error "Expected failure"
@@ -173,6 +176,36 @@ spec = do
       let input = "next"
       let result = normalizeExpr <$> parseWithEnv input
       let expected = Right (AT.Continue normalizeLoc)
+      result `shouldBe` expected
+
+    it "parses a struct access" $ do
+      let input = "myStruct.myField"
+      let structType = AT.TStruct "Custom" [("myField", AT.TChar)]
+      let env = E.insertVar "myStruct" structType $ E.insertType "Custom" structType E.emptyEnv
+      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let expected =
+            Right $
+              AT.StructAccess
+                normalizeLoc
+                (AT.Var normalizeLoc "myStruct" structType)
+                "myField"
+      result `shouldBe` expected
+
+    it "parses a nested struct access" $ do
+      let input = "myStruct.innerStruct.field"
+      let structType = AT.TStruct "Custom" [("innerStruct", AT.TStruct "InnerCustom" [("field", AT.TChar)])]
+      let env = E.insertVar "myStruct" structType $ E.insertType "Custom" structType E.emptyEnv
+      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let expected =
+            Right $
+              AT.StructAccess
+                normalizeLoc
+                ( AT.StructAccess
+                    normalizeLoc
+                    (AT.Var normalizeLoc "myStruct" structType)
+                    "innerStruct"
+                )
+                "field"
       result `shouldBe` expected
 
 normalizeLoc :: AT.SrcLoc
