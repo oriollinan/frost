@@ -1,7 +1,0 @@
-something : (int) -> (int) = n {
-  if is n 0 {
-    return 1
-  }
-
-  n
-}
