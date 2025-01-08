@@ -88,7 +88,7 @@ parseCall = do
 
 parseIf :: PU.Parser AT.Expr
 parseIf = do
-  cond <- PU.symbol "if" *> parseExpr
+  cond <- PU.symbol "if" *> PU.lexeme parseExpr
   then' <- parseBlock
   else' <- M.optional $ PU.symbol "else" *> parseBlock
   srcLoc <- parseSrcLoc
