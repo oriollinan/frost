@@ -42,7 +42,7 @@ spec = do
               AT.Function
                 normalizeLoc
                 "add"
-                (AT.TFunction {AT.returnType = AT.TInt 32, AT.paramTypes = [AT.TInt 32, AT.TInt 32], AT.isVariadic = False})
+                (AT.TFunction (AT.TInt 32) [AT.TInt 32, AT.TInt 32] False)
                 ["x", "y"]
                 (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 1)))])
       let result = normalizeExpr <$> parseWithEnv input
@@ -102,6 +102,28 @@ spec = do
 
       result `shouldBe` expected
 
+    it "parses an if-else expression with implicit returns" $ do
+      let input = "main: (void) -> (void) = { if x { 1 } else { 0 } }"
+      let env = E.insertVar "x" AT.TBoolean initialEnv
+      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let expected =
+            Right $
+              AT.Function
+                normalizeLoc
+                "main"
+                (AT.TFunction AT.TVoid [AT.TVoid] False)
+                []
+                ( AT.Block
+                    [ AT.If
+                        normalizeLoc
+                        (AT.Var normalizeLoc "x" AT.TBoolean)
+                        (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 1)))])
+                        (Just (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 0)))]))
+                    ]
+                )
+
+      result `shouldBe` expected
+
     it "parses a while loop" $ do
       let input = "loop z { z = 0 }"
       let env = E.insertVar "z" (AT.TInt 32) initialEnv
@@ -134,11 +156,10 @@ spec = do
                 { AT.forLoc = normalizeLoc,
                   AT.forInit =
                     AT.Declaration
-                      { AT.declLoc = normalizeLoc,
-                        AT.declName = "i",
-                        AT.declType = AT.TInt 32,
-                        AT.declInit = Just (AT.Lit normalizeLoc (AT.LInt 0))
-                      },
+                      normalizeLoc
+                      "i"
+                      (AT.TInt 32)
+                      (Just (AT.Lit normalizeLoc (AT.LInt 0))),
                   AT.forCond =
                     AT.Op
                       normalizeLoc
@@ -154,6 +175,47 @@ spec = do
                           AT.Add
                           (AT.Var normalizeLoc "i" (AT.TInt 32))
                           (AT.Lit normalizeLoc (AT.LInt 2))
+                      ),
+                  AT.forBody =
+                    AT.Block
+                      [ AT.Assignment
+                          normalizeLoc
+                          (AT.Var normalizeLoc "i" (AT.TInt 32))
+                          ( AT.Lit normalizeLoc (AT.LInt 0)
+                          )
+                      ]
+                }
+      result `shouldBe` expected
+
+    it "parses a for loop with a dynamic range" $ do
+      let input = "from 0 to 10 by x |i: int| { i = 0 }"
+      let env = E.insertVar "x" (AT.TInt 32) E.emptyEnv
+      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let expected =
+            Right $
+              AT.For
+                { AT.forLoc = normalizeLoc,
+                  AT.forInit =
+                    AT.Declaration
+                      normalizeLoc
+                      "i"
+                      (AT.TInt 32)
+                      (Just (AT.Lit normalizeLoc (AT.LInt 0))),
+                  AT.forCond =
+                    AT.Op
+                      normalizeLoc
+                      AT.Lt
+                      (AT.Var normalizeLoc "i" (AT.TInt 32))
+                      (AT.Lit normalizeLoc (AT.LInt 10)),
+                  AT.forStep =
+                    AT.Assignment
+                      normalizeLoc
+                      (AT.Var normalizeLoc "i" (AT.TInt 32))
+                      ( AT.Op
+                          normalizeLoc
+                          AT.Add
+                          (AT.Var normalizeLoc "i" (AT.TInt 32))
+                          (AT.Var normalizeLoc "x" (AT.TInt 32))
                       ),
                   AT.forBody =
                     AT.Block
@@ -221,6 +283,23 @@ spec = do
                 (AT.Lit normalizeLoc $ AT.LInt 1)
       result `shouldBe` expected
 
+    it "parses an nested array access" $ do
+      let input = "myArray.1.1"
+      let arrayType = AT.TArray (AT.TArray AT.TChar Nothing) Nothing
+      let env = E.insertVar "myArray" arrayType E.emptyEnv
+      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let expected =
+            Right $
+              AT.ArrayAccess
+                normalizeLoc
+                ( AT.ArrayAccess
+                    normalizeLoc
+                    (AT.Var normalizeLoc "myArray" arrayType)
+                    (AT.Lit normalizeLoc $ AT.LInt 1)
+                )
+                (AT.Lit normalizeLoc $ AT.LInt 1)
+      result `shouldBe` expected
+
     it "parses an type cast" $ do
       let input = "@int('a')"
       let result = normalizeExpr <$> parseWithEnv input
@@ -230,6 +309,46 @@ spec = do
                 normalizeLoc
                 (AT.TInt 32)
                 (AT.Lit normalizeLoc $ AT.LChar 'a')
+      result `shouldBe` expected
+
+    it "parses an operator" $ do
+      let input = "1 + 1"
+      let result = normalizeExpr <$> parseWithEnv input
+      let expected =
+            Right $
+              AT.Op
+                normalizeLoc
+                AT.Add
+                (AT.Lit normalizeLoc $ AT.LInt 1)
+                (AT.Lit normalizeLoc $ AT.LInt 1)
+      result `shouldBe` expected
+
+    it "parses an operator with hierarchy" $ do
+      let input = "1 + 1 * 2"
+      let result = normalizeExpr <$> parseWithEnv input
+      let expected =
+            Right $
+              AT.Op
+                normalizeLoc
+                AT.Mul
+                ( AT.Op
+                    normalizeLoc
+                    AT.Add
+                    (AT.Lit normalizeLoc $ AT.LInt 1)
+                    (AT.Lit normalizeLoc $ AT.LInt 1)
+                )
+                (AT.Lit normalizeLoc $ AT.LInt 2)
+      result `shouldBe` expected
+
+    it "parses a unary operator" $ do
+      let input = "not 1"
+      let result = normalizeExpr <$> parseWithEnv input
+      let expected =
+            Right $
+              AT.UnaryOp
+                normalizeLoc
+                AT.Not
+                (AT.Lit normalizeLoc $ AT.LInt 1)
       result `shouldBe` expected
 
 normalizeLoc :: AT.SrcLoc
