@@ -24,6 +24,7 @@ parseExpr =
       parseBreak,
       parseContinue,
       parseBlock,
+      parseCast,
       parseLit,
       M.try parseFunction,
       M.try parseDeclaration,
@@ -183,6 +184,13 @@ parseArrayAccess = do
   value <- parseVar
   pos <- PU.symbol "." *> parseExpr
   return $ AT.ArrayAccess srcLoc value pos
+
+parseCast :: PU.Parser AT.Expr
+parseCast = do
+  srcLoc <- parseSrcLoc
+  type' <- PU.symbol "@" *> PT.parseType
+  expr <- M.between (PU.symbol "(") (PU.symbol ")") parseExpr
+  return $ AT.Cast srcLoc type' expr
 
 parseSrcLoc :: PU.Parser AT.SrcLoc
 parseSrcLoc = do

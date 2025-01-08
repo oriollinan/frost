@@ -221,6 +221,17 @@ spec = do
                 (AT.Lit normalizeLoc $ AT.LInt 1)
       result `shouldBe` expected
 
+    it "parses an type cast" $ do
+      let input = "@int('a')"
+      let result = normalizeExpr <$> parseWithEnv input
+      let expected =
+            Right $
+              AT.Cast
+                normalizeLoc
+                (AT.TInt 32)
+                (AT.Lit normalizeLoc $ AT.LChar 'a')
+      result `shouldBe` expected
+
 normalizeLoc :: AT.SrcLoc
 normalizeLoc = AT.SrcLoc "" 0 0
 
