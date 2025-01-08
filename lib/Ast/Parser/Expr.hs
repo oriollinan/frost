@@ -4,18 +4,20 @@ import qualified Ast.Parser.Env as E
 import qualified Ast.Parser.Literal as PL
 import qualified Ast.Parser.Operation as PO
 import qualified Ast.Parser.Type as PT
-import qualified Ast.Parser.UnaryOperation as PUO
 import qualified Ast.Parser.Utils as AU
 import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
+import qualified Control.Monad.Combinators.Expr as CE
 import qualified Control.Monad.State as S
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char.Lexer as ML
-import qualified Text.Megaparsec.Pos as MP
+
+parseExpr :: PU.Parser AT.Expr
+parseExpr = CE.makeExprParser (PU.lexeme parseTerm) PO.operationTable
 
 -- TODO: rethink order
-parseExpr :: PU.Parser AT.Expr
-parseExpr =
+parseTerm :: PU.Parser AT.Expr
+parseTerm =
   M.choice
     [ parseIf,
       parseWhile,
@@ -33,18 +35,17 @@ parseExpr =
       M.try parseStructAccess,
       M.try parseArrayAccess,
       parseVar,
-      parseOp
-      -- parseUnaryOp,
+      parseParenExpr
     ]
 
 parseLit :: PU.Parser AT.Expr
 parseLit = do
-  srcLoc <- parseSrcLoc
+  srcLoc <- PU.parseSrcLoc
   AT.Lit srcLoc <$> PL.parseLiteral
 
 parseVar :: PU.Parser AT.Expr
 parseVar = do
-  srcLoc <- parseSrcLoc
+  srcLoc <- PU.parseSrcLoc
   name <- PU.identifier
   env <- S.get
   case E.lookupVar name env of
@@ -54,7 +55,7 @@ parseVar = do
 -- TODO: improve implicit return to handle ifs
 parseFunction :: PU.Parser AT.Expr
 parseFunction = do
-  srcLoc <- parseSrcLoc
+  srcLoc <- PU.parseSrcLoc
   name <- PU.identifier
   ft <- PU.symbol ":" *> PT.parseType
   case ft of
@@ -71,7 +72,7 @@ parseFunction = do
 
 parseDeclaration :: PU.Parser AT.Expr
 parseDeclaration = do
-  srcLoc <- parseSrcLoc
+  srcLoc <- PU.parseSrcLoc
   name <- PU.identifier
   t <- PU.symbol ":" *> PT.parseType
   value <- M.optional $ PU.symbol "=" *> parseExpr
@@ -80,14 +81,14 @@ parseDeclaration = do
 
 parseAssignment :: PU.Parser AT.Expr
 parseAssignment = do
-  srcLoc <- parseSrcLoc
+  srcLoc <- PU.parseSrcLoc
   target <- parseVar <* PU.symbol "="
   value <- parseExpr
   return $ AT.Assignment {AT.assignLoc = srcLoc, AT.assignTarget = target, AT.assignValue = value}
 
 parseCall :: PU.Parser AT.Expr
 parseCall = do
-  srcLoc <- parseSrcLoc
+  srcLoc <- PU.parseSrcLoc
   name <- PU.identifier
   args <- M.between (PU.symbol "(") (PU.symbol ")") $ M.many parseExpr
   env <- S.get
@@ -97,7 +98,7 @@ parseCall = do
 
 parseIf :: PU.Parser AT.Expr
 parseIf = do
-  srcLoc <- parseSrcLoc
+  srcLoc <- PU.parseSrcLoc
   cond <- PU.symbol "if" *> parseExpr
   then' <- parseBlock
   else' <- M.optional $ PU.symbol "else" *> parseBlock
@@ -105,7 +106,7 @@ parseIf = do
 
 parseWhile :: PU.Parser AT.Expr
 parseWhile = do
-  srcLoc <- parseSrcLoc
+  srcLoc <- PU.parseSrcLoc
   cond <- PU.symbol "loop" *> parseExpr
   body <- parseBlock
   return $ AT.While {AT.whileLoc = srcLoc, AT.whileCond = cond, AT.whileBody = body}
@@ -113,7 +114,7 @@ parseWhile = do
 -- TODO: handle dynamic ranges
 parseFor :: PU.Parser AT.Expr
 parseFor = do
-  srcLoc <- parseSrcLoc
+  srcLoc <- PU.parseSrcLoc
   from <- PU.symbol "from" *> PU.lexeme parseExpr
   to <- PU.symbol "to" *> PU.lexeme parseExpr
   by <- M.optional $ PU.symbol "by" *> PU.lexeme ML.decimal
@@ -140,39 +141,39 @@ parseBlock = do
 
 parseReturn :: PU.Parser AT.Expr
 parseReturn = do
-  srcLoc <- parseSrcLoc
+  srcLoc <- PU.parseSrcLoc
   _ <- PU.symbol "return"
   AT.Return srcLoc <$> M.optional parseExpr
 
 parseBreak :: PU.Parser AT.Expr
 parseBreak = do
-  srcLoc <- parseSrcLoc
+  srcLoc <- PU.parseSrcLoc
   _ <- PU.symbol "stop"
   return $ AT.Break srcLoc
 
 parseContinue :: PU.Parser AT.Expr
 parseContinue = do
-  srcLoc <- parseSrcLoc
+  srcLoc <- PU.parseSrcLoc
   _ <- PU.symbol "next"
   return $ AT.Continue srcLoc
 
-parseOp :: PU.Parser AT.Expr
-parseOp = do
-  srcLoc <- parseSrcLoc
-  op <- PO.parseOperation
-  e1 <- parseExpr
-  AT.Op srcLoc op e1 <$> parseExpr
+-- parseOp :: PU.Parser AT.Expr
+-- parseOp = do
+--   srcLoc <- PU.parseSrcLoc
+--   e1 <- parseExpr
+--   op <- PO.parseOperation
+--   AT.Op srcLoc op e1 <$> parseExpr
 
-parseUnaryOp :: PU.Parser AT.Expr
-parseUnaryOp = do
-  srcLoc <- parseSrcLoc
-  (uo, e) <- PUO.parseUnaryOperation parseExpr
-  return $ AT.UnaryOp srcLoc uo e
+-- parseUnaryOp :: PU.Parser AT.Expr
+-- parseUnaryOp = do
+--   srcLoc <- PU.parseSrcLoc
+--   (uo, e) <- PUO.parseUnaryOperation parseExpr
+--   return $ AT.UnaryOp srcLoc uo e
 
 -- TODO: parse nested structs
 parseStructAccess :: PU.Parser AT.Expr
 parseStructAccess = do
-  srcLoc <- parseSrcLoc
+  srcLoc <- PU.parseSrcLoc
   value <- parseVar
   field <- PU.symbol "." *> PU.identifier
   return $ AT.StructAccess srcLoc value field
@@ -180,19 +181,17 @@ parseStructAccess = do
 -- TODO: parse nested arrays
 parseArrayAccess :: PU.Parser AT.Expr
 parseArrayAccess = do
-  srcLoc <- parseSrcLoc
+  srcLoc <- PU.parseSrcLoc
   value <- parseVar
   pos <- PU.symbol "." *> parseExpr
   return $ AT.ArrayAccess srcLoc value pos
 
 parseCast :: PU.Parser AT.Expr
 parseCast = do
-  srcLoc <- parseSrcLoc
+  srcLoc <- PU.parseSrcLoc
   type' <- PU.symbol "@" *> PT.parseType
   expr <- M.between (PU.symbol "(") (PU.symbol ")") parseExpr
   return $ AT.Cast srcLoc type' expr
 
-parseSrcLoc :: PU.Parser AT.SrcLoc
-parseSrcLoc = do
-  (MP.SourcePos {MP.sourceName = _sourceName, MP.sourceLine = _sourceLine, MP.sourceColumn = _sourceColumn}) <- M.getSourcePos
-  return $ AT.SrcLoc {AT.srcFile = _sourceName, AT.srcLine = MP.unPos _sourceLine, AT.srcCol = MP.unPos _sourceColumn}
+parseParenExpr :: PU.Parser AT.Expr
+parseParenExpr = M.between (PU.symbol "(") (PU.symbol ")") parseExpr

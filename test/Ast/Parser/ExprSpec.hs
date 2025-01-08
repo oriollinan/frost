@@ -330,14 +330,14 @@ spec = do
             Right $
               AT.Op
                 normalizeLoc
-                AT.Mul
+                AT.Add
+                (AT.Lit normalizeLoc $ AT.LInt 1)
                 ( AT.Op
                     normalizeLoc
-                    AT.Add
+                    AT.Mul
                     (AT.Lit normalizeLoc $ AT.LInt 1)
-                    (AT.Lit normalizeLoc $ AT.LInt 1)
+                    (AT.Lit normalizeLoc $ AT.LInt 2)
                 )
-                (AT.Lit normalizeLoc $ AT.LInt 2)
       result `shouldBe` expected
 
     it "parses a unary operator" $ do

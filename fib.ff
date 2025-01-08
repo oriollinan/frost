@@ -1,0 +1,14 @@
+fibonacci : (int) -> (int) = n {
+  if is n 0{
+    return n
+  }
+  if is n 1{
+    return n
+  }
+
+  + fibonacci(- n 1) fibonacci(- n 2)
+}
+
+$$generated: (void) -> (int) = {
+  fibonacci(3)
+}
