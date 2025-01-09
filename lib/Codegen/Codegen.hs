@@ -16,7 +16,7 @@ import qualified Control.Monad.Except as E
 import qualified Control.Monad.Fix as F
 import qualified Control.Monad.State as S
 import qualified Data.List as L
-import Data.Maybe
+import qualified Data.Maybe as M
 import qualified LLVM.AST as AST
 import qualified LLVM.AST.Constant as C
 import qualified LLVM.AST.Float as FF
@@ -425,7 +425,7 @@ generateStructAccess (AT.StructAccess loc (AT.Var _ name (AT.TStruct _ fields)) 
   ptr <- case maybeVar of
     Just structPtr -> return structPtr
     Nothing -> E.throwError $ CodegenError loc $ VariableNotFound name
-  let fieldIndex = fromIntegral $ fromJust $ L.findIndex ((== field) . fst) fields
+  let fieldIndex = fromIntegral $ M.fromJust $ L.findIndex ((== field) . fst) fields
   fieldPtr <- I.gep ptr [IC.int32 0, IC.int32 fieldIndex]
   I.load fieldPtr 0
 generateStructAccess expr = E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
