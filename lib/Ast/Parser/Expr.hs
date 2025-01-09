@@ -13,7 +13,9 @@ import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char.Lexer as ML
 
 parseExpr :: PU.Parser AT.Expr
-parseExpr = CE.makeExprParser (PU.lexeme parseTerm) PO.operationTable
+parseExpr = CE.makeExprParser (PU.lexeme parseTerm) exprs
+  where
+    exprs = PO.operationTable ++ [[parseCall]]
 
 -- TODO: rethink order
 parseTerm :: PU.Parser AT.Expr
@@ -31,7 +33,6 @@ parseTerm =
       M.try parseFunction,
       M.try parseDeclaration,
       M.try parseAssignment,
-      M.try parseCall,
       M.try parseStructAccess,
       M.try parseArrayAccess,
       parseVar,
@@ -104,15 +105,11 @@ parseAssignment = do
   value <- parseExpr
   return $ AT.Assignment {AT.assignLoc = srcLoc, AT.assignTarget = target, AT.assignValue = value}
 
-parseCall :: PU.Parser AT.Expr
-parseCall = do
+parseCall :: CE.Operator PU.Parser AT.Expr
+parseCall = CE.Postfix $ do
   srcLoc <- PU.parseSrcLoc
-  name <- PU.identifier
   args <- M.between (PU.symbol "(") (PU.symbol ")") $ M.many parseExpr
-  env <- S.get
-  case PS.lookupVar name env of
-    (Just t@(AT.TFunction {})) -> return $ AT.Call {AT.callLoc = srcLoc, AT.callFunc = AT.Var srcLoc name t, AT.callArgs = args}
-    _ -> M.customFailure $ PU.UndefinedFunction name
+  return (\func -> AT.Call srcLoc func args)
 
 parseIf :: PU.Parser AT.Expr
 parseIf = do
