@@ -50,7 +50,7 @@ operationTable =
       PU.binary "||" (`AT.Op` AT.Or),
       PU.binary "or" (`AT.Op` AT.Or)
     ],
-    [ PU.postfix ".*" (`AT.UnaryOp` AT.Deref),
+    [ PU.postfix "." (`AT.UnaryOp` AT.Deref),
       PU.postfix "++" (`AT.UnaryOp` AT.PostInc),
       PU.postfix "--" (`AT.UnaryOp` AT.PostDec),
       parseCall

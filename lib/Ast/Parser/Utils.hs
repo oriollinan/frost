@@ -2,6 +2,7 @@ module Ast.Parser.Utils where
 
 import qualified Ast.Parser.State as PS
 import qualified Ast.Types as AT
+import qualified Control.Monad.Combinators.Expr as CE
 import qualified Control.Monad.State as S
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
@@ -56,12 +57,12 @@ parseSrcLoc = do
   (MP.SourcePos {MP.sourceName = _sourceName, MP.sourceLine = _sourceLine, MP.sourceColumn = _sourceColumn}) <- M.getSourcePos
   return $ AT.SrcLoc {AT.srcFile = _sourceName, AT.srcLine = MP.unPos _sourceLine, AT.srcCol = MP.unPos _sourceColumn}
 
-prefix :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr) -> CE.Operator PU.Parser AT.Expr
-prefix name f = CE.Prefix (f <$> (PU.parseSrcLoc <* PU.symbol name))
+prefix :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr) -> CE.Operator Parser AT.Expr
+prefix name f = CE.Prefix (f <$> (parseSrcLoc <* symbol name))
 
-postfix :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr) -> CE.Operator PU.Parser AT.Expr
-postfix name f = CE.Postfix (f <$> (PU.parseSrcLoc <* PU.symbol name))
+postfix :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr) -> CE.Operator Parser AT.Expr
+postfix name f = CE.Postfix (f <$> (parseSrcLoc <* symbol name))
 
 -- | Helper functions to define operators
-binary :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr -> AT.Expr) -> CE.Operator PU.Parser AT.Expr
-binary name f = CE.InfixL (f <$> (PU.parseSrcLoc <* PU.symbol name))
+binary :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr -> AT.Expr) -> CE.Operator Parser AT.Expr
+binary name f = CE.InfixL (f <$> (parseSrcLoc <* symbol name))
