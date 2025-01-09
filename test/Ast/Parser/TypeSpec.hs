@@ -34,15 +34,12 @@ spec = do
     it "parses bool" $ do
       parseWithEnv "bool" `shouldBe` Right AT.TBoolean
 
-    it "parses void" $ do
-      parseWithEnv "void" `shouldBe` Right AT.TVoid
+    it "parses never" $ do
+      parseWithEnv "never" `shouldBe` Right AT.TVoid
 
   describe "Pointer Types" $ do
     it "parses *int" $ do
       parseWithEnv "*int" `shouldBe` Right (AT.TPointer (AT.TInt 32))
-
-    it "parses *void" $ do
-      parseWithEnv "*void" `shouldBe` Right (AT.TPointer AT.TVoid)
 
   describe "Mutable Types" $ do
     it "parses mutable int" $ do
@@ -62,8 +59,8 @@ spec = do
     it "parses int -> float" $ do
       parseWithEnv "(int) -> (float)" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TFloat, AT.paramTypes = [AT.TInt 32], AT.isVariadic = False})
 
-    it "parses int int -> void" $ do
-      parseWithEnv "(int int) -> (void)" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 32, AT.TInt 32], AT.isVariadic = False})
+    it "parses int int -> never" $ do
+      parseWithEnv "(int int) -> (never)" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 32, AT.TInt 32], AT.isVariadic = False})
 
   describe "Custom Types" $ do
     it "parses a defined custom struct type" $ do

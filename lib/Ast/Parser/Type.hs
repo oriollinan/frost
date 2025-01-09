@@ -22,7 +22,7 @@ baseTypes =
     ("double", AT.TDouble),
     ("char", AT.TChar),
     ("bool", AT.TBoolean),
-    ("void", AT.TVoid)
+    ("never", AT.TVoid)
   ]
 
 -- | Parses a user-defined integer size.
