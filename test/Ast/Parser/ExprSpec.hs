@@ -103,7 +103,7 @@ spec = do
       result `shouldBe` expected
 
     it "parses an if-else expression with implicit returns" $ do
-      let input = "main: (void) -> (void) = { if x { 1 } else { 0 } }"
+      let input = "main: (never) -> (never) = { if x { 1 } else { 0 } }"
       let env = E.insertVar "x" AT.TBoolean initialEnv
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
       let expected =
