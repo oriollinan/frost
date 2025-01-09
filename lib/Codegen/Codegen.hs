@@ -16,6 +16,7 @@ import qualified Control.Monad.Except as E
 import qualified Control.Monad.Fix as F
 import qualified Control.Monad.State as S
 import qualified Data.List as L
+import Data.Maybe
 import qualified LLVM.AST as AST
 import qualified LLVM.AST.Constant as C
 import qualified LLVM.AST.Float as FF
@@ -196,7 +197,7 @@ generateConstant lit = case lit of
     -- as we only use them when accessing the fields of the struct
     let (_, values) = unzip fields
     constants <- mapM generateConstant values
-    return $ C.Struct (Just (AST.Name (U.stringToByteString "asd"))) False constants
+    return $ C.Struct Nothing False constants
 
 -- | Generate LLVM code for literals.
 generateLiteral :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -427,9 +428,6 @@ generateStructAccess (AT.StructAccess loc (AT.Var _ name (AT.TStruct _ fields)) 
   let fieldIndex = fromIntegral $ fromJust $ L.findIndex ((== field) . fst) fields
   fieldPtr <- I.gep ptr [IC.int32 0, IC.int32 fieldIndex]
   I.load fieldPtr 0
-  where
-    fromJust (Just x) = x
-    fromJust Nothing = error "fromJust: Nothing"
 generateStructAccess expr = E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for type casts.
