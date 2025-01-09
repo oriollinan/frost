@@ -15,7 +15,6 @@ import qualified Text.Megaparsec.Char.Lexer as ML
 parseExpr :: PU.Parser AT.Expr
 parseExpr = CE.makeExprParser (PU.lexeme parseTerm) PO.operationTable
 
--- TODO: rethink order
 parseTerm :: PU.Parser AT.Expr
 parseTerm =
   M.choice
