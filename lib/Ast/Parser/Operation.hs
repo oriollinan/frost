@@ -27,17 +27,18 @@ operationTable =
       binary "<<" (`AT.Op` AT.BitShl),
       binary ">>" (`AT.Op` AT.BitShr)
     ],
-    [ binary "&&" (`AT.Op` AT.And),
-      binary "and" (`AT.Op` AT.And),
-      binary "||" (`AT.Op` AT.Or),
-      binary "or" (`AT.Op` AT.Or),
-      binary "==" (`AT.Op` AT.Eq),
+    [ binary "==" (`AT.Op` AT.Eq),
       binary "is" (`AT.Op` AT.Eq),
       binary "!=" (`AT.Op` AT.Ne),
       binary "<=" (`AT.Op` AT.Lte),
       binary ">=" (`AT.Op` AT.Gte),
       binary "<" (`AT.Op` AT.Lt),
       binary ">" (`AT.Op` AT.Gt)
+    ],
+    [ binary "&&" (`AT.Op` AT.And),
+      binary "and" (`AT.Op` AT.And),
+      binary "||" (`AT.Op` AT.Or),
+      binary "or" (`AT.Op` AT.Or)
     ],
     [ postfix "." (`AT.UnaryOp` AT.Deref),
       postfix "++" (`AT.UnaryOp` AT.PostInc),

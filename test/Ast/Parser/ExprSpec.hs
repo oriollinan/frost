@@ -340,6 +340,29 @@ spec = do
                 )
       result `shouldBe` expected
 
+    it "parses an operator with hierarchy and comparisons" $ do
+      let input = "n is 0 or n is 1"
+      let env = E.insertVar "n" (AT.TInt 32) E.emptyEnv
+      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let expected =
+            Right $
+              AT.Op
+                normalizeLoc
+                AT.Or
+                ( AT.Op
+                    normalizeLoc
+                    AT.Eq
+                    (AT.Var normalizeLoc "n" $ AT.TInt 32)
+                    (AT.Lit normalizeLoc $ AT.LInt 0)
+                )
+                ( AT.Op
+                    normalizeLoc
+                    AT.Eq
+                    (AT.Var normalizeLoc "n" $ AT.TInt 32)
+                    (AT.Lit normalizeLoc $ AT.LInt 1)
+                )
+      result `shouldBe` expected
+
     it "parses a unary operator" $ do
       let input = "not 1"
       let result = normalizeExpr <$> parseWithEnv input
