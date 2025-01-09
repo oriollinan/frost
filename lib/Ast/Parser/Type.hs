@@ -1,6 +1,6 @@
 module Ast.Parser.Type where
 
-import qualified Ast.Parser.Env as E
+import qualified Ast.Parser.State as PS
 import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
 import qualified Control.Monad.State as S
@@ -73,6 +73,6 @@ customType :: PU.Parser AT.Type
 customType = do
   name <- PU.identifier
   env <- S.get
-  case E.lookupType name env of
+  case PS.lookupType name env of
     Just ty -> return ty
     Nothing -> M.customFailure $ PU.UnknownType name

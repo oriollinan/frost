@@ -2,7 +2,6 @@ module Ast.Parser.Literal where
 
 import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
-import Text.Megaparsec ((<|>))
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
 import qualified Text.Megaparsec.Char.Lexer as ML
@@ -32,7 +31,7 @@ parseFloat = AT.LFloat <$> ML.signed (pure ()) ML.float
 -- | Parses a boolean literal (`true` or `false`).
 -- Returns a `Literal` of type `LBool`.
 parseBool :: PU.Parser AT.Literal
-parseBool = AT.LBool True <$ PU.symbol trueSymbol <|> AT.LBool False <$ PU.symbol falseSymbol
+parseBool = AT.LBool True <$ PU.symbol trueSymbol M.<|> AT.LBool False <$ PU.symbol falseSymbol
 
 -- | Parses a character literal (e.g., 'a').
 -- Returns a `Literal` of type `LChar`.

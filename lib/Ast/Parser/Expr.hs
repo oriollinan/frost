@@ -1,8 +1,8 @@
 module Ast.Parser.Expr where
 
-import qualified Ast.Parser.Env as E
 import qualified Ast.Parser.Literal as PL
 import qualified Ast.Parser.Operation as PO
+import qualified Ast.Parser.State as PS
 import qualified Ast.Parser.Type as PT
 import qualified Ast.Parser.Utils as AU
 import qualified Ast.Parser.Utils as PU
@@ -48,7 +48,7 @@ parseVar = do
   srcLoc <- PU.parseSrcLoc
   name <- PU.identifier
   env <- S.get
-  case E.lookupVar name env of
+  case PS.lookupVar name env of
     (Just t) -> return $ AT.Var srcLoc name t
     _ -> M.customFailure $ PU.UndefinedVar name
 
@@ -60,8 +60,8 @@ parseFunction = do
   case ft of
     (AT.TFunction {AT.paramTypes = pts}) -> do
       params <- PU.symbol "=" *> M.many (PU.lexeme PU.identifier)
-      mapM_ (\(p, t) -> S.modify (E.insertVar p t)) $ zip params pts
-      S.modify (E.insertVar name ft)
+      mapM_ (\(p, t) -> S.modify (PS.insertVar p t)) $ zip params pts
+      S.modify (PS.insertVar name ft)
       block <- parseBlock
       let body = implicitReturn block
       return $ AT.Function {AT.funcLoc = srcLoc, AT.funcName = name, AT.funcType = ft, AT.funcParams = params, AT.funcBody = body}
@@ -94,7 +94,7 @@ parseDeclaration = do
   name <- PU.identifier
   t <- PU.symbol ":" *> PT.parseType
   value <- M.optional $ PU.symbol "=" *> parseExpr
-  S.modify (E.insertVar name t)
+  S.modify (PS.insertVar name t)
   return $ AT.Declaration {AT.declLoc = srcLoc, AT.declName = name, AT.declType = t, AT.declInit = value}
 
 parseAssignment :: PU.Parser AT.Expr
@@ -110,7 +110,7 @@ parseCall = do
   name <- PU.identifier
   args <- M.between (PU.symbol "(") (PU.symbol ")") $ M.many parseExpr
   env <- S.get
-  case E.lookupVar name env of
+  case PS.lookupVar name env of
     (Just t@(AT.TFunction {})) -> return $ AT.Call {AT.callLoc = srcLoc, AT.callFunc = AT.Var srcLoc name t, AT.callArgs = args}
     _ -> M.customFailure $ PU.UndefinedFunction name
 
@@ -142,7 +142,7 @@ parseFor = do
     return (name, type')
   let init' = AT.Declaration srcLoc name type' (Just from)
   let var = AT.Var srcLoc name type'
-  S.modify (E.insertVar name type')
+  S.modify (PS.insertVar name type')
   body <- parseBlock
   let step = case by of
         Just n -> AT.Assignment srcLoc var (AT.Op srcLoc AT.Add var (AT.Lit srcLoc (AT.LInt n)))

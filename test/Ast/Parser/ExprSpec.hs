@@ -1,7 +1,7 @@
 module Ast.Parser.ExprSpec (spec) where
 
-import qualified Ast.Parser.Env as E
 import qualified Ast.Parser.Expr as PE
+import qualified Ast.Parser.State as PS
 import qualified Ast.Types as AT
 import qualified Control.Monad.State as S
 import Test.Hspec
@@ -9,7 +9,7 @@ import qualified Text.Megaparsec as M
 
 spec :: Spec
 spec = do
-  let initialEnv = E.emptyEnv
+  let initialEnv = PS.parserState
   let parseWithEnv input =
         fst $ S.runState (M.runParserT PE.parseExpr "" input) initialEnv
 
@@ -23,7 +23,7 @@ spec = do
     it "parses a variable expression" $
       do
         let input = "x"
-        let env = E.insertVar "x" (AT.TInt 32) initialEnv
+        let env = PS.insertVar "x" (AT.TInt 32) initialEnv
         let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
         let expected = Right (AT.Var normalizeLoc "x" (AT.TInt 32))
         result `shouldBe` expected
@@ -76,13 +76,13 @@ spec = do
 
     it "parses an assignment expression" $ do
       let input = "x = 42"
-      let env = E.insertVar "x" (AT.TInt 0) initialEnv
+      let env = PS.insertVar "x" (AT.TInt 0) initialEnv
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
       let expected = Right (AT.Assignment normalizeLoc (AT.Var normalizeLoc "x" (AT.TInt 0)) (AT.Lit normalizeLoc (AT.LInt 42)))
       result `shouldBe` expected
 
     it "parses a function call" $ do
-      let env = E.insertVar "foo" (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 0], AT.isVariadic = False}) initialEnv
+      let env = PS.insertVar "foo" (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 0], AT.isVariadic = False}) initialEnv
       let input = "foo(123)"
       normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
         `shouldBe` Right
@@ -90,7 +90,7 @@ spec = do
 
     it "parses an if-else expression" $ do
       let input = "if x { ret 1 } else { ret 0 }"
-      let env = E.insertVar "x" AT.TBoolean initialEnv
+      let env = PS.insertVar "x" AT.TBoolean initialEnv
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
       let expected =
             Right $
@@ -104,7 +104,7 @@ spec = do
 
     it "parses an if-else expression with implicit returns" $ do
       let input = "main: (never) -> (never) = { if x { 1 } else { 0 } }"
-      let env = E.insertVar "x" AT.TBoolean initialEnv
+      let env = PS.insertVar "x" AT.TBoolean initialEnv
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
       let expected =
             Right $
@@ -126,7 +126,7 @@ spec = do
 
     it "parses a while loop" $ do
       let input = "loop z { z = 0 }"
-      let env = E.insertVar "z" (AT.TInt 32) initialEnv
+      let env = PS.insertVar "z" (AT.TInt 32) initialEnv
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
       let expected =
             Right $
@@ -148,7 +148,7 @@ spec = do
 
     it "parses a for loop" $ do
       let input = "from 0 to 10 by 2 |i: int| { i = 0 }"
-      let env = E.emptyEnv
+      let env = PS.parserState
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
       let expected =
             Right $
@@ -189,7 +189,7 @@ spec = do
 
     it "parses a for loop with a dynamic range" $ do
       let input = "from 0 to 10 by x |i: int| { i = 0 }"
-      let env = E.insertVar "x" (AT.TInt 32) E.emptyEnv
+      let env = PS.insertVar "x" (AT.TInt 32) PS.parserState
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
       let expected =
             Right $
@@ -243,7 +243,7 @@ spec = do
     it "parses a struct access" $ do
       let input = "myStruct.myField"
       let structType = AT.TStruct "Custom" [("myField", AT.TChar)]
-      let env = E.insertVar "myStruct" structType $ E.insertType "Custom" structType E.emptyEnv
+      let env = PS.insertVar "myStruct" structType $ PS.insertType "Custom" structType PS.parserState
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
       let expected =
             Right $
@@ -256,7 +256,7 @@ spec = do
     it "parses a nested struct access" $ do
       let input = "myStruct.innerStruct.field"
       let structType = AT.TStruct "Custom" [("innerStruct", AT.TStruct "InnerCustom" [("field", AT.TChar)])]
-      let env = E.insertVar "myStruct" structType $ E.insertType "Custom" structType E.emptyEnv
+      let env = PS.insertVar "myStruct" structType $ PS.insertType "Custom" structType PS.parserState
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
       let expected =
             Right $
@@ -273,7 +273,7 @@ spec = do
     it "parses an array access" $ do
       let input = "myArray.1"
       let arrayType = AT.TArray AT.TChar Nothing
-      let env = E.insertVar "myArray" arrayType E.emptyEnv
+      let env = PS.insertVar "myArray" arrayType PS.parserState
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
       let expected =
             Right $
@@ -286,7 +286,7 @@ spec = do
     it "parses an nested array access" $ do
       let input = "myArray.1.1"
       let arrayType = AT.TArray (AT.TArray AT.TChar Nothing) Nothing
-      let env = E.insertVar "myArray" arrayType E.emptyEnv
+      let env = PS.insertVar "myArray" arrayType PS.parserState
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
       let expected =
             Right $
@@ -342,7 +342,7 @@ spec = do
 
     it "parses an operator with hierarchy and comparisons" $ do
       let input = "n is 0 or n is 1"
-      let env = E.insertVar "n" (AT.TInt 32) E.emptyEnv
+      let env = PS.insertVar "n" (AT.TInt 32) PS.parserState
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
       let expected =
             Right $

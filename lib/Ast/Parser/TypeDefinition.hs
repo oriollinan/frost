@@ -1,6 +1,6 @@
 module Ast.Parser.TypeDefinition where
 
-import qualified Ast.Parser.Env as E
+import qualified Ast.Parser.State as PS
 import qualified Ast.Parser.Type as T
 import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
@@ -22,7 +22,7 @@ structType = do
   _ <- PU.symbol "::" <* PU.symbol "struct"
   fields <- M.between (PU.symbol "{") (PU.symbol "}") $ M.many parseField
   let newStructType = AT.TStruct {AT.structName = name, AT.fields = fields}
-  S.modify (E.insertType name newStructType)
+  S.modify (PS.insertType name newStructType)
   return newStructType
 
 -- | Parses a union type definition.
@@ -34,7 +34,7 @@ unionType = do
   _ <- PU.symbol "::" <* PU.symbol "union"
   variants <- M.between (PU.symbol "{") (PU.symbol "}") $ M.many parseField
   let newUnionType = AT.TUnion {AT.unionName = name, AT.variants = variants}
-  S.modify (E.insertType name newUnionType)
+  S.modify (PS.insertType name newUnionType)
   return newUnionType
 
 -- | Parses a typedef.
@@ -46,7 +46,7 @@ typedefType = do
   _ <- PU.symbol "::"
   parentType <- T.parseType
   let typedef = AT.TTypedef name parentType
-  S.modify (E.insertType name typedef)
+  S.modify (PS.insertType name typedef)
   return typedef
 
 -- | Parses a single field within a struct or union.
