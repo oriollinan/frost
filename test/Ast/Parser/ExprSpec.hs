@@ -384,6 +384,24 @@ spec = do
                 (AT.Lit normalizeLoc $ AT.LInt 1)
       result `shouldBe` expected
 
+    it "parses a function that takes a function" $ do
+      let input = "map: Func int -> char = f x { f(x) }"
+      let functionType = AT.TFunction AT.TChar [AT.TInt 32] False
+      let env = E.insertType "Func" functionType initialEnv
+      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let expected =
+            Right $
+              AT.Function
+                normalizeLoc
+                "map"
+                (AT.TFunction AT.TChar [functionType, AT.TInt 32] False)
+                ["f", "x"]
+                ( AT.Block
+                    [ AT.Return normalizeLoc $ Just $ AT.Call normalizeLoc (AT.Var normalizeLoc "f" functionType) [AT.Var normalizeLoc "x" $ AT.TInt 32]
+                    ]
+                )
+      result `shouldBe` expected
+
 normalizeLoc :: AT.SrcLoc
 normalizeLoc = AT.SrcLoc "" 0 0
 
