@@ -351,6 +351,28 @@ spec = do
                 (AT.Lit normalizeLoc $ AT.LInt 1)
       result `shouldBe` expected
 
+    it "parses a line comment" $ do
+      let input = "not 1 % this is a line comment"
+      let result = normalizeExpr <$> parseWithEnv input
+      let expected =
+            Right $
+              AT.UnaryOp
+                normalizeLoc
+                AT.Not
+                (AT.Lit normalizeLoc $ AT.LInt 1)
+      result `shouldBe` expected
+
+    it "parses a block comment" $ do
+      let input = "not 1 %% this is a block comment %%"
+      let result = normalizeExpr <$> parseWithEnv input
+      let expected =
+            Right $
+              AT.UnaryOp
+                normalizeLoc
+                AT.Not
+                (AT.Lit normalizeLoc $ AT.LInt 1)
+      result `shouldBe` expected
+
 normalizeLoc :: AT.SrcLoc
 normalizeLoc = AT.SrcLoc "" 0 0
 

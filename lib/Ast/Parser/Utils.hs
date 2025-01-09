@@ -30,7 +30,7 @@ instance M.ShowErrorComponent ParseErrorCustom where
 
 -- | Skips whitespace and comments (starting with `%`). Ensures proper handling of spacing in parsers.
 sc :: Parser ()
-sc = ML.space MC.space1 (ML.skipLineComment "%") M.empty
+sc = ML.space MC.space1 (ML.skipLineComment "%") $ ML.skipBlockComment "%%" "%%"
 
 -- | Wraps a parser to consume trailing whitespace, returning the result of the inner parser.
 lexeme :: Parser a -> Parser a

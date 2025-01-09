@@ -52,7 +52,6 @@ parseVar = do
     (Just t) -> return $ AT.Var srcLoc name t
     _ -> M.customFailure $ PU.UndefinedVar name
 
--- TODO: improve implicit return to handle ifs
 parseFunction :: PU.Parser AT.Expr
 parseFunction = do
   srcLoc <- PU.parseSrcLoc
