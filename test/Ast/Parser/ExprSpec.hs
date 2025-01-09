@@ -36,7 +36,7 @@ spec = do
         _ -> error "Expected failure"
 
     it "parses a function declaration" $ do
-      let input = "add: (int int) -> (int) = x y { return 1 }"
+      let input = "add: (int int) -> (int) = x y { ret 1 }"
       let expected =
             Right $
               AT.Function
@@ -49,7 +49,7 @@ spec = do
       result `shouldBe` expected
 
     it "parses fibonacci" $ do
-      let input = "add: (int int) -> (int) = x y { return 1 }"
+      let input = "add: (int int) -> (int) = x y { ret 1 }"
       let result = normalizeExpr <$> parseWithEnv input
       let expected =
             AT.Function
@@ -89,7 +89,7 @@ spec = do
           (AT.Call normalizeLoc (AT.Var normalizeLoc "foo" (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 0], AT.isVariadic = False})) [AT.Lit normalizeLoc (AT.LInt 123)])
 
     it "parses an if-else expression" $ do
-      let input = "if x { return 1 } else { return 0 }"
+      let input = "if x { ret 1 } else { ret 0 }"
       let env = E.insertVar "x" AT.TBoolean initialEnv
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
       let expected =

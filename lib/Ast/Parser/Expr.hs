@@ -161,7 +161,7 @@ parseBlock = do
 parseReturn :: PU.Parser AT.Expr
 parseReturn = do
   srcLoc <- PU.parseSrcLoc
-  _ <- PU.symbol "return"
+  _ <- PU.symbol "ret"
   AT.Return srcLoc <$> M.optional parseExpr
 
 parseBreak :: PU.Parser AT.Expr
@@ -175,19 +175,6 @@ parseContinue = do
   srcLoc <- PU.parseSrcLoc
   _ <- PU.symbol "next"
   return $ AT.Continue srcLoc
-
--- parseOp :: PU.Parser AT.Expr
--- parseOp = do
---   srcLoc <- PU.parseSrcLoc
---   e1 <- parseExpr
---   op <- PO.parseOperation
---   AT.Op srcLoc op e1 <$> parseExpr
-
--- parseUnaryOp :: PU.Parser AT.Expr
--- parseUnaryOp = do
---   srcLoc <- PU.parseSrcLoc
---   (uo, e) <- PUO.parseUnaryOperation parseExpr
---   return $ AT.UnaryOp srcLoc uo e
 
 -- TODO: parse nested structs
 parseStructAccess :: PU.Parser AT.Expr
