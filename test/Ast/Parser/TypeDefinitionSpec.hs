@@ -29,3 +29,6 @@ spec = do
   describe "Typedefs" $ do
     it "parses typedef alias" $ do
       parseWithEnv "Alias :: int" `shouldBe` Right (AT.TTypedef "Alias" (AT.TInt 32))
+
+    it "parses typedef for a function" $ do
+      parseWithEnv "Alias :: int -> char" `shouldBe` Right (AT.TTypedef "Alias" (AT.TFunction AT.TChar [AT.TInt 32] False))
