@@ -55,3 +55,13 @@ parseSrcLoc :: Parser AT.SrcLoc
 parseSrcLoc = do
   (MP.SourcePos {MP.sourceName = _sourceName, MP.sourceLine = _sourceLine, MP.sourceColumn = _sourceColumn}) <- M.getSourcePos
   return $ AT.SrcLoc {AT.srcFile = _sourceName, AT.srcLine = MP.unPos _sourceLine, AT.srcCol = MP.unPos _sourceColumn}
+
+prefix :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr) -> CE.Operator PU.Parser AT.Expr
+prefix name f = CE.Prefix (f <$> (PU.parseSrcLoc <* PU.symbol name))
+
+postfix :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr) -> CE.Operator PU.Parser AT.Expr
+postfix name f = CE.Postfix (f <$> (PU.parseSrcLoc <* PU.symbol name))
+
+-- | Helper functions to define operators
+binary :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr -> AT.Expr) -> CE.Operator PU.Parser AT.Expr
+binary name f = CE.InfixL (f <$> (PU.parseSrcLoc <* PU.symbol name))

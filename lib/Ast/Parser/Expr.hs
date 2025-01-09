@@ -1,7 +1,6 @@
 module Ast.Parser.Expr where
 
 import qualified Ast.Parser.Literal as PL
-import qualified Ast.Parser.Operation as PO
 import qualified Ast.Parser.State as PS
 import qualified Ast.Parser.Type as PT
 import qualified Ast.Parser.Utils as AU
@@ -13,9 +12,61 @@ import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char.Lexer as ML
 
 parseExpr :: PU.Parser AT.Expr
-parseExpr = CE.makeExprParser (PU.lexeme parseTerm) exprs
-  where
-    exprs = PO.operationTable ++ [[parseCall]]
+parseExpr = CE.makeExprParser (PU.lexeme parseTerm) operationTable
+
+operationTable :: [[CE.Operator PU.Parser AT.Expr]]
+operationTable =
+  [ [ PU.prefix "!" (`AT.UnaryOp` AT.Not),
+      PU.prefix "not" (`AT.UnaryOp` AT.Not),
+      PU.prefix "~" (`AT.UnaryOp` AT.BitNot),
+      PU.prefix "&" (`AT.UnaryOp` AT.AddrOf),
+      PU.prefix "++" (`AT.UnaryOp` AT.PreInc),
+      PU.prefix "--" (`AT.UnaryOp` AT.PreDec)
+    ],
+    [ PU.binary "*" (`AT.Op` AT.Mul),
+      PU.binary "/" (`AT.Op` AT.Div),
+      PU.binary "mod" (`AT.Op` AT.Mod)
+    ],
+    [ PU.binary "+" (`AT.Op` AT.Add),
+      PU.binary "-" (`AT.Op` AT.Sub)
+    ],
+    [ PU.binary "&" (`AT.Op` AT.BitAnd),
+      PU.binary "|" (`AT.Op` AT.BitOr),
+      PU.binary "^" (`AT.Op` AT.BitXor),
+      PU.binary "<<" (`AT.Op` AT.BitShl),
+      PU.binary ">>" (`AT.Op` AT.BitShr)
+    ],
+    [ PU.binary "==" (`AT.Op` AT.Eq),
+      PU.binary "is" (`AT.Op` AT.Eq),
+      PU.binary "!=" (`AT.Op` AT.Ne),
+      PU.binary "<=" (`AT.Op` AT.Lte),
+      PU.binary ">=" (`AT.Op` AT.Gte),
+      PU.binary "<" (`AT.Op` AT.Lt),
+      PU.binary ">" (`AT.Op` AT.Gt),
+      parseArrayAccess
+    ],
+    [ PU.binary "&&" (`AT.Op` AT.And),
+      PU.binary "and" (`AT.Op` AT.And),
+      PU.binary "||" (`AT.Op` AT.Or),
+      PU.binary "or" (`AT.Op` AT.Or)
+    ],
+    [ PU.postfix ".*" (`AT.UnaryOp` AT.Deref),
+      PU.postfix "++" (`AT.UnaryOp` AT.PostInc),
+      PU.postfix "--" (`AT.UnaryOp` AT.PostDec),
+      parseCall
+    ]
+  ]
+
+parseCall :: CE.Operator PU.Parser AT.Expr
+parseCall = CE.Postfix $ do
+  srcLoc <- PU.parseSrcLoc
+  args <- M.between (PU.symbol "(") (PU.symbol ")") $ M.many parseExpr
+  return (\func -> AT.Call srcLoc func args)
+
+parseArrayAccess :: CE.Operator PU.Parser AT.Expr
+parseArrayAccess = CE.InfixL $ do
+  srcLoc <- PU.parseSrcLoc <* PU.symbol "#"
+  return $ \value pos -> AT.ArrayAccess srcLoc value pos
 
 -- TODO: rethink order
 parseTerm :: PU.Parser AT.Expr
@@ -34,7 +85,6 @@ parseTerm =
       M.try parseDeclaration,
       M.try parseAssignment,
       M.try parseStructAccess,
-      M.try parseArrayAccess,
       parseVar,
       parseParenExpr
     ]
@@ -105,12 +155,6 @@ parseAssignment = do
   value <- parseExpr
   return $ AT.Assignment {AT.assignLoc = srcLoc, AT.assignTarget = target, AT.assignValue = value}
 
-parseCall :: CE.Operator PU.Parser AT.Expr
-parseCall = CE.Postfix $ do
-  srcLoc <- PU.parseSrcLoc
-  args <- M.between (PU.symbol "(") (PU.symbol ")") $ M.many parseExpr
-  return (\func -> AT.Call srcLoc func args)
-
 parseIf :: PU.Parser AT.Expr
 parseIf = do
   srcLoc <- PU.parseSrcLoc
@@ -179,14 +223,6 @@ parseStructAccess = do
   value <- parseVar
   field <- PU.symbol "." *> PU.identifier
   return $ AT.StructAccess srcLoc value field
-
--- TODO: parse nested arrays
-parseArrayAccess :: PU.Parser AT.Expr
-parseArrayAccess = do
-  srcLoc <- PU.parseSrcLoc
-  value <- parseVar
-  pos <- PU.symbol "." *> parseExpr
-  return $ AT.ArrayAccess srcLoc value pos
 
 parseCast :: PU.Parser AT.Expr
 parseCast = do

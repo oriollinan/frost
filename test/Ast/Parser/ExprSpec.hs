@@ -271,7 +271,7 @@ spec = do
       result `shouldBe` expected
 
     it "parses an array access" $ do
-      let input = "myArray.1"
+      let input = "myArray#1"
       let arrayType = AT.TArray AT.TChar Nothing
       let env = PS.insertVar "myArray" arrayType PS.parserState
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
@@ -284,7 +284,7 @@ spec = do
       result `shouldBe` expected
 
     it "parses an nested array access" $ do
-      let input = "myArray.1.1"
+      let input = "myArray#1#1"
       let arrayType = AT.TArray (AT.TArray AT.TChar Nothing) Nothing
       let env = PS.insertVar "myArray" arrayType PS.parserState
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
