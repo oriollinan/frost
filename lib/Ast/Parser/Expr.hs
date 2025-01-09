@@ -63,12 +63,31 @@ parseFunction = do
       params <- PU.symbol "=" *> M.many (PU.lexeme PU.identifier)
       mapM_ (\(p, t) -> S.modify (E.insertVar p t)) $ zip params pts
       S.modify (E.insertVar name ft)
-      (AT.Block exprs) <- parseBlock
-      body <- case last exprs of
-        (AT.Return _ _) -> return $ AT.Block exprs
-        e -> return $ AT.Block $ init exprs ++ [AT.Return srcLoc $ Just e]
+      block <- parseBlock
+      let body = implicitReturn block
       return $ AT.Function {AT.funcLoc = srcLoc, AT.funcName = name, AT.funcType = ft, AT.funcParams = params, AT.funcBody = body}
     _ -> M.customFailure $ AU.InvalidFunctionType name ft
+
+implicitReturn :: AT.Expr -> AT.Expr
+implicitReturn e@(AT.Lit loc _) = AT.Return loc $ Just e
+implicitReturn e@(AT.Var loc _ _) = AT.Return loc $ Just e
+implicitReturn e@(AT.Function loc _ _ _ _) = AT.Return loc $ Just e
+implicitReturn e@(AT.Declaration loc _ _ _) = AT.Return loc $ Just e
+implicitReturn e@(AT.Assignment loc _ _) = AT.Return loc $ Just e
+implicitReturn e@(AT.Call loc _ _) = AT.Return loc $ Just e
+implicitReturn (AT.If loc cond then' (Just else')) = AT.If loc cond (implicitReturn then') $ Just $ implicitReturn else'
+implicitReturn (AT.If loc cond then' Nothing) = AT.If loc cond (implicitReturn then') Nothing
+implicitReturn e@(AT.While {}) = e
+implicitReturn e@(AT.For {}) = e
+implicitReturn (AT.Block es) = AT.Block $ init es ++ [implicitReturn $ last es]
+implicitReturn e@(AT.Return _ _) = e
+implicitReturn e@(AT.Break {}) = e
+implicitReturn e@(AT.Continue {}) = e
+implicitReturn e@(AT.Op loc _ _ _) = AT.Return loc $ Just e
+implicitReturn e@(AT.UnaryOp loc _ _) = AT.Return loc $ Just e
+implicitReturn e@(AT.StructAccess loc _ _) = AT.Return loc $ Just e
+implicitReturn e@(AT.ArrayAccess loc _ _) = AT.Return loc $ Just e
+implicitReturn e@(AT.Cast loc _ _) = AT.Return loc $ Just e
 
 parseDeclaration :: PU.Parser AT.Expr
 parseDeclaration = do
