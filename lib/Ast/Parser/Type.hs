@@ -11,7 +11,18 @@ import qualified Text.Megaparsec.Char.Lexer as ML
 -- | Parse a general type. This function combines multiple specific type parsers.
 -- It tries to match typedefs, structs, unions, functions, mutable types, pointers, and base types.
 parseType :: PU.Parser AT.Type
-parseType = PU.triedChoice [functionType, mutableType, arrayType, pointerType, customIntType, baseType, customType]
+parseType = M.choice [M.try functionType, parseTermType]
+
+parseTermType :: PU.Parser AT.Type
+parseTermType =
+  M.choice
+    [ M.try customIntType,
+      baseType,
+      mutableType,
+      arrayType,
+      pointerType,
+      customType
+    ]
 
 -- | A list of predefined base types along with their associated keywords.
 -- These include basic types such as int, float, double, char, bool, and void.
@@ -60,13 +71,12 @@ arrayType = do
 
 -- | Parses a function type.
 -- A function type is defined by its parameter types enclosed in parentheses, followed by "->", and the return type also enclosed in parentheses.
--- Example: "(int) -> (float)" or "(int int) -> (void)".
+-- Example: "int -> float" or "int int -> void".
 -- TODO: find a way to do it without the parenthesis and avoid the infinite loop of parseType
 functionType :: PU.Parser AT.Type
 functionType = do
-  paramTypes <- M.between (PU.symbol "(") (PU.symbol ")") $ M.some (PU.lexeme parseType)
-  _ <- PU.sc *> PU.symbol "->"
-  returnType <- M.between (PU.symbol "(") (PU.symbol ")") parseType
+  paramTypes <- M.some $ PU.lexeme parseTermType
+  returnType <- PU.symbol "->" *> PU.lexeme parseTermType
   return $ AT.TFunction {AT.returnType = returnType, AT.paramTypes = paramTypes, AT.isVariadic = False}
 
 customType :: PU.Parser AT.Type
