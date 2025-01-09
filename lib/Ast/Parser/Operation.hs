@@ -2,35 +2,55 @@ module Ast.Parser.Operation where
 
 import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
-import qualified Text.Megaparsec as M
+import qualified Control.Monad.Combinators.Expr as CE
 
--- | Operator symbols mapped to their AST representation.
-operations :: [(String, AT.Operation)]
-operations =
-  [ ("+", AT.Add),
-    ("-", AT.Sub),
-    ("*", AT.Mul),
-    ("/", AT.Div),
-    ("mod", AT.Mod),
-    ("&&", AT.And),
-    ("and", AT.And),
-    ("||", AT.Or),
-    ("or", AT.Or),
-    ("&", AT.BitAnd),
-    ("|", AT.BitOr),
-    ("^", AT.BitXor),
-    ("<<", AT.BitShl),
-    (">>", AT.BitShr),
-    ("<=", AT.Lte),
-    (">=", AT.Gte),
-    ("<", AT.Lt),
-    (">", AT.Gt),
-    ("==", AT.Eq),
-    ("is", AT.Eq),
-    ("!=", AT.Ne)
+-- | Operations that are defined, including verbs
+operationTable :: [[CE.Operator PU.Parser AT.Expr]]
+operationTable =
+  [ [ prefix "!" (`AT.UnaryOp` AT.Not),
+      prefix "not" (`AT.UnaryOp` AT.Not),
+      prefix "~" (`AT.UnaryOp` AT.BitNot),
+      prefix "&" (`AT.UnaryOp` AT.AddrOf),
+      prefix "++" (`AT.UnaryOp` AT.PreInc),
+      prefix "--" (`AT.UnaryOp` AT.PreDec)
+    ],
+    [ binary "*" (`AT.Op` AT.Mul),
+      binary "/" (`AT.Op` AT.Div),
+      binary "mod" (`AT.Op` AT.Mod)
+    ],
+    [ binary "+" (`AT.Op` AT.Add),
+      binary "-" (`AT.Op` AT.Sub)
+    ],
+    [ binary "&" (`AT.Op` AT.BitAnd),
+      binary "|" (`AT.Op` AT.BitOr),
+      binary "^" (`AT.Op` AT.BitXor),
+      binary "<<" (`AT.Op` AT.BitShl),
+      binary ">>" (`AT.Op` AT.BitShr)
+    ],
+    [ binary "&&" (`AT.Op` AT.And),
+      binary "and" (`AT.Op` AT.And),
+      binary "||" (`AT.Op` AT.Or),
+      binary "or" (`AT.Op` AT.Or),
+      binary "==" (`AT.Op` AT.Eq),
+      binary "is" (`AT.Op` AT.Eq),
+      binary "!=" (`AT.Op` AT.Ne),
+      binary "<=" (`AT.Op` AT.Lte),
+      binary ">=" (`AT.Op` AT.Gte),
+      binary "<" (`AT.Op` AT.Lt),
+      binary ">" (`AT.Op` AT.Gt)
+    ],
+    [ postfix "." (`AT.UnaryOp` AT.Deref),
+      postfix "++" (`AT.UnaryOp` AT.PostInc),
+      postfix "--" (`AT.UnaryOp` AT.PostDec)
+    ]
   ]
 
--- | Parses a symbol into an `AT.Operation` using the `operations` list.
--- Returns the corresponding `AT.Operation` if a match is found.
-parseOperation :: PU.Parser AT.Operation
-parseOperation = M.choice $ (\(o, c) -> c <$ PU.symbol o) <$> operations
+prefix :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr) -> CE.Operator PU.Parser AT.Expr
+prefix name f = CE.Prefix (f <$> (PU.parseSrcLoc <* PU.symbol name))
+
+postfix :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr) -> CE.Operator PU.Parser AT.Expr
+postfix name f = CE.Postfix (f <$> (PU.parseSrcLoc <* PU.symbol name))
+
+-- | Helper functions to define operators
+binary :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr -> AT.Expr) -> CE.Operator PU.Parser AT.Expr
+binary name f = CE.InfixL (f <$> (PU.parseSrcLoc <* PU.symbol name))

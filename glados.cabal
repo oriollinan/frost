@@ -29,7 +29,6 @@ library
     Ast.Parser.Program
     Ast.Parser.Type
     Ast.Parser.TypeDefinition
-    Ast.Parser.UnaryOperation
     Ast.Parser.Utils
     Ast.Types
     Codegen.Codegen
@@ -42,6 +41,7 @@ library
     llvm-hs-pure >=9.0.0 && <9.1,
     megaparsec >=9.7.0,
     mtl >=2.2.2 && <2.3,
+    parser-combinators >= 1.3.0
 
   hs-source-dirs: lib
   default-language: Haskell2010
@@ -67,10 +67,8 @@ test-suite glados-test
   type: exitcode-stdio-1.0
   other-modules:
     Ast.Parser.LiteralSpec
-    Ast.Parser.OperationSpec
     Ast.Parser.TypeDefinitionSpec
     Ast.Parser.TypeSpec
-    Ast.Parser.UnaryOperationSpec
     Ast.Parser.ExprSpec
     Ast.ParserSpec
     Codegen.CodegenSpec
