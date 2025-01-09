@@ -310,17 +310,25 @@ generateIf (AT.If _ cond then_ else_) = mdo
 
   thenBlock <- IRM.block `IRM.named` U.stringToByteString "if.then"
   thenValue <- generateExpr then_
-  I.br mergeBB
+
+  case TD.typeOf thenValue of
+    T.VoidType -> I.br mergeBB
+    _ -> pure ()
 
   elseBlock <- IRM.block `IRM.named` U.stringToByteString "if.else"
   elseValue <- case else_ of
     Just e -> generateExpr e
     Nothing -> pure $ AST.ConstantOperand $ C.Undef T.void
-  I.br mergeBB
+
+  case TD.typeOf elseValue of
+    T.VoidType -> I.br mergeBB
+    _ -> pure ()
 
   mergeBB <- IRM.block `IRM.named` U.stringToByteString "if.merge"
 
-  I.phi [(thenValue, thenBlock), (elseValue, elseBlock)]
+  case TD.typeOf elseValue of
+    T.VoidType -> I.phi [(thenValue, elseBlock)]
+    _ -> I.phi [(thenValue, thenBlock), (elseValue, elseBlock)]
 generateIf expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 
