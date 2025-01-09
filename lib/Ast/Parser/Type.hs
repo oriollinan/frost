@@ -75,7 +75,7 @@ arrayType = do
 -- TODO: find a way to do it without the parenthesis and avoid the infinite loop of parseType
 functionType :: PU.Parser AT.Type
 functionType = do
-  paramTypes <- M.some $ PU.lexeme parseTermType
+  paramTypes <- M.some $ PU.lexeme (M.between (PU.symbol "(") (PU.symbol ")") functionType M.<|> parseTermType)
   returnType <- PU.symbol "->" *> PU.lexeme parseTermType
   return $ AT.TFunction {AT.returnType = returnType, AT.paramTypes = paramTypes, AT.isVariadic = False}
 

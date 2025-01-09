@@ -384,11 +384,10 @@ spec = do
                 (AT.Lit normalizeLoc $ AT.LInt 1)
       result `shouldBe` expected
 
-    it "parses a function that takes a function" $ do
-      let input = "map: Func int -> char = f x { f(x) }"
+    it "parses a higher order function" $ do
+      let input = "map: (int -> char) int -> char = f x { f(x) }"
       let functionType = AT.TFunction AT.TChar [AT.TInt 32] False
-      let env = E.insertType "Func" functionType initialEnv
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let result = normalizeExpr <$> parseWithEnv input
       let expected =
             Right $
               AT.Function
