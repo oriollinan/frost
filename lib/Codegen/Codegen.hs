@@ -16,6 +16,7 @@ import qualified Control.Monad.Except as E
 import qualified Control.Monad.Fix as F
 import qualified Control.Monad.State as S
 import qualified Data.List as L
+import qualified Data.Maybe as M
 import qualified LLVM.AST as AST
 import qualified LLVM.AST.Constant as C
 import qualified LLVM.AST.Float as FF
@@ -171,6 +172,7 @@ instance ExprGen AT.Expr where
     AT.UnaryOp {} -> generateUnaryOp expr
     AT.Call {} -> generateFunctionCall expr
     AT.ArrayAccess {} -> generateArrayAccess expr
+    AT.StructAccess {} -> generateStructAccess expr
     AT.Cast {} -> generateCast expr
     AT.For {} -> generateForLoop expr
     AT.While {} -> generateWhileLoop expr
@@ -190,6 +192,12 @@ generateConstant lit = case lit of
   AT.LArray elems -> do
     constants <- mapM generateConstant elems
     return $ C.Array (TD.typeOf $ head constants) constants
+  AT.LStruct fields -> do
+    -- We do not need the names of the fields
+    -- as we only use them when accessing the fields of the struct
+    let (_, values) = unzip fields
+    constants <- mapM generateConstant values
+    return $ C.Struct Nothing False constants
 
 -- | Generate LLVM code for literals.
 generateLiteral :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -417,6 +425,18 @@ generateArrayAccess (AT.ArrayAccess loc (AT.Var _ name _) indexExpr) = do
   I.load elementPtr 0
 generateArrayAccess expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+
+-- | Generate LLVM code for struct access.
+generateStructAccess :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateStructAccess (AT.StructAccess loc (AT.Var _ name (AT.TStruct _ fields)) field) = do
+  maybeVar <- getVar name
+  ptr <- case maybeVar of
+    Just structPtr -> return structPtr
+    Nothing -> E.throwError $ CodegenError loc $ VariableNotFound name
+  let fieldIndex = fromIntegral $ M.fromJust $ L.findIndex ((== field) . fst) fields
+  fieldPtr <- I.gep ptr [IC.int32 0, IC.int32 fieldIndex]
+  I.load fieldPtr 0
+generateStructAccess expr = E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for type casts.
 generateCast :: (MonadCodegen m) => AT.Expr -> m AST.Operand
