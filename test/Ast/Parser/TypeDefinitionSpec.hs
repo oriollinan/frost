@@ -1,7 +1,7 @@
 module Ast.Parser.TypeDefinitionSpec (spec) where
 
-import qualified Ast.Parser.Env as E
-import qualified Ast.Parser.TypeDefinition as P
+import qualified Ast.Parser.State as PS
+import qualified Ast.Parser.TypeDefinition as PT
 import qualified Ast.Types as AT
 import qualified Control.Monad.State as S
 import Test.Hspec
@@ -10,7 +10,7 @@ import qualified Text.Megaparsec as M
 spec :: Spec
 spec = do
   let parseWithEnv input =
-        fst $ S.runState (M.runParserT P.parseTypeDefinition "" input) E.emptyEnv
+        fst $ S.runState (M.runParserT PT.parseTypeDefinition "" input) PS.parserState
 
   describe "Struct Types" $ do
     it "parses struct { name -> int }" $ do

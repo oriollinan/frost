@@ -2,7 +2,6 @@ module Ast.Parser.Literal where
 
 import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
-import Text.Megaparsec ((<|>))
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
 import qualified Text.Megaparsec.Char.Lexer as ML
@@ -27,12 +26,22 @@ parseInt = AT.LInt <$> ML.signed (pure ()) ML.decimal
 -- | Parses a floating-point literal.
 -- Returns a `Literal` of type `LFloat`.
 parseFloat :: PU.Parser AT.Literal
-parseFloat = AT.LFloat <$> ML.signed (pure ()) ML.float
+parseFloat =
+  AT.LFloat
+    <$> ML.signed
+      (pure ())
+      ( do
+          wholePart <- ML.decimal :: (PU.Parser Integer)
+          fractionalPart <- MC.char ',' *> M.some MC.digitChar
+          let fractional = read ("0." ++ fractionalPart) :: Double
+          let value = fromIntegral wholePart + fractional
+          return value
+      )
 
 -- | Parses a boolean literal (`true` or `false`).
 -- Returns a `Literal` of type `LBool`.
 parseBool :: PU.Parser AT.Literal
-parseBool = AT.LBool True <$ PU.symbol trueSymbol <|> AT.LBool False <$ PU.symbol falseSymbol
+parseBool = AT.LBool True <$ MC.string trueSymbol M.<|> AT.LBool False <$ MC.string falseSymbol
 
 -- | Parses a character literal (e.g., 'a').
 -- Returns a `Literal` of type `LChar`.
@@ -46,7 +55,7 @@ parseArray :: PU.Parser AT.Literal
 parseArray =
   M.choice
     [ AT.LArray . map AT.LChar <$> M.between (MC.char '\"') (MC.char '\"') (M.many (M.noneOf ['"'])),
-      AT.LArray <$> M.between (PU.symbol "[") (PU.symbol "]") (M.sepBy parseLiteral (PU.symbol ","))
+      AT.LArray <$> M.between (PU.symbol "[") (PU.symbol "]") (M.sepBy parseLiteral PU.sc)
     ]
 
 -- | Parses a `null` literal.

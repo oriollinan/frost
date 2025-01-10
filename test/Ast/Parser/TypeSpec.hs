@@ -1,6 +1,6 @@
 module Ast.Parser.TypeSpec (spec) where
 
-import qualified Ast.Parser.Env as E
+import qualified Ast.Parser.State as PS
 import qualified Ast.Parser.Type as P
 import qualified Ast.Types as AT
 import qualified Control.Monad.State as S
@@ -11,7 +11,7 @@ import qualified Text.Megaparsec as M
 spec :: Spec
 spec = do
   let parseWithEnv input =
-        fst $ S.runState (M.runParserT P.parseType "" input) E.emptyEnv
+        fst $ S.runState (M.runParserT P.parseType "" input) PS.parserState
   let parseWithCustomEnv input env =
         fst $ S.runState (M.runParserT P.parseType "" input) env
 
@@ -64,20 +64,20 @@ spec = do
 
   describe "Custom Types" $ do
     it "parses a defined custom struct type" $ do
-      let env = E.insertType "Point" (AT.TStruct "Point" [("x", AT.TInt 32), ("y", AT.TInt 32)]) E.emptyEnv
+      let env = PS.insertType "Point" (AT.TStruct "Point" [("x", AT.TInt 32), ("y", AT.TInt 32)]) PS.parserState
       parseWithCustomEnv "Point" env `shouldBe` Right (AT.TStruct "Point" [("x", AT.TInt 32), ("y", AT.TInt 32)])
 
     it "parses a defined custom alias type" $ do
-      let env = E.insertType "Vector2" (AT.TTypedef "Vector2" (AT.TStruct "Point" [("x", AT.TInt 32), ("y", AT.TInt 32)])) E.emptyEnv
+      let env = PS.insertType "Vector2" (AT.TTypedef "Vector2" (AT.TStruct "Point" [("x", AT.TInt 32), ("y", AT.TInt 32)])) PS.parserState
       parseWithCustomEnv "Vector2" env `shouldBe` Right (AT.TTypedef "Vector2" (AT.TStruct "Point" [("x", AT.TInt 32), ("y", AT.TInt 32)]))
 
     it "returns an error for an undefined custom type" $ do
-      let env = E.emptyEnv
+      let env = PS.parserState
       parseWithCustomEnv "UnknownType" env `shouldSatisfy` isLeft
 
     it "parses nested custom types" $ do
       let pointType = AT.TStruct "Point" [("x", AT.TInt 32), ("y", AT.TInt 32)]
       let env =
-            E.insertType "Point" pointType $
-              E.insertType "Shape" (AT.TStruct "Shape" [("center", pointType)]) E.emptyEnv
+            PS.insertType "Point" pointType $
+              PS.insertType "Shape" (AT.TStruct "Shape" [("center", pointType)]) PS.parserState
       parseWithCustomEnv "Shape" env `shouldBe` Right (AT.TStruct "Shape" [("center", pointType)])
