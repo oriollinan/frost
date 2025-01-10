@@ -25,10 +25,10 @@ spec = do
 
   describe "parseFloat" $ do
     it "parses positive floats" $ do
-      parseWithEnv "123.45" `shouldBe` Right (AT.LFloat 123.45)
+      parseWithEnv "123,45" `shouldBe` Right (AT.LFloat 123.45)
 
     it "parses negative floats" $ do
-      parseWithEnv "-67.89" `shouldBe` Right (AT.LFloat (-67.89))
+      parseWithEnv "-67,89" `shouldBe` Right (AT.LFloat (-67.89))
 
     it "fails on non-float input" $ do
       E.isLeft (parseWithEnv "abc") `shouldBe` True
@@ -52,16 +52,16 @@ spec = do
 
   describe "parseArray" $ do
     it "parses an array of integers" $ do
-      parseWithEnv "[1,2,3]" `shouldBe` Right (AT.LArray [AT.LInt 1, AT.LInt 2, AT.LInt 3])
+      parseWithEnv "[1 2 3]" `shouldBe` Right (AT.LArray [AT.LInt 1, AT.LInt 2, AT.LInt 3])
 
     it "parses an array of mixed literals" $ do
-      parseWithEnv "[true,'a',123]" `shouldBe` Right (AT.LArray [AT.LBool True, AT.LChar 'a', AT.LInt 123])
+      parseWithEnv "[true 'a' 123]" `shouldBe` Right (AT.LArray [AT.LBool True, AT.LChar 'a', AT.LInt 123])
 
     it "parses a string literal as an array of characters" $ do
       parseWithEnv "\"hello\"" `shouldBe` Right (AT.LArray (map AT.LChar "hello"))
 
     it "fails on invalid input" $ do
-      E.isLeft (parseWithEnv "[1,true,]") `shouldBe` True
+      E.isLeft (parseWithEnv "[1 true ]") `shouldBe` True
 
   describe "parseNull" $ do
     it "parses null" $ do

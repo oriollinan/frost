@@ -65,7 +65,7 @@ parseCall = CE.Postfix $ do
 
 parseArrayAccess :: CE.Operator PU.Parser AT.Expr
 parseArrayAccess = CE.InfixL $ do
-  srcLoc <- PU.parseSrcLoc <* PU.symbol "#"
+  srcLoc <- PU.parseSrcLoc <* PU.symbol "."
   return $ \value pos -> AT.ArrayAccess srcLoc value pos
 
 -- TODO: rethink order
