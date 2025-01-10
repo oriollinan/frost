@@ -310,28 +310,65 @@ data UnaryOp m = UnaryOp
 -- | List of supported unary operators.
 unaryOperators :: (MonadCodegen m) => [UnaryOp m]
 unaryOperators =
-  [ UnaryOp AT.Not (\operand -> I.xor operand (AST.ConstantOperand $ C.Int 1 1)),
-    UnaryOp AT.BitNot (\operand -> I.xor operand (AST.ConstantOperand $ C.Int 32 (-1))),
-    UnaryOp AT.Deref (`I.load` 0),
-    UnaryOp AT.AddrOf pure,
-    UnaryOp AT.PreInc (\operand -> I.add operand (AST.ConstantOperand $ C.Int 32 1)),
-    UnaryOp AT.PreDec (\operand -> I.sub operand (AST.ConstantOperand $ C.Int 32 1)),
-    UnaryOp AT.PostInc (postOp I.add),
-    UnaryOp AT.PostDec (postOp I.sub)
+  [ UnaryOp AT.PreInc $ \operand -> do
+      case TD.typeOf operand of
+        T.PointerType _ _ -> do
+          val <- I.load operand 0
+          newVal <- I.add val (AST.ConstantOperand $ C.Int 32 1)
+          I.store operand 0 newVal
+          pure newVal
+        -- TODO: Implement pre-increment for non-pointer types
+        _ -> E.throwError $ CodegenError unknownLoc $ UnsupportedUnaryOperator AT.PreInc,
+    UnaryOp AT.PreDec $ \operand -> do
+      case TD.typeOf operand of
+        T.PointerType _ _ -> do
+          val <- I.load operand 0
+          newVal <- I.sub val (AST.ConstantOperand $ C.Int 32 1)
+          I.store operand 0 newVal
+          pure newVal
+        -- TODO: Implement pre-decrement for non-pointer types
+        _ -> E.throwError $ CodegenError unknownLoc $ UnsupportedUnaryOperator AT.PreDec,
+    UnaryOp AT.PostInc $ \operand -> do
+      case TD.typeOf operand of
+        T.PointerType _ _ -> do
+          oldVal <- I.load operand 0
+          newVal <- I.add oldVal (AST.ConstantOperand $ C.Int 32 1)
+          I.store operand 0 newVal
+          pure oldVal
+        -- TODO: Implement post-increment for non-pointer types
+        _ -> E.throwError $ CodegenError unknownLoc $ UnsupportedUnaryOperator AT.PostInc,
+    UnaryOp AT.PostDec $ \operand -> do
+      case TD.typeOf operand of
+        T.PointerType _ _ -> do
+          oldVal <- I.load operand 0
+          newVal <- I.sub oldVal (AST.ConstantOperand $ C.Int 32 1)
+          I.store operand 0 newVal
+          pure oldVal
+        -- TODO: Implement post-decrement for non-pointer types
+        _ -> E.throwError $ CodegenError unknownLoc $ UnsupportedUnaryOperator AT.PostDec,
+    UnaryOp AT.Not $ \operand -> do
+      let operandType = TD.typeOf operand
+      case operandType of
+        T.PointerType _ _ -> do
+          I.icmp IP.EQ operand (AST.ConstantOperand $ C.Null operandType)
+        T.IntegerType _ -> I.xor operand (AST.ConstantOperand $ C.Int 32 (-1))
+        _ -> E.throwError $ CodegenError unknownLoc $ UnsupportedUnaryOperator AT.Not,
+    UnaryOp AT.BitNot $ \operand -> do
+      I.xor operand (AST.ConstantOperand $ C.Int 32 (-1)),
+    UnaryOp AT.Deref $ \operand -> do
+      I.load operand 0
   ]
   where
-    postOp op operand = do
-      result <- I.load operand 0
-      I.store operand 0 =<< op result (AST.ConstantOperand $ C.Int 32 1)
-      pure result
+    -- TODO: Pass the actual location when generating errors
+    unknownLoc = AT.SrcLoc "unknown.ff" 0 0
 
 -- | Generate LLVM code for unary operations.
 generateUnaryOp :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateUnaryOp (AT.UnaryOp _ op expr) = do
+generateUnaryOp (AT.UnaryOp loc op expr) = do
   operand <- generateExpr expr
   case findOperator op of
     Just f -> f operand
-    Nothing -> E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedUnaryOperator op
+    Nothing -> E.throwError $ CodegenError loc $ UnsupportedUnaryOperator op
   where
     findOperator op' = L.find ((== op') . unaryMapping) unaryOperators >>= Just . unaryFunction
 generateUnaryOp expr =
@@ -351,6 +388,7 @@ generateVar expr =
 
 -- | Generate LLVM code for blocks.
 generateBlock :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateBlock (AT.Block []) = pure $ AST.ConstantOperand $ C.Undef T.void
 generateBlock (AT.Block exprs) = do
   last <$> traverse generateExpr exprs
 generateBlock expr =
@@ -509,17 +547,31 @@ generateCast (AT.Cast _ typ expr) = do
   case (fromType, toType) of
     (T.IntegerType fromBits, T.IntegerType toBits)
       | fromBits < toBits -> I.zext operand toType
-    (T.IntegerType fromBits, T.IntegerType toBits)
       | fromBits > toBits -> I.trunc operand toType
-    (T.IntegerType _, T.FloatingPointType _) -> I.sitofp operand toType
-    (T.FloatingPointType _, T.IntegerType _) -> I.fptosi operand toType
-    (T.FloatingPointType _, T.FloatingPointType _) -> I.fptrunc operand toType
-    (T.ArrayType _ _, T.PointerType _ _) -> I.bitcast operand toType
-    (T.ArrayType _ _, T.ArrayType _ _) -> I.bitcast operand toType
-    (T.IntegerType _, T.PointerType _ _) -> I.inttoptr operand toType
-    _ -> E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedType typ
+    (T.FloatingPointType _, T.FloatingPointType _) ->
+      I.fptrunc operand toType
+    (T.IntegerType _, T.FloatingPointType _) ->
+      I.sitofp operand toType
+    (T.FloatingPointType _, T.IntegerType _) ->
+      I.fptosi operand toType
+    (T.PointerType _ _, T.PointerType _ _) ->
+      I.bitcast operand toType
+    (T.IntegerType _, T.PointerType _ _) ->
+      I.inttoptr operand toType
+    (T.PointerType _ _, T.IntegerType _) ->
+      I.ptrtoint operand toType
+    (T.ArrayType _ _, T.PointerType _ _) ->
+      I.bitcast operand toType
+    (T.ArrayType _ _, T.ArrayType _ _) ->
+      I.bitcast operand toType
+    _ ->
+      E.throwError $
+        CodegenError (U.getLoc expr) $
+          UnsupportedType typ
 generateCast expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $
+    CodegenError (U.getLoc expr) $
+      UnsupportedDefinition expr
 
 -- | Generate LLVM code for for loops.
 generateForLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -623,6 +675,14 @@ generateAssignment (AT.Assignment _ expr valueExpr) = do
       elementPtr <- I.gep ptr [IC.int32 0, index]
       I.store elementPtr 0 value
       pure value
+    AT.UnaryOp _ AT.Deref (AT.Var _ name _) -> do
+      maybeVar <- getVar name
+      case maybeVar of
+        Just ptr -> do
+          actualPtr <- I.load ptr 0
+          I.store actualPtr 0 value
+          pure value
+        Nothing -> E.throwError $ CodegenError (U.getLoc expr) $ VariableNotFound name
     _ -> E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 generateAssignment expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
