@@ -37,4 +37,5 @@ getLoc expr = case expr of
   AT.Assignment loc _ _ -> loc
   AT.Op loc _ _ _ -> loc
   AT.Function loc _ _ _ _ -> loc
+  AT.ForeignFunction loc _ _ -> loc
   AT.Block exprs -> getLoc $ head exprs
