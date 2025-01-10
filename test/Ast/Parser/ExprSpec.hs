@@ -92,7 +92,7 @@ spec = do
 
     it "parses an if-else expression with implicit returns" $ do
       let input = "main: never -> never = { if x { 1 } else { 0 } }"
-      let env = E.insertVar "x" AT.TBoolean initialEnv
+      let env = PS.insertVar "x" AT.TBoolean initialEnv
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
       let expected =
             Right $
@@ -238,7 +238,7 @@ spec = do
               AT.StructAccess
                 normalizeLoc
                 (AT.Var normalizeLoc "myStruct" structType)
-                "myField"
+                (AT.Var normalizeLoc "myField" AT.TUnknown)
       result `shouldBe` expected
 
     it "parses a nested struct access" $ do
@@ -253,9 +253,9 @@ spec = do
                 ( AT.StructAccess
                     normalizeLoc
                     (AT.Var normalizeLoc "myStruct" structType)
-                    "innerStruct"
+                    (AT.Var normalizeLoc "innerStruct" AT.TUnknown)
                 )
-                "field"
+                (AT.Var normalizeLoc "field" AT.TUnknown)
       result `shouldBe` expected
 
     it "parses an array access" $ do

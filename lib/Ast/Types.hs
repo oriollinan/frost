@@ -49,6 +49,7 @@ data Type
         variants :: [(String, Type)]
       }
   | TTypedef String Type
+  | TUnknown
   deriving (Show, Eq, Ord)
 
 -- | Enhanced expression nodes
@@ -104,7 +105,7 @@ data Expr
   | Continue SrcLoc
   | Op SrcLoc Operation Expr Expr
   | UnaryOp SrcLoc UnaryOperation Expr
-  | StructAccess SrcLoc Expr String
+  | StructAccess SrcLoc Expr Expr
   | ArrayAccess SrcLoc Expr Expr
   | Cast SrcLoc Type Expr
   deriving (Show, Eq, Ord)
