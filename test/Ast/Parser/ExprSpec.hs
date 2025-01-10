@@ -28,6 +28,14 @@ spec = do
         let expected = Right (AT.Var normalizeLoc "x" (AT.TInt 32))
         result `shouldBe` expected
 
+    it "parses a snake case definition" $
+      do
+        let input = "x"
+        let env = PS.insertVar "x" (AT.TInt 32) initialEnv
+        let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+        let expected = Right (AT.Var normalizeLoc "x" (AT.TInt 32))
+        result `shouldBe` expected
+
     it "fails for an undefined variable" $ do
       let input = "y"
       let result = parseWithEnv input
@@ -60,6 +68,22 @@ spec = do
                     AT.declType = AT.TInt 32,
                     AT.declInit = Just (AT.Lit (AT.SrcLoc "" 0 00) (AT.LInt 42))
                   }
+        result `shouldBe` expected
+
+    it "parses a variable declaration snake case" $
+      do
+        let input = "a_variable: int"
+        let result = normalizeExpr <$> parseWithEnv input
+        let expected =
+              Right $
+                AT.Declaration
+                  normalizeLoc
+                  "a_variable"
+                  ( AT.TInt
+                      32
+                  )
+                  Nothing
+
         result `shouldBe` expected
 
     it "parses an assignment expression" $ do
