@@ -259,7 +259,7 @@ spec = do
       result `shouldBe` expected
 
     it "parses an array access" $ do
-      let input = "myArray.1"
+      let input = "myArray.#1"
       let arrayType = AT.TArray AT.TChar Nothing
       let env = PS.insertVar "myArray" arrayType PS.parserState
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
@@ -272,7 +272,7 @@ spec = do
       result `shouldBe` expected
 
     it "parses an nested array access" $ do
-      let input = "myArray.1.1"
+      let input = "myArray.#1.#1"
       let arrayType = AT.TArray (AT.TArray AT.TChar Nothing) Nothing
       let env = PS.insertVar "myArray" arrayType PS.parserState
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
@@ -401,6 +401,85 @@ spec = do
                 )
       result `shouldBe` expected
 
+    it "parses a prefix operator" $ do
+      let input = "++x"
+      let env = PS.insertVar "x" (AT.TInt 32) PS.parserState
+      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let expected =
+            Right $
+              AT.UnaryOp normalizeLoc AT.PreInc (AT.Var normalizeLoc "x" $ AT.TInt 32)
+      result `shouldBe` expected
+
+    it "parses a postfix operator" $ do
+      let input = "x++"
+      let env = PS.insertVar "x" (AT.TInt 32) PS.parserState
+      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let expected =
+            Right $
+              AT.UnaryOp normalizeLoc AT.PostInc (AT.Var normalizeLoc "x" $ AT.TInt 32)
+      result `shouldBe` expected
+
+    it "parses a deref operator" $ do
+      let input = "x.*"
+      let varType = AT.TPointer $ AT.TInt 32
+      let env = PS.insertVar "x" varType PS.parserState
+      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let expected =
+            Right $
+              AT.UnaryOp normalizeLoc AT.Deref (AT.Var normalizeLoc "x" varType)
+      result `shouldBe` expected
+
+    it "parses a deref assignment" $ do
+      let input = "x.* = 1"
+      let varType = AT.TPointer $ AT.TInt 32
+      let env = PS.insertVar "x" varType PS.parserState
+      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let expected =
+            Right $
+              AT.Assignment
+                normalizeLoc
+                (AT.UnaryOp normalizeLoc AT.Deref (AT.Var normalizeLoc "x" varType))
+                (AT.Lit normalizeLoc $ AT.LInt 1)
+      result `shouldBe` expected
+
+    it "parses a foreign function" $ do
+      let input = "print: foreign int -> never"
+      let result = normalizeExpr <$> parseWithEnv input
+      let expected =
+            Right $
+              AT.ForeignFunction
+                normalizeLoc
+                "print"
+                (AT.TFunction AT.TVoid [AT.TInt 32] False)
+      result `shouldBe` expected
+
+    it "parses a foreign function with a function declaration after it" $
+      do
+        let input = "free: foreign *byte -> never\nmain: never -> int = { free(0) 0 }"
+        let result = normalizeExpr . AT.Block <$> fst (S.runState (M.runParserT (M.many PE.parseExpr) "" input) PS.parserState)
+        let expected =
+              Right $
+                AT.Block
+                  [ AT.ForeignFunction
+                      normalizeLoc
+                      "free"
+                      (AT.TFunction AT.TVoid [AT.TPointer (AT.TInt 8)] False),
+                    AT.Function
+                      normalizeLoc
+                      "main"
+                      (AT.TFunction (AT.TInt 32) [AT.TVoid] False)
+                      []
+                      ( AT.Block
+                          [ AT.Call
+                              normalizeLoc
+                              (AT.Var normalizeLoc "free" (AT.TFunction AT.TVoid [AT.TPointer (AT.TInt 8)] False))
+                              [AT.Lit normalizeLoc (AT.LInt 0)],
+                            AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 0)))
+                          ]
+                      )
+                  ]
+        result `shouldBe` expected
+
 normalizeLoc :: AT.SrcLoc
 normalizeLoc = AT.SrcLoc "" 0 0
 
@@ -423,3 +502,4 @@ normalizeExpr (AT.Break _) = AT.Break normalizeLoc
 normalizeExpr (AT.StructAccess _ e s) = AT.StructAccess normalizeLoc (normalizeExpr e) s
 normalizeExpr (AT.ArrayAccess _ e1 e2) = AT.ArrayAccess normalizeLoc (normalizeExpr e1) (normalizeExpr e2)
 normalizeExpr (AT.Cast _ t e) = AT.Cast normalizeLoc t (normalizeExpr e)
+normalizeExpr (AT.ForeignFunction _ n t) = AT.ForeignFunction normalizeLoc n t

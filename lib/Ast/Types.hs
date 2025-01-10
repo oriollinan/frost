@@ -65,6 +65,11 @@ data Expr
         funcParams :: [String],
         funcBody :: Expr
       }
+  | ForeignFunction
+      { funcLoc :: SrcLoc,
+        funcName :: String,
+        funcType :: Type
+      }
   | Declaration
       { declLoc :: SrcLoc,
         declName :: String,

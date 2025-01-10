@@ -33,7 +33,8 @@ baseTypes =
     ("double", AT.TDouble),
     ("char", AT.TChar),
     ("bool", AT.TBoolean),
-    ("never", AT.TVoid)
+    ("never", AT.TVoid),
+    ("byte", AT.TInt 8)
   ]
 
 -- | Parses a user-defined integer size.
@@ -52,7 +53,9 @@ baseType = M.choice $ (\(kw, ty) -> ty <$ PU.symbol kw) <$> baseTypes
 -- A pointer type is denoted by a '*' followed by another type.
 -- Example: "*int" results in a pointer to an integer.
 pointerType :: PU.Parser AT.Type
-pointerType = AT.TPointer <$> (MC.char '*' *> parseType)
+pointerType = do
+  _ <- MC.char '*'
+  AT.TPointer <$> parseTermType
 
 -- | Parses a mutable type.
 -- A mutable type is prefixed by the keyword "mut" followed by the type.

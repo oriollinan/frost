@@ -153,6 +153,7 @@ codegen program =
 generateGlobal :: (MonadCodegen m) => AT.Expr -> m ()
 generateGlobal expr = case expr of
   AT.Function {} -> CM.void $ generateFunction expr
+  AT.ForeignFunction {} -> CM.void $ generateForeignFunction expr
   _ -> E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedTopLevel expr
 
 -- | Generate LLVM code for an expression.
@@ -164,6 +165,7 @@ instance ExprGen AT.Expr where
     AT.Lit {} -> generateLiteral expr
     AT.Var {} -> generateVar expr
     AT.Function {} -> generateFunction expr
+    AT.ForeignFunction {} -> generateForeignFunction expr
     AT.Declaration {} -> generateDeclaration expr
     AT.If {} -> generateIf expr
     AT.Block {} -> generateBlock expr
@@ -355,6 +357,20 @@ generateFunction (AT.Function _ name (AT.TFunction ret params False) paramNames 
   where
     mkParam t n = (toLLVM t, M.ParameterName $ U.stringToByteString n)
 generateFunction expr =
+  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+
+-- | Generate LLVM code for foreign function definitions.
+generateForeignFunction :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateForeignFunction (AT.ForeignFunction _ name (AT.TFunction ret params False)) = do
+  let funcType = T.ptr $ T.FunctionType (toLLVM ret) (map toLLVM params) False
+      funcName = AST.Name $ U.stringToByteString name
+
+  _ <- M.extern funcName (map toLLVM params) (toLLVM ret)
+
+  addGlobalVar name $ AST.ConstantOperand $ C.GlobalReference funcType funcName
+
+  pure $ AST.ConstantOperand $ C.GlobalReference funcType funcName
+generateForeignFunction expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for declarations.
