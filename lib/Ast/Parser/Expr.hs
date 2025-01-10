@@ -16,7 +16,7 @@ parseExpr = CE.makeExprParser (PU.lexeme parseTerm) operationTable
 
 operationTable :: [[CE.Operator PU.Parser AT.Expr]]
 operationTable =
-  [ [ PU.postfix "." (`AT.UnaryOp` AT.Deref),
+  [ [ PU.postfix ".*" (`AT.UnaryOp` AT.Deref),
       PU.postfix "++" (`AT.UnaryOp` AT.PostInc),
       PU.postfix "--" (`AT.UnaryOp` AT.PostDec),
       parseCall
@@ -71,7 +71,7 @@ parseAssignment = CE.InfixL $ do
 
 parseArrayAccess :: CE.Operator PU.Parser AT.Expr
 parseArrayAccess = CE.InfixL $ do
-  srcLoc <- PU.parseSrcLoc <* PU.symbol "."
+  srcLoc <- PU.parseSrcLoc <* PU.symbol ".#"
   return $ \value pos -> AT.ArrayAccess srcLoc value pos
 
 parseTerm :: PU.Parser AT.Expr
