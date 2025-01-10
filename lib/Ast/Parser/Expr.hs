@@ -16,7 +16,12 @@ parseExpr = CE.makeExprParser (PU.lexeme parseTerm) operationTable
 
 operationTable :: [[CE.Operator PU.Parser AT.Expr]]
 operationTable =
-  [ [ PU.prefix "!" (`AT.UnaryOp` AT.Not),
+  [ [ PU.postfix ".*" (`AT.UnaryOp` AT.Deref),
+      PU.postfix "++" (`AT.UnaryOp` AT.PostInc),
+      PU.postfix "--" (`AT.UnaryOp` AT.PostDec),
+      parseCall
+    ],
+    [ PU.prefix "!" (`AT.UnaryOp` AT.Not),
       PU.prefix "not" (`AT.UnaryOp` AT.Not),
       PU.prefix "~" (`AT.UnaryOp` AT.BitNot),
       PU.prefix "&" (`AT.UnaryOp` AT.AddrOf),
@@ -43,17 +48,13 @@ operationTable =
       PU.binary ">=" (`AT.Op` AT.Gte),
       PU.binary "<" (`AT.Op` AT.Lt),
       PU.binary ">" (`AT.Op` AT.Gt),
+      parseAssignment,
       parseArrayAccess
     ],
     [ PU.binary "&&" (`AT.Op` AT.And),
       PU.binary "and" (`AT.Op` AT.And),
       PU.binary "||" (`AT.Op` AT.Or),
       PU.binary "or" (`AT.Op` AT.Or)
-    ],
-    [ PU.postfix "." (`AT.UnaryOp` AT.Deref),
-      PU.postfix "++" (`AT.UnaryOp` AT.PostInc),
-      PU.postfix "--" (`AT.UnaryOp` AT.PostDec),
-      parseCall
     ]
   ]
 
@@ -63,9 +64,14 @@ parseCall = CE.Postfix $ do
   args <- M.between (PU.symbol "(") (PU.symbol ")") $ M.many parseExpr
   return (\func -> AT.Call srcLoc func args)
 
+parseAssignment :: CE.Operator PU.Parser AT.Expr
+parseAssignment = CE.InfixL $ do
+  srcLoc <- PU.parseSrcLoc <* PU.symbol "="
+  return $ \target value -> AT.Assignment srcLoc target value
+
 parseArrayAccess :: CE.Operator PU.Parser AT.Expr
 parseArrayAccess = CE.InfixL $ do
-  srcLoc <- PU.parseSrcLoc <* PU.symbol "."
+  srcLoc <- PU.parseSrcLoc <* PU.symbol ".#"
   return $ \value pos -> AT.ArrayAccess srcLoc value pos
 
 parseTerm :: PU.Parser AT.Expr
@@ -83,7 +89,6 @@ parseTerm =
       M.try parseFunction,
       M.try parseForeignFunction,
       M.try parseDeclaration,
-      M.try parseAssignment,
       M.try parseStructAccess,
       parseVar,
       parseParenExpr
@@ -164,13 +169,6 @@ parseDeclaration = do
   value <- M.optional $ PU.symbol "=" *> parseExpr
   S.modify (PS.insertVar name t)
   return $ AT.Declaration {AT.declLoc = srcLoc, AT.declName = name, AT.declType = t, AT.declInit = value}
-
-parseAssignment :: PU.Parser AT.Expr
-parseAssignment = do
-  srcLoc <- PU.parseSrcLoc
-  target <- parseVar <* PU.symbol "="
-  value <- parseExpr
-  return $ AT.Assignment {AT.assignLoc = srcLoc, AT.assignTarget = target, AT.assignValue = value}
 
 parseIf :: PU.Parser AT.Expr
 parseIf = do
