@@ -179,7 +179,6 @@ instance ExprGen AT.Expr where
     AT.Break {} -> generateBreak expr
     AT.Continue {} -> generateContinue expr
     AT.Assignment {} -> generateAssignment expr
-    _ -> E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for constants.
 generateConstant :: (MonadCodegen m) => AT.Literal -> m C.Constant
@@ -311,32 +310,33 @@ generateBlock expr =
 
 -- | Generate LLVM code for `if` expressions.
 generateIf :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateIf (AT.If _ cond then_ else_) = mdo
-  condValue <- generateExpr cond
-  test <- I.icmp IP.NE condValue (AST.ConstantOperand $ C.Int 1 0)
-  I.condBr test thenBlock elseBlock
+generateIf (AT.If _ cond thenExpr elseExpr) = mdo
+  condVal <- generateExpr cond
+  condTest <- I.icmp IP.NE condVal (AST.ConstantOperand $ C.Int 1 0)
+  I.condBr condTest thenBlock elseBlock
 
   thenBlock <- IRM.block `IRM.named` U.stringToByteString "if.then"
-  thenValue <- generateExpr then_
-
-  case TD.typeOf thenValue of
-    T.VoidType -> I.br mergeBB
-    _ -> pure ()
+  thenVal <- generateExpr thenExpr
+  thenTerminated <- IRM.hasTerminator
+  _ <- S.unless thenTerminated $ I.br mergeBlock
+  thenBlockName <- IRM.currentBlock
 
   elseBlock <- IRM.block `IRM.named` U.stringToByteString "if.else"
-  elseValue <- case else_ of
+  elseVal <- case elseExpr of
     Just e -> generateExpr e
-    Nothing -> pure $ AST.ConstantOperand $ C.Undef T.void
+    Nothing -> pure (AST.ConstantOperand $ C.Undef T.void)
+  elseTerminated <- IRM.hasTerminator
+  S.unless elseTerminated $ I.br mergeBlock
+  elseBlockName <- IRM.currentBlock
 
-  case TD.typeOf elseValue of
-    T.VoidType -> I.br mergeBB
-    _ -> pure ()
-
-  mergeBB <- IRM.block `IRM.named` U.stringToByteString "if.merge"
-
-  case TD.typeOf elseValue of
-    T.VoidType -> I.phi [(thenValue, elseBlock)]
-    _ -> I.phi [(thenValue, thenBlock), (elseValue, elseBlock)]
+  mergeBlock <- IRM.block `IRM.named` U.stringToByteString "if.merge"
+  let validBrs =
+        [(thenVal, thenBlockName) | not thenTerminated]
+          ++ [(elseVal, elseBlockName) | not elseTerminated]
+  case validBrs of
+    [] -> pure $ AST.ConstantOperand (C.Undef T.void)
+    [(v, _)] -> pure v
+    _ -> I.phi validBrs
 generateIf expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 
@@ -461,58 +461,58 @@ generateCast expr =
 
 -- | Generate LLVM code for for loops.
 generateForLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateForLoop (AT.For _ init' cond step body) = mdo
-  CM.void $ generateExpr init'
+generateForLoop (AT.For _ initExpr condExpr stepExpr bodyExpr) = mdo
+  _ <- generateExpr initExpr
 
   I.br condBlock
 
   condBlock <- IRM.block `IRM.named` U.stringToByteString "for.cond"
-  condResult <- generateExpr cond
-  I.condBr condResult bodyBlock exitBlock
+  condVal <- generateExpr condExpr
+  I.condBr condVal bodyBlock exitBlock
 
   bodyBlock <- IRM.block `IRM.named` U.stringToByteString "for.body"
 
-  state <- S.gets loopState
+  oldLoopState <- S.gets loopState
   S.modify (\s -> s {loopState = Just (stepBlock, exitBlock)})
 
-  CM.void $ generateExpr body
+  _ <- generateExpr bodyExpr
 
-  S.modify (\s -> s {loopState = state})
+  S.modify (\s -> s {loopState = oldLoopState})
 
   I.br stepBlock
 
   stepBlock <- IRM.block `IRM.named` U.stringToByteString "for.step"
-  CM.void $ generateExpr step
+  _ <- generateExpr stepExpr
   I.br condBlock
 
   exitBlock <- IRM.block `IRM.named` U.stringToByteString "for.exit"
-
   pure $ AST.ConstantOperand $ C.Null T.i8
 generateForLoop expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedForDefinition expr
 
 -- | Generate LLVM code for while loops.
 generateWhileLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateWhileLoop (AT.While _ cond body) = mdo
+generateWhileLoop (AT.While _ condExpr bodyExpr) = mdo
   I.br condBlock
 
   condBlock <- IRM.block `IRM.named` U.stringToByteString "while.cond"
-  condOperand <- generateExpr cond
-  I.condBr condOperand bodyBlock exitBlock
+  condVal <- generateExpr condExpr
+  I.condBr condVal bodyBlock exitBlock
 
   bodyBlock <- IRM.block `IRM.named` U.stringToByteString "while.body"
 
-  state <- S.gets loopState
+  oldLoopState <- S.gets loopState
   S.modify (\s -> s {loopState = Just (condBlock, exitBlock)})
 
-  CM.void $ generateExpr body
+  _bodyVal <- generateExpr bodyExpr
 
-  S.modify (\s -> s {loopState = state})
+  S.modify (\s -> s {loopState = oldLoopState})
 
-  I.br condBlock
+  bodyTerminated <- IRM.hasTerminator
+  CM.unless bodyTerminated $
+    I.br condBlock
 
   exitBlock <- IRM.block `IRM.named` U.stringToByteString "while.exit"
-
   pure $ AST.ConstantOperand $ C.Null T.i8
 generateWhileLoop expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedWhileDefinition expr
