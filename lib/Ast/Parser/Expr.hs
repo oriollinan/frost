@@ -81,6 +81,7 @@ parseTerm =
       parseCast,
       parseLit,
       M.try parseFunction,
+      M.try parseForeignFunction,
       M.try parseDeclaration,
       M.try parseAssignment,
       M.try parseStructAccess,
@@ -117,10 +118,27 @@ parseFunction = do
       return $ AT.Function {AT.funcLoc = srcLoc, AT.funcName = name, AT.funcType = ft, AT.funcParams = params, AT.funcBody = body}
     _ -> M.customFailure $ AU.InvalidFunctionType name ft
 
+parseForeignFunction :: PU.Parser AT.Expr
+parseForeignFunction = do
+  srcLoc <- PU.parseSrcLoc
+  name <- PU.identifier
+  ft <- PU.symbol ":" *> PU.symbol "foreign" *> PU.lexeme PT.parseType
+  case ft of
+    t@(AT.TFunction {}) -> do
+      S.modify (PS.insertVar name t)
+      return $
+        AT.ForeignFunction
+          { AT.funcLoc = srcLoc,
+            AT.funcName = name,
+            AT.funcType = t
+          }
+    _ -> M.customFailure $ AU.InvalidFunctionType name ft
+
 implicitReturn :: AT.Expr -> AT.Expr
 implicitReturn e@(AT.Lit loc _) = AT.Return loc $ Just e
 implicitReturn e@(AT.Var loc _ _) = AT.Return loc $ Just e
 implicitReturn e@(AT.Function loc _ _ _ _) = AT.Return loc $ Just e
+implicitReturn e@(AT.ForeignFunction loc _ _) = AT.Return loc $ Just e
 implicitReturn e@(AT.Declaration loc _ _ _) = AT.Return loc $ Just e
 implicitReturn e@(AT.Assignment loc _ _) = AT.Return loc $ Just e
 implicitReturn e@(AT.Call loc _ _) = AT.Return loc $ Just e
