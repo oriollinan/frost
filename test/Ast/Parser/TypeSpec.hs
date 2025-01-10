@@ -57,10 +57,10 @@ spec = do
 
   describe "Function Types" $ do
     it "parses int -> float" $ do
-      parseWithEnv "(int) -> (float)" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TFloat, AT.paramTypes = [AT.TInt 32], AT.isVariadic = False})
+      parseWithEnv "int -> float" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TFloat, AT.paramTypes = [AT.TInt 32], AT.isVariadic = False})
 
     it "parses int int -> never" $ do
-      parseWithEnv "(int int) -> (never)" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 32, AT.TInt 32], AT.isVariadic = False})
+      parseWithEnv "int int -> never" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 32, AT.TInt 32], AT.isVariadic = False})
 
   describe "Custom Types" $ do
     it "parses a defined custom struct type" $ do

@@ -68,7 +68,6 @@ parseArrayAccess = CE.InfixL $ do
   srcLoc <- PU.parseSrcLoc <* PU.symbol "."
   return $ \value pos -> AT.ArrayAccess srcLoc value pos
 
--- TODO: rethink order
 parseTerm :: PU.Parser AT.Expr
 parseTerm =
   M.choice

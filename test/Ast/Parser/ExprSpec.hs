@@ -36,7 +36,7 @@ spec = do
         _ -> error "Expected failure"
 
     it "parses a function declaration" $ do
-      let input = "add: (int int) -> (int) = x y { ret 1 }"
+      let input = "add: int int -> int = x y { ret 1 }"
       let expected =
             Right $
               AT.Function
@@ -47,18 +47,6 @@ spec = do
                 (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 1)))])
       let result = normalizeExpr <$> parseWithEnv input
       result `shouldBe` expected
-
-    it "parses fibonacci" $ do
-      let input = "add: (int int) -> (int) = x y { ret 1 }"
-      let result = normalizeExpr <$> parseWithEnv input
-      let expected =
-            AT.Function
-              normalizeLoc
-              "add"
-              (AT.TFunction {AT.returnType = AT.TInt 32, AT.paramTypes = [AT.TInt 32, AT.TInt 32], AT.isVariadic = False})
-              ["x", "y"]
-              (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 1)))])
-      result `shouldBe` Right expected
 
     it "parses a variable declaration with initialization" $
       do
@@ -103,8 +91,8 @@ spec = do
       result `shouldBe` expected
 
     it "parses an if-else expression with implicit returns" $ do
-      let input = "main: (never) -> (never) = { if x { 1 } else { 0 } }"
-      let env = PS.insertVar "x" AT.TBoolean initialEnv
+      let input = "main: never -> never = { if x { 1 } else { 0 } }"
+      let env = E.insertVar "x" AT.TBoolean initialEnv
       let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
       let expected =
             Right $
@@ -394,6 +382,23 @@ spec = do
                 normalizeLoc
                 AT.Not
                 (AT.Lit normalizeLoc $ AT.LInt 1)
+      result `shouldBe` expected
+
+    it "parses a higher order function" $ do
+      let input = "map: (int -> char) int -> char = f x { f(x) }"
+      let functionType = AT.TFunction AT.TChar [AT.TInt 32] False
+      let result = normalizeExpr <$> parseWithEnv input
+      let expected =
+            Right $
+              AT.Function
+                normalizeLoc
+                "map"
+                (AT.TFunction AT.TChar [functionType, AT.TInt 32] False)
+                ["f", "x"]
+                ( AT.Block
+                    [ AT.Return normalizeLoc $ Just $ AT.Call normalizeLoc (AT.Var normalizeLoc "f" functionType) [AT.Var normalizeLoc "x" $ AT.TInt 32]
+                    ]
+                )
       result `shouldBe` expected
 
 normalizeLoc :: AT.SrcLoc
