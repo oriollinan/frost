@@ -37,6 +37,9 @@ spec = do
     it "parses never" $ do
       parseWithEnv "never" `shouldBe` Right AT.TVoid
 
+    it "parses custom int" $ do
+      parseWithEnv "int64" `shouldBe` Right (AT.TInt 64)
+
   describe "Pointer Types" $ do
     it "parses *int" $ do
       parseWithEnv "*int" `shouldBe` Right (AT.TPointer (AT.TInt 32))

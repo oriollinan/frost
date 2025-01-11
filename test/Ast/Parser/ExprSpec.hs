@@ -86,6 +86,22 @@ spec = do
 
         result `shouldBe` expected
 
+    it "parses a variable declaration with a custom int" $
+      do
+        let input = "x : int64 = 42"
+        let result = normalizeExpr <$> parseWithEnv input
+        let expected =
+              Right
+                $ AT.Declaration
+                  normalizeLoc
+                  "x"
+                  ( AT.TInt
+                      64
+                  )
+                $ Just
+                  (AT.Lit (AT.SrcLoc "" 0 00) (AT.LInt 42))
+        result `shouldBe` expected
+
     it "parses an assignment expression" $ do
       let input = "x = 42"
       let env = PS.insertVar "x" (AT.TInt 0) initialEnv
