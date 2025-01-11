@@ -42,7 +42,7 @@ baseTypes =
 customIntType :: PU.Parser AT.Type
 customIntType = do
   _ <- PU.symbol "int"
-  AT.TInt <$> ML.decimal
+  AT.TInt <$> PU.lexeme ML.decimal
 
 -- | Parses a base type by matching one of the predefined base type keywords.
 -- Example: "int" or "bool".
