@@ -15,12 +15,14 @@ import qualified Control.Monad as CM
 import qualified Control.Monad.Except as E
 import qualified Control.Monad.Fix as F
 import qualified Control.Monad.State as S
+import qualified Data.Foldable as FD
 import qualified Data.List as L
 import qualified Data.Maybe as M
 import qualified LLVM.AST as AST
 import qualified LLVM.AST.AddrSpace as AS
 import qualified LLVM.AST.Constant as C
 import qualified LLVM.AST.Float as FF
+import qualified LLVM.AST.FloatingPointPredicate as FP
 import qualified LLVM.AST.Global as G
 import qualified LLVM.AST.IntegerPredicate as IP
 import qualified LLVM.AST.Linkage as LK
@@ -45,7 +47,8 @@ type LoopState = Maybe (AST.Name, AST.Name)
 data CodegenState = CodegenState
   { localState :: LocalState,
     globalState :: GlobalState,
-    loopState :: LoopState
+    loopState :: LoopState,
+    allocatedVars :: LocalState
   }
   deriving (Show)
 
@@ -119,7 +122,10 @@ class (Monad m) => VarBinding m where
 instance (MonadCodegen m, Monad m) => VarBinding m where
   getVar name = do
     state <- S.get
-    return $ lookup name (localState state) `S.mplus` lookup name (globalState state)
+    return $
+      lookup name (allocatedVars state)
+        `S.mplus` lookup name (localState state)
+        `S.mplus` lookup name (globalState state)
   addVar name operand = S.modify (\s -> s {localState = (name, operand) : localState s})
   getGlobalVar name = S.gets (lookup name . globalState)
   addGlobalVar name operand = S.modify (\s -> s {globalState = (name, operand) : globalState s})
@@ -151,7 +157,7 @@ codegen program =
   E.runExcept $
     M.buildModuleT (U.stringToByteString $ AT.sourceFile program) $
       IRM.runIRBuilderT IRM.emptyIRBuilder $
-        S.evalStateT (mapM_ (generateGlobal . snd) (AT.globals program)) (CodegenState [] [] Nothing)
+        S.evalStateT (mapM_ (generateGlobal . snd) (AT.globals program)) (CodegenState [] [] Nothing [])
 
 -- | Generate LLVM code for global expressions.
 generateGlobal :: (MonadCodegen m) => AT.Expr -> m ()
@@ -193,7 +199,7 @@ generateConstant lit loc = case lit of
   AT.LChar c -> return $ C.Int 8 (fromIntegral $ fromEnum c)
   AT.LBool b -> return $ C.Int 1 (if b then 1 else 0)
   AT.LNull -> return $ C.Null T.i8
-  AT.LFloat f -> pure $ C.Float (FF.Single (realToFrac f))
+  AT.LFloat f -> pure $ C.Float (FF.Double (realToFrac f))
   AT.LArray elems -> do
     let (headElem, _) = M.fromJust $ L.uncons elems
     case headElem of
@@ -268,25 +274,16 @@ generateBinaryOp (AT.Op loc op e1 e2) = do
         negV2 <- I.sub (AST.ConstantOperand $ C.Int 32 0) v2
         I.gep v1 [negV2]
       _ -> E.throwError $ CodegenError loc $ UnsupportedOperator op
-    (T.IntegerType _, T.IntegerType _) -> case findOperator op of
+    (T.IntegerType _, T.IntegerType _) -> case findIntOperator op of
       Just f -> f v1 v2
       Nothing -> E.throwError $ CodegenError loc $ UnsupportedOperator op
-    (T.FloatingPointType _, T.FloatingPointType _) -> case findOperator op of
+    (T.FloatingPointType _, T.FloatingPointType _) -> case findFloatOperator op of
       Just f -> f v1 v2
       Nothing -> E.throwError $ CodegenError loc $ UnsupportedOperator op
-    (T.IntegerType _, T.FloatingPointType _) -> do
-      v1' <- I.sitofp v1 T.double
-      case findOperator op of
-        Just f -> f v1' v2
-        Nothing -> E.throwError $ CodegenError loc $ UnsupportedOperator op
-    (T.FloatingPointType _, T.IntegerType _) -> do
-      v2' <- I.sitofp v2 T.double
-      case findOperator op of
-        Just f -> f v1 v2'
-        Nothing -> E.throwError $ CodegenError loc $ UnsupportedOperator op
     _ -> E.throwError $ CodegenError loc $ UnsupportedOperator op
   where
-    findOperator op' = L.find ((== op') . opMapping) binaryOperators >>= Just . opFunction
+    findIntOperator op' = L.find ((== op') . opMapping) integerBinaryOperators >>= Just . opFunction
+    findFloatOperator op' = L.find ((== op') . opMapping) floatingPointBinaryOperators >>= Just . opFunction
 generateBinaryOp expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 
@@ -296,9 +293,9 @@ data BinaryOp m = BinaryOp
     opFunction :: AST.Operand -> AST.Operand -> m AST.Operand
   }
 
--- | List of supported binary operators.
-binaryOperators :: (MonadCodegen m) => [BinaryOp m]
-binaryOperators =
+-- | List of supported integer binary operators.
+integerBinaryOperators :: (MonadCodegen m) => [BinaryOp m]
+integerBinaryOperators =
   [ BinaryOp AT.Add I.add,
     BinaryOp AT.Sub I.sub,
     BinaryOp AT.Mul I.mul,
@@ -322,6 +319,27 @@ binaryOperators =
         (AT.Gte, IP.SGE),
         (AT.Eq, IP.EQ),
         (AT.Ne, IP.NE)
+      ]
+
+-- | List of supported floating-point binary operators.
+floatingPointBinaryOperators :: (MonadCodegen m) => [BinaryOp m]
+floatingPointBinaryOperators =
+  [ BinaryOp AT.Add I.fadd,
+    BinaryOp AT.Sub I.fsub,
+    BinaryOp AT.Mul I.fmul,
+    BinaryOp AT.Div I.fdiv,
+    BinaryOp AT.Mod I.frem
+  ]
+    ++ map mkComparisonOp comparisonOps
+  where
+    mkComparisonOp (op, pre) = BinaryOp op (I.fcmp pre)
+    comparisonOps =
+      [ (AT.Lt, FP.OLT),
+        (AT.Gt, FP.OGT),
+        (AT.Lte, FP.OLE),
+        (AT.Gte, FP.OGE),
+        (AT.Eq, FP.OEQ),
+        (AT.Ne, FP.ONE)
       ]
 
 -- | Unary operation data type.
@@ -468,8 +486,11 @@ generateFunction (AT.Function _ name (AT.TFunction ret params False) paramNames 
   M.function funcName paramTypes (toLLVM ret) $ \ops -> do
     S.modify (\s -> s {localState = []})
     S.zipWithM_ addVar paramNames ops
+    oldAllocatedVars <- S.gets allocatedVars
+    preAllocateVars body
     result <- generateExpr body
     I.ret result
+    S.modify (\s -> s {allocatedVars = oldAllocatedVars})
   where
     mkParam t n = (toLLVM t, M.ParameterName $ U.stringToByteString n)
 generateFunction expr =
@@ -512,17 +533,20 @@ ensureMatchingType val targetTy
 
 -- | Generate LLVM code for declarations.
 generateDeclaration :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateDeclaration (AT.Declaration _ name typ mInitExpr) = do
-  let llvmType = toLLVM typ
-  ptr <- I.alloca llvmType Nothing 0
-  case mInitExpr of
-    Just initExpr -> do
-      initValue <- generateExpr initExpr
-      initValue' <- ensureMatchingType initValue llvmType
-      I.store ptr 0 initValue'
-    Nothing -> pure ()
-  addVar name ptr
-  pure ptr
+generateDeclaration (AT.Declaration loc name typ mInitExpr) = do
+  maybeVar <- getVar name
+  case maybeVar of
+    Just ptr -> do
+      case mInitExpr of
+        Just initExpr -> do
+          initValue <- generateExpr initExpr
+          -- TODO: This makes us lose precision in some cases,
+          -- e.g. when initializing a float with an integer
+          initValue' <- ensureMatchingType initValue (toLLVM typ)
+          I.store ptr 0 initValue'
+          I.load ptr 0
+        Nothing -> I.load ptr 0
+    Nothing -> E.throwError $ CodegenError loc $ VariableNotFound name
 generateDeclaration expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 
@@ -641,15 +665,52 @@ toBool val = do
     -- TODO: Pass the actual location when generating errors
     unknownLoc = AT.SrcLoc "unknown.ff" 0 0
 
+-- | Pre-allocate variables before generating code.
+preAllocateVars :: (MonadCodegen m) => AT.Expr -> m ()
+preAllocateVars (AT.Assignment _ (AT.Var _ name typ) _) = do
+  let llvmType = toLLVM typ
+  existingVar <- getVar name
+  CM.when (M.isNothing existingVar) $ do
+    ptr <- I.alloca llvmType Nothing 0
+    S.modify (\s -> s {allocatedVars = (name, ptr) : allocatedVars s})
+preAllocateVars (AT.Declaration _ name typ init') = do
+  let llvmType = toLLVM typ
+  existingVar <- getVar name
+  CM.when (M.isNothing existingVar) $ do
+    ptr <- I.alloca llvmType Nothing 0
+    S.modify (\s -> s {allocatedVars = (name, ptr) : allocatedVars s})
+    FD.for_ init' preAllocateVars
+preAllocateVars (AT.Block exprs) = mapM_ preAllocateVars exprs
+preAllocateVars (AT.If _ cond thenExpr elseExpr) = do
+  preAllocateVars cond
+  preAllocateVars thenExpr
+  maybe (return ()) preAllocateVars elseExpr
+preAllocateVars (AT.For _ initExpr condExpr stepExpr bodyExpr) = do
+  preAllocateVars initExpr
+  preAllocateVars condExpr
+  preAllocateVars stepExpr
+  preAllocateVars bodyExpr
+preAllocateVars (AT.While _ condExpr bodyExpr) = do
+  preAllocateVars condExpr
+  preAllocateVars bodyExpr
+preAllocateVars (AT.Break _) = pure ()
+preAllocateVars (AT.Continue _) = pure ()
+preAllocateVars (AT.Assignment _ _ valueExpr) = preAllocateVars valueExpr
+preAllocateVars (AT.Function _ _ _ _ bodyExpr) = preAllocateVars bodyExpr
+preAllocateVars _ = pure ()
+
 -- | Generate LLVM code for for loops.
 generateForLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateForLoop (AT.For _ initExpr condExpr stepExpr bodyExpr) = mdo
+  condPtr <- I.alloca T.i1 Nothing 0
   _ <- generateExpr initExpr
   I.br condBlock
 
   condBlock <- IRM.block `IRM.named` U.stringToByteString "for.cond"
   condVal <- generateExpr condExpr
-  boolCondVal <- toBool condVal
+  I.store condPtr 0 condVal
+  loadedCond <- I.load condPtr 0
+  boolCondVal <- toBool loadedCond
   I.condBr boolCondVal bodyBlock exitBlock
 
   bodyBlock <- IRM.block `IRM.named` U.stringToByteString "for.body"
@@ -673,24 +734,25 @@ generateForLoop expr =
 -- | Generate LLVM code for while loops.
 generateWhileLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateWhileLoop (AT.While _ condExpr bodyExpr) = mdo
+  condPtr <- I.alloca T.i1 Nothing 0
   I.br condBlock
 
   condBlock <- IRM.block `IRM.named` U.stringToByteString "while.cond"
   condVal <- generateExpr condExpr
-  I.condBr condVal bodyBlock exitBlock
+  I.store condPtr 0 condVal
+  loadedCond <- I.load condPtr 0
+  boolCondVal <- toBool loadedCond
+  I.condBr boolCondVal bodyBlock exitBlock
 
   bodyBlock <- IRM.block `IRM.named` U.stringToByteString "while.body"
-
   oldLoopState <- S.gets loopState
   S.modify (\s -> s {loopState = Just (condBlock, exitBlock)})
 
-  _bodyVal <- generateExpr bodyExpr
+  _ <- generateExpr bodyExpr
 
   S.modify (\s -> s {loopState = oldLoopState})
-
   bodyTerminated <- IRM.hasTerminator
-  CM.unless bodyTerminated $
-    I.br condBlock
+  CM.unless bodyTerminated $ I.br condBlock
 
   exitBlock <- IRM.block `IRM.named` U.stringToByteString "while.exit"
   pure $ AST.ConstantOperand $ C.Null T.i8
@@ -709,6 +771,7 @@ generateBreak (AT.Break loc) = do
 generateBreak expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 
+-- | Generate LLVM code for continue statements.
 generateContinue :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateContinue (AT.Continue loc) = do
   state <- S.get
