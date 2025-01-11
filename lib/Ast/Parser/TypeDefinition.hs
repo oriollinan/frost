@@ -11,7 +11,12 @@ import qualified Text.Megaparsec as M
 -- definition.
 -- It tries to match typedefs, structs, and unions.
 parseTypeDefinition :: PU.Parser AT.Type
-parseTypeDefinition = PU.triedChoice [structType, unionType, typedefType]
+parseTypeDefinition =
+  M.choice
+    [ M.try structType,
+      M.try unionType,
+      typedefType
+    ]
 
 -- | Parses a struct type definition.
 -- A struct is defined with the "struct" keyword followed by an optional name and a list of fields enclosed in braces.

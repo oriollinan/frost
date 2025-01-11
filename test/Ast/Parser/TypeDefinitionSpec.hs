@@ -2,6 +2,7 @@ module Ast.Parser.TypeDefinitionSpec (spec) where
 
 import qualified Ast.Parser.State as PS
 import qualified Ast.Parser.TypeDefinition as PT
+import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
 import qualified Control.Monad.State as S
 import Test.Hspec
@@ -32,3 +33,9 @@ spec = do
 
     it "parses typedef for a function" $ do
       parseWithEnv "Alias :: int -> char" `shouldBe` Right (AT.TTypedef "Alias" (AT.TFunction AT.TChar [AT.TInt 32] False))
+
+    it "parses typedef and then a struct" $ do
+      let input = "bestInt :: int69 vec :: struct { x -> int y -> int }"
+      let result = fst $ S.runState (M.runParserT (M.some $ PU.lexeme PT.parseTypeDefinition) "" input) PS.parserState
+      let expected = Right [AT.TTypedef "bestInt" $ AT.TInt 69, AT.TStruct "vec" [("x", AT.TInt 32), ("y", AT.TInt 32)]]
+      result `shouldBe` expected
