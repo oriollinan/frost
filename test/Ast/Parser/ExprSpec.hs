@@ -28,7 +28,15 @@ spec = do
         let expected = Right (AT.Var normalizeLoc "x" (AT.TInt 32))
         result `shouldBe` expected
 
-    it "unknow for undefined variable" $ do
+    it "parses a snake case definition" $
+      do
+        let input = "x"
+        let env = PS.insertVar "x" (AT.TInt 32) initialEnv
+        let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+        let expected = Right (AT.Var normalizeLoc "x" (AT.TInt 32))
+        result `shouldBe` expected
+
+    it "unknown for undefined variable" $ do
       let input = "y"
       let result = normalizeExpr <$> parseWithEnv input
       let expected = Right $ AT.Var normalizeLoc "y" AT.TUnknown
@@ -59,6 +67,41 @@ spec = do
                     AT.declType = AT.TInt 32,
                     AT.declInit = Just (AT.Lit (AT.SrcLoc "" 0 00) (AT.LInt 42))
                   }
+        result `shouldBe` expected
+
+    it "parses a struct declaration with initialization" $
+      do
+        let input = "vector: Vector = Vector { x = 0 y = 0 }"
+        let structType = AT.TStruct "Vector" [("x", AT.TInt 32), ("y", AT.TInt 32)]
+        let env = PS.insertType "Vector" structType initialEnv
+        let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+        let expected =
+              Right $
+                AT.Declaration
+                  normalizeLoc
+                  "vector"
+                  structType
+                  ( Just
+                      $ AT.Lit
+                        normalizeLoc
+                      $ AT.LStruct [("x", AT.LInt 0), ("y", AT.LInt 0)]
+                  )
+        result `shouldBe` expected
+
+    it "parses a variable declaration snake case" $
+      do
+        let input = "a_variable: int"
+        let result = normalizeExpr <$> parseWithEnv input
+        let expected =
+              Right $
+                AT.Declaration
+                  normalizeLoc
+                  "a_variable"
+                  ( AT.TInt
+                      32
+                  )
+                  Nothing
+
         result `shouldBe` expected
 
     it "parses an assignment expression" $ do

@@ -1,7 +1,10 @@
 module Ast.Parser.Literal where
 
+import qualified Ast.Parser.State as PS
 import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
+import qualified Control.Monad.State as S
+import qualified Data.Char as C
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
 import qualified Text.Megaparsec.Char.Lexer as ML
@@ -16,7 +19,7 @@ nullSymbol :: String
 nullSymbol = "null"
 
 parseLiteral :: PU.Parser AT.Literal
-parseLiteral = PU.triedChoice [parseArray, parseChar, parseFloat, parseInt, parseBool, parseNull]
+parseLiteral = PU.triedChoice [parseArray, parseChar, parseFloat, parseInt, parseBool, parseNull, parseStruct]
 
 -- | Parses an integer literal, supporting signed values.
 -- Returns a `Literal` of type `LInt`.
@@ -54,11 +57,66 @@ parseChar = AT.LChar <$> M.between (MC.char '\'') (MC.char '\'') M.anySingle
 parseArray :: PU.Parser AT.Literal
 parseArray =
   M.choice
-    [ AT.LArray . map AT.LChar <$> M.between (MC.char '\"') (MC.char '\"') (M.many (M.noneOf ['"'])),
-      AT.LArray <$> M.between (PU.symbol "[") (PU.symbol "]") (M.sepBy parseLiteral PU.sc)
+    [ parseStringArray,
+      parseLiteralArray
     ]
+  where
+    parseStringArray =
+      AT.LArray . map AT.LChar
+        <$> M.between (MC.char '\"') (MC.char '\"') (M.many parseStringChar)
+
+    parseLiteralArray =
+      AT.LArray
+        <$> M.between (PU.symbol "[") (PU.symbol "]") (M.sepBy parseLiteral PU.sc)
+
+    parseStringChar =
+      M.choice
+        [ parseEscapeSequence,
+          M.noneOf ['"', '\\']
+        ]
+
+    parseEscapeSequence =
+      MC.char '\\'
+        >> M.choice
+          [ '\a' <$ MC.char 'a',
+            '\b' <$ MC.char 'b',
+            '\f' <$ MC.char 'f',
+            '\n' <$ MC.char 'n',
+            '\r' <$ MC.char 'r',
+            '\t' <$ MC.char 't',
+            '\v' <$ MC.char 'v',
+            '\\' <$ MC.char '\\',
+            '\"' <$ MC.char '"',
+            '\'' <$ MC.char '\'',
+            '\0' <$ MC.char '0',
+            parseHexEscape,
+            parseOctalEscape
+          ]
+
+    parseHexEscape = do
+      _ <- MC.char 'x'
+      digits <- M.count 2 hexDigit
+      return $ C.chr $ read ("0x" ++ digits)
+
+    parseOctalEscape = do
+      digits <- M.count 3 octalDigit
+      return $ C.chr $ read ("0o" ++ digits)
+
+    hexDigit = M.oneOf $ ['0' .. '9'] ++ ['a' .. 'f'] ++ ['A' .. 'F']
+    octalDigit = M.oneOf ['0' .. '7']
 
 -- | Parses a `null` literal.
 -- Returns a `Literal` of type `LNull`.
 parseNull :: PU.Parser AT.Literal
 parseNull = AT.LNull <$ PU.symbol nullSymbol
+
+parseStruct :: PU.Parser AT.Literal
+parseStruct = do
+  name <- PU.lexeme PU.identifier
+  fields <- M.between (PU.symbol "{") (PU.symbol "}") $ M.some parseField
+  state <- S.get
+  case PS.lookupType name state of
+    (Just _) -> return $ AT.LStruct fields
+    _ -> M.customFailure $ PU.UnknownType name
+  where
+    parseField = (,) <$> PU.lexeme PU.identifier <* PU.symbol "=" <*> PU.lexeme parseLiteral

@@ -49,7 +49,7 @@ triedChoice ps =
 
 -- | An identifier in our language syntax
 identifier :: Parser String
-identifier = lexeme ((:) <$> (MC.letterChar M.<|> M.oneOf "$") <*> M.many (MC.alphaNumChar M.<|> M.oneOf "$"))
+identifier = lexeme ((:) <$> (MC.letterChar M.<|> M.oneOf "$_") <*> M.many (MC.alphaNumChar M.<|> M.oneOf "$_"))
 
 -- | Gets the SrcLoc
 parseSrcLoc :: Parser AT.SrcLoc

@@ -18,11 +18,15 @@ import qualified Control.Monad.State as S
 import qualified Data.List as L
 import qualified Data.Maybe as M
 import qualified LLVM.AST as AST
+import qualified LLVM.AST.AddrSpace as AS
 import qualified LLVM.AST.Constant as C
 import qualified LLVM.AST.Float as FF
+import qualified LLVM.AST.Global as G
 import qualified LLVM.AST.IntegerPredicate as IP
+import qualified LLVM.AST.Linkage as LK
 import qualified LLVM.AST.Type as T
 import qualified LLVM.AST.Typed as TD
+import qualified LLVM.AST.Visibility as V
 import qualified LLVM.IRBuilder.Constant as IC
 import qualified LLVM.IRBuilder.Instruction as I
 import qualified LLVM.IRBuilder.Module as M
@@ -183,30 +187,72 @@ instance ExprGen AT.Expr where
     AT.Assignment {} -> generateAssignment expr
 
 -- | Generate LLVM code for constants.
-generateConstant :: (MonadCodegen m) => AT.Literal -> m C.Constant
-generateConstant lit = case lit of
+generateConstant :: (MonadCodegen m) => AT.Literal -> AT.SrcLoc -> m C.Constant
+generateConstant lit loc = case lit of
   AT.LInt n -> return $ C.Int 32 (fromIntegral n)
   AT.LChar c -> return $ C.Int 8 (fromIntegral $ fromEnum c)
   AT.LBool b -> return $ C.Int 1 (if b then 1 else 0)
   AT.LNull -> return $ C.Null T.i8
   AT.LFloat f -> pure $ C.Float (FF.Single (realToFrac f))
   AT.LArray elems -> do
-    constants <- mapM generateConstant elems
-    return $ C.Array (TD.typeOf $ head constants) constants
+    let (headElem, _) = M.fromJust $ L.uncons elems
+    case headElem of
+      AT.LChar _ -> do
+        strPtr <- createGlobalString [c | AT.LChar c <- elems]
+        case strPtr of
+          AST.ConstantOperand c -> return c
+          _ -> E.throwError $ CodegenError loc $ UnsupportedLiteral lit
+      _ -> do
+        constants <- mapM (`generateConstant` loc) elems
+        return $ C.Array (TD.typeOf $ head constants) constants
   AT.LStruct fields -> do
     -- We do not need the names of the fields
     -- as we only use them when accessing the fields of the struct
     let (_, values) = unzip fields
-    constants <- mapM generateConstant values
+    constants <- mapM (`generateConstant` loc) values
     return $ C.Struct Nothing False constants
 
 -- | Generate LLVM code for literals.
 generateLiteral :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateLiteral (AT.Lit _ lit) = do
-  constant <- generateConstant lit
+generateLiteral (AT.Lit loc lit) = do
+  constant <- generateConstant lit loc
   pure $ AST.ConstantOperand constant
 generateLiteral expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+
+-- | Generate LLVM code for global variables.
+createGlobalString :: (MonadCodegen m) => String -> m AST.Operand
+createGlobalString str = do
+  let strConst =
+        C.Array
+          (T.IntegerType 8)
+          (map (C.Int 8 . fromIntegral . fromEnum) (str ++ "\0"))
+  let strType = T.ArrayType (fromIntegral $ length str + 1) (T.IntegerType 8)
+  name <- IRM.fresh
+  let global =
+        AST.GlobalVariable
+          { G.name = name,
+            G.linkage = LK.Private,
+            G.visibility = V.Default,
+            G.dllStorageClass = Nothing,
+            G.threadLocalMode = Nothing,
+            G.unnamedAddr = Just AST.GlobalAddr,
+            G.isConstant = True,
+            G.type' = strType,
+            G.addrSpace = AS.AddrSpace 0,
+            G.initializer = Just strConst,
+            G.section = Nothing,
+            G.comdat = Nothing,
+            G.alignment = 1,
+            G.metadata = []
+          }
+  M.emitDefn $ AST.GlobalDefinition global
+  return $
+    AST.ConstantOperand $
+      C.GetElementPtr
+        True
+        (C.GlobalReference (T.ptr strType) name)
+        [C.Int 64 0, C.Int 64 0]
 
 -- | Generate LLVM code for binary operations.
 generateBinaryOp :: (MonadCodegen m) => AT.Expr -> m AST.Operand

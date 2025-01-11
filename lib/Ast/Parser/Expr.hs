@@ -91,10 +91,10 @@ parseTerm =
       parseContinue,
       parseBlock,
       parseCast,
-      parseLit,
       M.try parseFunction,
       M.try parseForeignFunction,
       M.try parseDeclaration,
+      M.try parseLit,
       parseVar,
       parseParenExpr
     ]

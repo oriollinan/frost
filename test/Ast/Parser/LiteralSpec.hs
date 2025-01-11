@@ -2,6 +2,7 @@ module Ast.Parser.LiteralSpec (spec) where
 
 import qualified Ast.Parser.Literal as PL
 import qualified Ast.Parser.State as PS
+import Ast.Types (Literal (LArray))
 import qualified Ast.Types as AT
 import qualified Control.Monad.State as S
 import qualified Data.Either as E
@@ -69,3 +70,12 @@ spec = do
 
     it "fails on non-null input" $ do
       E.isLeft (parseWithEnv "none") `shouldBe` True
+
+  describe "Parse a Struct Literal" $ do
+    it "parses a struct with 1 field" $ do
+      let input = "Packet { data = \"\" }"
+      let structType = AT.TStruct "Packet" [("data", AT.TArray AT.TChar Nothing)]
+      let env = PS.insertType "Packet" structType initialEnv
+      let result = fst $ S.runState (M.runParserT PL.parseLiteral "" input) env
+      let expected = Right $ AT.LStruct [("data", LArray [])]
+      result `shouldBe` expected
