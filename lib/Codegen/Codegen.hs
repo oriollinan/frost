@@ -478,10 +478,10 @@ generateIf expr =
 
 -- | Generate LLVM code for function definitions.
 generateFunction :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateFunction (AT.Function _ name (AT.TFunction ret params False) paramNames body) = do
+generateFunction (AT.Function _ name (AT.TFunction ret params var) paramNames body) = do
   let funcName = AST.Name $ U.stringToByteString name
       paramTypes = zipWith mkParam params paramNames
-      funcType = T.ptr $ T.FunctionType (toLLVM ret) (map fst paramTypes) False
+      funcType = T.ptr $ T.FunctionType (toLLVM ret) (map fst paramTypes) var
   addGlobalVar name $ AST.ConstantOperand $ C.GlobalReference funcType funcName
   M.function funcName paramTypes (toLLVM ret) $ \ops -> do
     S.modify (\s -> s {localState = []})
@@ -498,11 +498,15 @@ generateFunction expr =
 
 -- | Generate LLVM code for foreign function definitions.
 generateForeignFunction :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateForeignFunction (AT.ForeignFunction _ name (AT.TFunction ret params False)) = do
-  let funcType = T.ptr $ T.FunctionType (toLLVM ret) (map toLLVM params) False
+generateForeignFunction (AT.ForeignFunction _ name (AT.TFunction ret params var)) = do
+  let funcType = T.ptr $ T.FunctionType (toLLVM ret) (map toLLVM params) var
       funcName = AST.Name $ U.stringToByteString name
 
-  _ <- M.extern funcName (map toLLVM params) (toLLVM ret)
+  _ <-
+    (if var then M.externVarArgs else M.extern)
+      funcName
+      (map toLLVM params)
+      (toLLVM ret)
 
   addGlobalVar name $ AST.ConstantOperand $ C.GlobalReference funcType funcName
 
