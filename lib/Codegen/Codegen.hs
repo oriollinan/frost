@@ -259,9 +259,32 @@ generateBinaryOp :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateBinaryOp (AT.Op loc op e1 e2) = do
   v1 <- generateExpr e1
   v2 <- generateExpr e2
-  case findOperator op of
-    Just f -> f v1 v2
-    Nothing -> E.throwError $ CodegenError loc $ UnsupportedOperator op
+  let ty1 = TD.typeOf v1
+      ty2 = TD.typeOf v2
+  case (ty1, ty2) of
+    (T.PointerType _ _, T.IntegerType _) -> case op of
+      AT.Add -> I.gep v1 [v2]
+      AT.Sub -> do
+        negV2 <- I.sub (AST.ConstantOperand $ C.Int 32 0) v2
+        I.gep v1 [negV2]
+      _ -> E.throwError $ CodegenError loc $ UnsupportedOperator op
+    (T.IntegerType _, T.IntegerType _) -> case findOperator op of
+      Just f -> f v1 v2
+      Nothing -> E.throwError $ CodegenError loc $ UnsupportedOperator op
+    (T.FloatingPointType _, T.FloatingPointType _) -> case findOperator op of
+      Just f -> f v1 v2
+      Nothing -> E.throwError $ CodegenError loc $ UnsupportedOperator op
+    (T.IntegerType _, T.FloatingPointType _) -> do
+      v1' <- I.sitofp v1 T.double
+      case findOperator op of
+        Just f -> f v1' v2
+        Nothing -> E.throwError $ CodegenError loc $ UnsupportedOperator op
+    (T.FloatingPointType _, T.IntegerType _) -> do
+      v2' <- I.sitofp v2 T.double
+      case findOperator op of
+        Just f -> f v1 v2'
+        Nothing -> E.throwError $ CodegenError loc $ UnsupportedOperator op
+    _ -> E.throwError $ CodegenError loc $ UnsupportedOperator op
   where
     findOperator op' = L.find ((== op') . opMapping) binaryOperators >>= Just . opFunction
 generateBinaryOp expr =
@@ -379,10 +402,19 @@ generateVar :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateVar (AT.Var loc name _) = do
   maybeVar <- getVar name
   case maybeVar of
-    Just ptr -> case TD.typeOf ptr of
-      T.PointerType _ _ -> I.load ptr 0
-      _ -> return ptr
-    Nothing -> E.throwError $ CodegenError loc $ VariableNotFound name
+    Nothing ->
+      E.throwError $ CodegenError loc $ VariableNotFound name
+    Just ptr -> do
+      let varTy = TD.typeOf ptr
+      case varTy of
+        T.PointerType (T.FunctionType {}) _ ->
+          return ptr
+        T.PointerType (T.IntegerType 8) _ ->
+          return ptr
+        T.PointerType _ _ ->
+          I.load ptr 0
+        _ ->
+          return ptr
 generateVar expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 
@@ -457,6 +489,27 @@ generateForeignFunction (AT.ForeignFunction _ name (AT.TFunction ret params Fals
 generateForeignFunction expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 
+-- | Convert an operand to match a desired LLVM type if needed.
+ensureMatchingType :: (MonadCodegen m) => AST.Operand -> T.Type -> m AST.Operand
+ensureMatchingType val targetTy
+  | TD.typeOf val == targetTy = pure val
+  | otherwise = case (TD.typeOf val, targetTy) of
+      (T.IntegerType fromW, T.IntegerType toW)
+        | fromW < toW -> I.zext val targetTy
+        | fromW > toW -> I.trunc val targetTy
+      (T.FloatingPointType _, T.FloatingPointType _) -> I.fptrunc val targetTy
+      (T.IntegerType _, T.FloatingPointType _) -> I.sitofp val targetTy
+      (T.FloatingPointType _, T.IntegerType _) -> I.fptosi val targetTy
+      (T.PointerType _ _, T.PointerType _ _) -> I.bitcast val targetTy
+      (T.IntegerType _, T.PointerType _ _) -> I.inttoptr val targetTy
+      (T.PointerType _ _, T.IntegerType _) -> I.ptrtoint val targetTy
+      (T.ArrayType _ _, T.PointerType _ _) -> I.bitcast val targetTy
+      (T.ArrayType _ _, T.ArrayType _ _) -> I.bitcast val targetTy
+      _ -> E.throwError $ CodegenError unknownLoc $ UnsupportedType AT.TVoid
+  where
+    -- TODO: Pass the actual location when generating errors
+    unknownLoc = AT.SrcLoc "unknown.ff" 0 0
+
 -- | Generate LLVM code for declarations.
 generateDeclaration :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateDeclaration (AT.Declaration _ name typ mInitExpr) = do
@@ -465,7 +518,8 @@ generateDeclaration (AT.Declaration _ name typ mInitExpr) = do
   case mInitExpr of
     Just initExpr -> do
       initValue <- generateExpr initExpr
-      I.store ptr 0 initValue
+      initValue' <- ensureMatchingType initValue llvmType
+      I.store ptr 0 initValue'
     Nothing -> pure ()
   addVar name ptr
   pure ptr
@@ -488,18 +542,14 @@ generateReturn expr =
 
 -- | Generate LLVM code for function calls.
 generateFunctionCall :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateFunctionCall (AT.Call loc (AT.Var _ name _) args) = do
-  maybeFunc <- getVar name
+generateFunctionCall (AT.Call loc (AT.Var _ funcName _) args) = do
+  maybeFunc <- getVar funcName
   case maybeFunc of
-    Just funcOperand -> case funcOperand of
-      AST.ConstantOperand (C.GlobalReference _ _) -> do
-        operandArgs <- mapM generateExpr args
-        I.call funcOperand (map (,[]) operandArgs)
-      _ -> do
-        funcPtr <- I.load funcOperand 0
-        operandArgs <- mapM generateExpr args
-        I.call funcPtr (map (,[]) operandArgs)
-    Nothing -> E.throwError $ CodegenError loc $ UnsupportedFunctionCall name
+    Just funcOperand -> do
+      argOperands <- mapM generateExpr args
+      I.call funcOperand (map (,[]) argOperands)
+    Nothing ->
+      E.throwError $ CodegenError loc $ UnsupportedFunctionCall funcName
 generateFunctionCall expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 
@@ -573,26 +623,42 @@ generateCast expr =
     CodegenError (U.getLoc expr) $
       UnsupportedDefinition expr
 
+-- | Convert an operand to a boolean value.
+toBool :: (MonadCodegen m) => AST.Operand -> m AST.Operand
+toBool val = do
+  let ty = TD.typeOf val
+  case ty of
+    T.IntegerType 1 -> pure val
+    T.IntegerType 8 -> do
+      let zero8 = AST.ConstantOperand (C.Int 8 0)
+      I.icmp IP.NE val zero8
+    T.IntegerType 32 -> do
+      let zero32 = AST.ConstantOperand (C.Int 32 0)
+      I.icmp IP.NE val zero32
+    _ ->
+      E.throwError $ CodegenError unknownLoc $ UnsupportedType AT.TVoid
+  where
+    -- TODO: Pass the actual location when generating errors
+    unknownLoc = AT.SrcLoc "unknown.ff" 0 0
+
 -- | Generate LLVM code for for loops.
 generateForLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateForLoop (AT.For _ initExpr condExpr stepExpr bodyExpr) = mdo
   _ <- generateExpr initExpr
-
   I.br condBlock
 
   condBlock <- IRM.block `IRM.named` U.stringToByteString "for.cond"
   condVal <- generateExpr condExpr
-  I.condBr condVal bodyBlock exitBlock
+  boolCondVal <- toBool condVal
+  I.condBr boolCondVal bodyBlock exitBlock
 
   bodyBlock <- IRM.block `IRM.named` U.stringToByteString "for.body"
-
   oldLoopState <- S.gets loopState
   S.modify (\s -> s {loopState = Just (stepBlock, exitBlock)})
 
   _ <- generateExpr bodyExpr
 
   S.modify (\s -> s {loopState = oldLoopState})
-
   I.br stepBlock
 
   stepBlock <- IRM.block `IRM.named` U.stringToByteString "for.step"
