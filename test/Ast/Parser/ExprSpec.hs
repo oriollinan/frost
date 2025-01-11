@@ -70,6 +70,25 @@ spec = do
                   }
         result `shouldBe` expected
 
+    it "parses a struct declaration with initialization" $
+      do
+        let input = "vector: Vector = Vector { x = 0 y = 0 }"
+        let structType = AT.TStruct "Vector" [("x", AT.TInt 32), ("y", AT.TInt 32)]
+        let env = PS.insertType "Vector" structType initialEnv
+        let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+        let expected =
+              Right $
+                AT.Declaration
+                  normalizeLoc
+                  "vector"
+                  structType
+                  ( Just
+                      $ AT.Lit
+                        normalizeLoc
+                      $ AT.LStruct [("x", AT.LInt 0), ("y", AT.LInt 0)]
+                  )
+        result `shouldBe` expected
+
     it "parses a variable declaration snake case" $
       do
         let input = "a_variable: int"

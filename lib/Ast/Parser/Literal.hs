@@ -1,7 +1,9 @@
 module Ast.Parser.Literal where
 
+import qualified Ast.Parser.State as PS
 import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
+import qualified Control.Monad.State as S
 import qualified Data.Char as C
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
@@ -17,7 +19,7 @@ nullSymbol :: String
 nullSymbol = "null"
 
 parseLiteral :: PU.Parser AT.Literal
-parseLiteral = PU.triedChoice [parseArray, parseChar, parseFloat, parseInt, parseBool, parseNull]
+parseLiteral = PU.triedChoice [parseArray, parseChar, parseFloat, parseInt, parseBool, parseNull, parseStruct]
 
 -- | Parses an integer literal, supporting signed values.
 -- Returns a `Literal` of type `LInt`.
@@ -107,3 +109,14 @@ parseArray =
 -- Returns a `Literal` of type `LNull`.
 parseNull :: PU.Parser AT.Literal
 parseNull = AT.LNull <$ PU.symbol nullSymbol
+
+parseStruct :: PU.Parser AT.Literal
+parseStruct = do
+  name <- PU.lexeme PU.identifier
+  fields <- M.between (PU.symbol "{") (PU.symbol "}") $ M.some parseField
+  state <- S.get
+  case PS.lookupType name state of
+    (Just _) -> return $ AT.LStruct fields
+    _ -> M.customFailure $ PU.UnknownType name
+  where
+    parseField = (,) <$> PU.lexeme PU.identifier <* PU.symbol "=" <*> PU.lexeme parseLiteral
