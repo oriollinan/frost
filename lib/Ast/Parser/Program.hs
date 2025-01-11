@@ -8,6 +8,7 @@ import qualified Text.Megaparsec as M
 
 parseProgram :: String -> PU.Parser AT.Program
 parseProgram sourceFile = do
+  _ <- PU.sc
   types <- M.many $ M.try $ PU.lexeme PT.parseTypeDefinition
   exprs <- M.many PE.parseExpr
   return $ AT.Program {AT.globals = map globalExpr exprs, AT.types = map globalType types, AT.sourceFile = sourceFile}
