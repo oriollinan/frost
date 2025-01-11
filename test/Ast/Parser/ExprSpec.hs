@@ -36,12 +36,11 @@ spec = do
         let expected = Right (AT.Var normalizeLoc "x" (AT.TInt 32))
         result `shouldBe` expected
 
-    it "fails for an undefined variable" $ do
+    it "unknown for undefined variable" $ do
       let input = "y"
-      let result = parseWithEnv input
-      case result of
-        Left _ -> True `shouldBe` True
-        _ -> error "Expected failure"
+      let result = normalizeExpr <$> parseWithEnv input
+      let expected = Right $ AT.Var normalizeLoc "y" AT.TUnknown
+      result `shouldBe` expected
 
     it "parses a function declaration" $ do
       let input = "add: int int -> int = x y { ret 1 }"
@@ -281,7 +280,7 @@ spec = do
               AT.StructAccess
                 normalizeLoc
                 (AT.Var normalizeLoc "myStruct" structType)
-                "myField"
+                (AT.Var normalizeLoc "myField" AT.TUnknown)
       result `shouldBe` expected
 
     it "parses a nested struct access" $ do
@@ -296,9 +295,9 @@ spec = do
                 ( AT.StructAccess
                     normalizeLoc
                     (AT.Var normalizeLoc "myStruct" structType)
-                    "innerStruct"
+                    (AT.Var normalizeLoc "innerStruct" AT.TUnknown)
                 )
-                "field"
+                (AT.Var normalizeLoc "field" AT.TUnknown)
       result `shouldBe` expected
 
     it "parses an array access" $ do
@@ -542,7 +541,7 @@ normalizeExpr (AT.For _ i c s b) = AT.For normalizeLoc (normalizeExpr i) (normal
 normalizeExpr (AT.While _ c b) = AT.While normalizeLoc (normalizeExpr c) (normalizeExpr b)
 normalizeExpr (AT.Continue _) = AT.Continue normalizeLoc
 normalizeExpr (AT.Break _) = AT.Break normalizeLoc
-normalizeExpr (AT.StructAccess _ e s) = AT.StructAccess normalizeLoc (normalizeExpr e) s
+normalizeExpr (AT.StructAccess _ e1 e2) = AT.StructAccess normalizeLoc (normalizeExpr e1) (normalizeExpr e2)
 normalizeExpr (AT.ArrayAccess _ e1 e2) = AT.ArrayAccess normalizeLoc (normalizeExpr e1) (normalizeExpr e2)
 normalizeExpr (AT.Cast _ t e) = AT.Cast normalizeLoc t (normalizeExpr e)
 normalizeExpr (AT.ForeignFunction _ n t) = AT.ForeignFunction normalizeLoc n t

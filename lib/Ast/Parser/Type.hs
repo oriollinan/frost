@@ -73,7 +73,7 @@ arrayType = do
   return $ AT.TArray elemType size
 
 -- | Parses a function type.
--- A function type is defined by its parameter types enclosed in parentheses, followed by "->", and the return type also enclosed in parentheses.
+-- A function type is defined by its parameter types, followed by "->", and the return type also enclosed in parentheses.
 -- Example: "int -> float" or "int int -> void".
 -- TODO: find a way to do it without the parenthesis and avoid the infinite loop of parseType
 functionType :: PU.Parser AT.Type

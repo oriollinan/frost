@@ -49,7 +49,8 @@ operationTable =
       PU.binary "<" (`AT.Op` AT.Lt),
       PU.binary ">" (`AT.Op` AT.Gt),
       parseAssignment,
-      parseArrayAccess
+      parseArrayAccess,
+      parseStructAccess
     ],
     [ PU.binary "&&" (`AT.Op` AT.And),
       PU.binary "and" (`AT.Op` AT.And),
@@ -74,6 +75,11 @@ parseArrayAccess = CE.InfixL $ do
   srcLoc <- PU.parseSrcLoc <* PU.symbol ".#"
   return $ \value pos -> AT.ArrayAccess srcLoc value pos
 
+parseStructAccess :: CE.Operator PU.Parser AT.Expr
+parseStructAccess = CE.InfixL $ do
+  srcLoc <- PU.parseSrcLoc <* PU.symbol "."
+  return $ \value field -> AT.StructAccess srcLoc value field
+
 parseTerm :: PU.Parser AT.Expr
 parseTerm =
   M.choice
@@ -88,7 +94,6 @@ parseTerm =
       M.try parseFunction,
       M.try parseForeignFunction,
       M.try parseDeclaration,
-      M.try parseStructAccess,
       M.try parseLit,
       parseVar,
       parseParenExpr
@@ -106,7 +111,7 @@ parseVar = do
   env <- S.get
   case PS.lookupVar name env of
     (Just t) -> return $ AT.Var srcLoc name t
-    _ -> M.customFailure $ PU.UndefinedVar name
+    _ -> return $ AT.Var srcLoc name AT.TUnknown
 
 parseFunction :: PU.Parser AT.Expr
 parseFunction = do
@@ -230,14 +235,6 @@ parseContinue = do
   srcLoc <- PU.parseSrcLoc
   _ <- PU.symbol "next"
   return $ AT.Continue srcLoc
-
--- TODO: parse nested structs
-parseStructAccess :: PU.Parser AT.Expr
-parseStructAccess = do
-  srcLoc <- PU.parseSrcLoc
-  value <- parseVar
-  field <- PU.symbol "." *> PU.identifier
-  return $ AT.StructAccess srcLoc value field
 
 parseCast :: PU.Parser AT.Expr
 parseCast = do
