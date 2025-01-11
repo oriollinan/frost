@@ -9,7 +9,7 @@ import qualified Text.Megaparsec as M
 
 parseImport :: PU.Parser String -> PU.Parser String
 parseImport p = do
-  import' <- PU.symbol "import" *> M.between (PU.symbol "\"") (PU.symbol "\"") (M.some M.anySingle)
+  import' <- PU.symbol "import" *> M.between (PU.symbol "\"") (PU.symbol "\"") (M.some $ M.anySingleBut '\"')
   state <- S.get
   let visited = PS.lookupImport import' state
       depth = PS.getImportDepth state
