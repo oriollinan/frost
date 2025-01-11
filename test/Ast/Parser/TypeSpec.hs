@@ -62,6 +62,24 @@ spec = do
     it "parses int int -> never" $ do
       parseWithEnv "int int -> never" `shouldBe` Right (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 32, AT.TInt 32], AT.isVariadic = False})
 
+    it "parses a HOF that takes a function" $ do
+      let input = "(int -> int) -> never"
+      let result = parseWithEnv input
+      let expected = Right $ AT.TFunction AT.TVoid [AT.TFunction (AT.TInt 32) [AT.TInt 32] False] False
+      result `shouldBe` expected
+
+    it "parses a HOF that returns a function" $ do
+      let input = "never -> (int -> int)"
+      let result = parseWithEnv input
+      let expected = Right $ AT.TFunction (AT.TFunction (AT.TInt 32) [AT.TInt 32] False) [AT.TVoid] False
+      result `shouldBe` expected
+
+    it "parses a variadic function" $ do
+      let input = "*byte ... -> int"
+      let result = parseWithEnv input
+      let expected = Right $ AT.TFunction (AT.TInt 32) [AT.TPointer $ AT.TInt 8] True
+      result `shouldBe` expected
+
   describe "Custom Types" $ do
     it "parses a defined custom struct type" $ do
       let env = PS.insertType "Point" (AT.TStruct "Point" [("x", AT.TInt 32), ("y", AT.TInt 32)]) PS.parserState
