@@ -56,6 +56,19 @@ spec = do
       let result = normalizeExpr <$> parseWithEnv input
       result `shouldBe` expected
 
+    it "parses a variadic function" $ do
+      let input = "printf: *byte ... -> int = s { 1 }"
+      let expected =
+            Right $
+              AT.Function
+                normalizeLoc
+                "printf"
+                (AT.TFunction (AT.TInt 32) [AT.TPointer $ AT.TInt 8] True)
+                ["s"]
+                (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 1)))])
+      let result = normalizeExpr <$> parseWithEnv input
+      result `shouldBe` expected
+
     it "parses a variable declaration with initialization" $
       do
         let input = "x : int = 42"

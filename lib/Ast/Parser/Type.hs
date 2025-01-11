@@ -4,6 +4,7 @@ import qualified Ast.Parser.State as PS
 import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
 import qualified Control.Monad.State as S
+import qualified Data.Maybe as M
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
 import qualified Text.Megaparsec.Char.Lexer as ML
@@ -78,9 +79,12 @@ arrayType = do
 -- TODO: find a way to do it without the parenthesis and avoid the infinite loop of parseType
 functionType :: PU.Parser AT.Type
 functionType = do
-  paramTypes <- M.some $ PU.lexeme (M.between (PU.symbol "(") (PU.symbol ")") functionType M.<|> parseTermType)
-  returnType <- PU.symbol "->" *> PU.lexeme parseTermType
-  return $ AT.TFunction {AT.returnType = returnType, AT.paramTypes = paramTypes, AT.isVariadic = False}
+  paramTypes <- M.some $ PU.lexeme $ functionParser M.<|> parseTermType
+  variadic <- M.fromMaybe False <$> M.optional (True <$ PU.symbol "...")
+  returnType <- PU.symbol "->" *> PU.lexeme (functionParser M.<|> parseTermType)
+  return $ AT.TFunction {AT.returnType = returnType, AT.paramTypes = paramTypes, AT.isVariadic = variadic}
+  where
+    functionParser = M.between (PU.symbol "(") (PU.symbol ")") functionType
 
 customType :: PU.Parser AT.Type
 customType = do
