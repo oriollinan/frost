@@ -456,7 +456,6 @@ generateStructAccess (AT.StructAccess loc (AT.StructAccess _ structExpr (AT.Var 
         _ -> E.throwError $ CodegenError nestedStructNameLoc $ UnsupportedStructureAccess (AT.Var innerFieldLoc innerFieldName innerFieldType)
       innerFieldPtr <- I.gep structPtr [IC.int32 0, IC.int32 nestedStructIndex]
       I.load innerFieldPtr 0
-    -- AT.StructAccess loc expr field -> do
     _ -> E.throwError $ CodegenError loc $ UnsupportedStructureAccess structExpr
 generateStructAccess (AT.StructAccess _ structExpr (AT.Var _ fieldName _)) = do
   fieldPtr <- getStructFieldPointer structExpr fieldName
