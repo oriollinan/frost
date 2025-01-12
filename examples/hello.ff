@@ -1,0 +1,17 @@
+%%
+% Hello world example
+%%
+
+%%
+% External function declarations
+%%
+printf: foreign *byte ... -> int
+
+%%
+% Main function
+%%
+main: never -> int = {
+    printf("Hello, world!\n")
+
+    0
+}
