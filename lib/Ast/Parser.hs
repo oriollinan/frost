@@ -8,8 +8,9 @@ import qualified Text.Megaparsec as M
 
 -- | Parses a string into an abstract syntax tree (AST).
 -- The `parse` function takes a filename `String`, and an input `String` as a parameter and returns either an AST or an error message.
-parse :: String -> String -> Either String AT.Program
-parse sourceFile input =
-  case S.runState (M.runParserT (PP.parseProgram sourceFile) sourceFile input) PS.parserState of
-    (Left err, _) -> Left (M.errorBundlePretty err)
-    (Right program, _) -> Right program
+parse :: String -> String -> IO (Either String AT.Program)
+parse sourceFile input = do
+  (result, _) <- S.runStateT (M.runParserT (PP.parseProgram sourceFile) sourceFile input) PS.parserState
+  case result of
+    (Left err) -> return $ Left (M.errorBundlePretty err)
+    (Right program) -> return $ Right program
