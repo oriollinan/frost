@@ -6,13 +6,16 @@ type TypeState = [(String, AT.Type)]
 
 type VarState = [(String, AT.Type)]
 
+type DeferState = [AT.Expr]
+
 data ParserState = ParserState
   { typeState :: TypeState,
-    varState :: VarState
+    varState :: VarState,
+    deferState :: DeferState
   }
 
 parserState :: ParserState
-parserState = ParserState {typeState = [], varState = []}
+parserState = ParserState {typeState = [], varState = [], deferState = []}
 
 -- | Inserts a custom type into the environment.
 -- If the type already exists, it overwrites it.
@@ -21,10 +24,13 @@ insertType name t s = s {typeState = (name, t) : typeState s}
 
 -- | Looks up a custom type in the environment by its name.
 lookupType :: String -> ParserState -> Maybe AT.Type
-lookupType name (ParserState types _) = lookup name types
+lookupType name (ParserState types _ _) = lookup name types
 
 insertVar :: String -> AT.Type -> ParserState -> ParserState
 insertVar name t s = s {varState = (name, t) : varState s}
 
 lookupVar :: String -> ParserState -> Maybe AT.Type
-lookupVar name (ParserState _ vars) = lookup name vars
+lookupVar name (ParserState _ vars _) = lookup name vars
+
+insertDefered :: AT.Expr -> ParserState -> ParserState
+insertDefered e s@(ParserState {deferState = ds}) = s {deferState = e : ds}

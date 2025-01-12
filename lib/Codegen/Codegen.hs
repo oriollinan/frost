@@ -33,6 +33,7 @@ import qualified LLVM.IRBuilder.Constant as IC
 import qualified LLVM.IRBuilder.Instruction as I
 import qualified LLVM.IRBuilder.Module as M
 import qualified LLVM.IRBuilder.Monad as IRM
+import qualified Shared.Utils as SU
 
 -- | Type alias for the local code generation state.
 type LocalState = [(String, AST.Operand)]
@@ -62,8 +63,7 @@ type MonadCodegen m =
   )
 
 -- | Error types for code generation.
-data CodegenError
-  = CodegenError
+data CodegenError = CodegenError
   { errorLoc :: AT.SrcLoc,
     errorType :: CodegenErrorType
   }
@@ -166,7 +166,7 @@ generateGlobal :: (MonadCodegen m) => AT.Expr -> m ()
 generateGlobal expr = case expr of
   AT.Function {} -> CM.void $ generateFunction expr
   AT.ForeignFunction {} -> CM.void $ generateForeignFunction expr
-  _ -> E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedTopLevel expr
+  _ -> E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedTopLevel expr
 
 -- | Generate LLVM code for an expression.
 class ExprGen a where
@@ -226,7 +226,7 @@ generateLiteral (AT.Lit loc lit) = do
   constant <- generateConstant lit loc
   pure $ AST.ConstantOperand constant
 generateLiteral expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for global variables.
 createGlobalString :: (MonadCodegen m) => String -> m AST.Operand
@@ -287,7 +287,7 @@ generateBinaryOp (AT.Op loc op e1 e2) = do
     findIntOperator op' = L.find ((== op') . opMapping) integerBinaryOperators >>= Just . opFunction
     findFloatOperator op' = L.find ((== op') . opMapping) floatingPointBinaryOperators >>= Just . opFunction
 generateBinaryOp expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Binary operation data type.
 data BinaryOp m = BinaryOp
@@ -415,7 +415,7 @@ generateUnaryOp (AT.UnaryOp loc op expr) = do
   where
     findOperator op' = L.find ((== op') . unaryMapping) unaryOperators >>= Just . unaryFunction
 generateUnaryOp expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for variable references.
 generateVar :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -436,7 +436,7 @@ generateVar (AT.Var loc name _) = do
         _ ->
           return ptr
 generateVar expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for blocks.
 generateBlock :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -444,7 +444,7 @@ generateBlock (AT.Block []) = pure $ AST.ConstantOperand $ C.Undef T.void
 generateBlock (AT.Block exprs) = do
   last <$> traverse generateExpr exprs
 generateBlock expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for `if` expressions.
 generateIf :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -476,7 +476,7 @@ generateIf (AT.If _ cond thenExpr elseExpr) = mdo
     [(v, _)] -> pure v
     _ -> I.phi validBrs
 generateIf expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for function definitions.
 generateFunction :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -496,7 +496,7 @@ generateFunction (AT.Function _ name (AT.TFunction ret params var) paramNames bo
   where
     mkParam t n = (toLLVM t, M.ParameterName $ U.stringToByteString n)
 generateFunction expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for foreign function definitions.
 generateForeignFunction :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -514,7 +514,7 @@ generateForeignFunction (AT.ForeignFunction _ name (AT.TFunction ret params var)
 
   pure $ AST.ConstantOperand $ C.GlobalReference funcType funcName
 generateForeignFunction expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Convert an operand to match a desired LLVM type if needed.
 ensureMatchingType :: (MonadCodegen m) => AST.Operand -> T.Type -> m AST.Operand
@@ -554,7 +554,7 @@ generateDeclaration (AT.Declaration loc name typ mInitExpr) = do
         Nothing -> I.load ptr 0
     Nothing -> E.throwError $ CodegenError loc $ VariableNotFound name
 generateDeclaration expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for return statements.
 generateReturn :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -568,7 +568,7 @@ generateReturn (AT.Return _ mExpr) = do
       I.retVoid
       pure $ AST.ConstantOperand $ C.Undef T.void
 generateReturn expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for function calls.
 generateFunctionCall :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -581,7 +581,7 @@ generateFunctionCall (AT.Call loc (AT.Var _ funcName _) args) = do
     Nothing ->
       E.throwError $ CodegenError loc $ UnsupportedFunctionCall funcName
 generateFunctionCall expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Check the type of an argument.
 checkArgumentType :: (MonadCodegen m) => T.Type -> AT.Expr -> m ()
@@ -590,7 +590,7 @@ checkArgumentType expectedType expr = do
   let actualType = TD.typeOf operand
   CM.when (actualType /= expectedType) $
     E.throwError $
-      CodegenError (U.getLoc expr) $
+      CodegenError (SU.getLoc expr) $
         UnsupportedFunctionCall "Argument type mismatch"
 
 -- | Generate LLVM code for array access.
@@ -604,7 +604,7 @@ generateArrayAccess (AT.ArrayAccess loc (AT.Var _ name _) indexExpr) = do
   elementPtr <- I.gep ptr [IC.int32 0, index]
   I.load elementPtr 0
 generateArrayAccess expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for struct access.
 generateStructAccess :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -622,7 +622,7 @@ generateStructAccess (AT.StructAccess loc (AT.StructAccess _ structExpr (AT.Var 
 generateStructAccess (AT.StructAccess _ structExpr (AT.Var _ fieldName _)) = do
   fieldPtr <- getStructFieldPointer structExpr fieldName
   I.load fieldPtr 0
-generateStructAccess expr = E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+generateStructAccess expr = E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 getStructFieldPointer :: (MonadCodegen m) => AT.Expr -> String -> m AST.Operand
 getStructFieldPointer (AT.Var loc name (AT.TStruct _ fields)) fieldName = do
@@ -631,7 +631,7 @@ getStructFieldPointer (AT.Var loc name (AT.TStruct _ fields)) fieldName = do
     Just structPtr -> return structPtr
     Nothing -> E.throwError $ CodegenError loc $ VariableNotFound name
   I.gep ptr [IC.int32 0, IC.int32 (findStructFieldIndex fields fieldName)]
-getStructFieldPointer expr _ = E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+getStructFieldPointer expr _ = E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 findStructFieldIndex :: [(String, AT.Type)] -> String -> Integer
 findStructFieldIndex fields' name' = fromIntegral $ M.fromJust $ L.findIndex ((== name') . fst) fields'
@@ -664,11 +664,11 @@ generateCast (AT.Cast _ typ expr) = do
       I.bitcast operand toType
     _ ->
       E.throwError $
-        CodegenError (U.getLoc expr) $
+        CodegenError (SU.getLoc expr) $
           UnsupportedType typ
 generateCast expr =
   E.throwError $
-    CodegenError (U.getLoc expr) $
+    CodegenError (SU.getLoc expr) $
       UnsupportedDefinition expr
 
 -- | Convert an operand to a boolean value.
@@ -753,7 +753,7 @@ generateForLoop (AT.For _ initExpr condExpr stepExpr bodyExpr) = mdo
   exitBlock <- IRM.block `IRM.named` U.stringToByteString "for.exit"
   pure $ AST.ConstantOperand $ C.Null T.i8
 generateForLoop expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedForDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedForDefinition expr
 
 -- | Generate LLVM code for while loops.
 generateWhileLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -781,7 +781,7 @@ generateWhileLoop (AT.While _ condExpr bodyExpr) = mdo
   exitBlock <- IRM.block `IRM.named` U.stringToByteString "while.exit"
   pure $ AST.ConstantOperand $ C.Null T.i8
 generateWhileLoop expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedWhileDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedWhileDefinition expr
 
 -- | Generate LLVM code for break statements.
 generateBreak :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -793,7 +793,7 @@ generateBreak (AT.Break loc) = do
       pure $ AST.ConstantOperand $ C.Undef T.void
     Nothing -> E.throwError $ CodegenError loc BreakOutsideLoop
 generateBreak expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for continue statements.
 generateContinue :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -805,7 +805,7 @@ generateContinue (AT.Continue loc) = do
       pure $ AST.ConstantOperand $ C.Undef T.void
     Nothing -> E.throwError $ CodegenError loc ContinueOutsideLoop
 generateContinue expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Generate LLVM code for assignments.
 generateAssignment :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -818,12 +818,12 @@ generateAssignment (AT.Assignment _ expr valueExpr) = do
         Just ptr -> do
           I.store ptr 0 value
           pure value
-        Nothing -> E.throwError $ CodegenError (U.getLoc expr) $ VariableNotFound name
+        Nothing -> E.throwError $ CodegenError (SU.getLoc expr) $ VariableNotFound name
     AT.ArrayAccess _ (AT.Var _ name _) indexExpr -> do
       maybeVar <- getVar name
       ptr <- case maybeVar of
         Just arrayPtr -> return arrayPtr
-        Nothing -> E.throwError $ CodegenError (U.getLoc expr) $ VariableNotFound name
+        Nothing -> E.throwError $ CodegenError (SU.getLoc expr) $ VariableNotFound name
       index <- generateExpr indexExpr
       elementPtr <- I.gep ptr [IC.int32 0, index]
       I.store elementPtr 0 value
@@ -835,7 +835,7 @@ generateAssignment (AT.Assignment _ expr valueExpr) = do
           actualPtr <- I.load ptr 0
           I.store actualPtr 0 value
           pure value
-        Nothing -> E.throwError $ CodegenError (U.getLoc expr) $ VariableNotFound name
-    _ -> E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+        Nothing -> E.throwError $ CodegenError (SU.getLoc expr) $ VariableNotFound name
+    _ -> E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 generateAssignment expr =
-  E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr

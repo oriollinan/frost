@@ -18,7 +18,7 @@ globalExpr e@(AT.Function {AT.funcName = name}) = (name, e)
 globalExpr e@(AT.ForeignFunction {AT.funcName = name}) = (name, e)
 globalExpr e@(AT.Declaration {AT.declName = name}) = (name, e)
 globalExpr e@(AT.Assignment {AT.assignTarget = (AT.Var _ name _)}) = (name, e)
-globalExpr _ = error "invalid global expr"
+globalExpr e = error $ "invalid global expr" ++ show e
 
 globalType :: AT.Type -> (String, AT.Type)
 globalType t@(AT.TStruct {AT.structName = name}) = (name, t)

@@ -32,6 +32,7 @@ library
     Ast.Types
     Codegen.Codegen
     Codegen.Utils
+    Shared.Utils
 
   build-depends:
     base ^>=4.17.2.1,
