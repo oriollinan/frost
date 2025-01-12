@@ -1,0 +1,51 @@
+%%
+% Sierpinski Triangle
+%%
+
+%%
+% External function declarations
+%%
+printf: foreign *byte ... -> int
+
+%%
+% Draw the Sierpinski Triangle
+%
+% This function recursively draws the Sierpinski Triangle using ASCII characters.
+% The triangle is drawn by dividing it into smaller sub-triangles.
+%%
+draw_sierpinski: int int int -> int = row col size {
+    if size is 1 {
+        printf("\x1b[%d;%dH*" row col)
+        ret 0
+    }
+
+    half: int = size / 2
+
+    draw_sierpinski(row col half)
+    draw_sierpinski(row + half col - half half)
+    draw_sierpinski(row + half col + half half)
+
+    0
+}
+
+%%
+% Function to clear the screen
+%%
+clear_screen: never -> int = {
+    printf("\x1b[2J\x1b[H")
+}
+
+%%
+% Main function to render the Sierpinski Triangle
+%%
+main: never -> int = {
+    SIZE: int = 32  % Must be a power of 2 for proper alignment
+
+    clear_screen()
+
+    draw_sierpinski(1 SIZE SIZE)
+
+    printf("\n" 0)
+
+    0
+}

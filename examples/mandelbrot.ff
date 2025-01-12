@@ -1,0 +1,68 @@
+%%
+% Generate a Mandelbrot set ASCII art image.
+%%
+
+%%
+% External function declarations
+%%
+printf: foreign *byte ... -> int
+
+%%
+% Function to render the Mandelbrot set
+%
+% The Mandelbrot set is a set of complex numbers for which the function f(z) = z^2 + c
+% does not diverge when iterated from z = 0. The function renders the Mandelbrot set
+% to the terminal using ASCII characters. The function returns 0 when done.
+%%
+render_mandelbrot: never -> int = {
+    SET_WIDTH: int = 100
+    SET_HEIGHT: int = 40
+    MAX_ITER: int = 1000
+    ASCII_CHARSET: *byte = " .:-=+*#%@"
+    CHARSET_LENGTH: int = 10
+
+    REAL_MIN: double = -2,0
+    REAL_MAX: double = 1,0
+    IMAG_MIN: double = -1,5
+    IMAG_MAX: double = 1,5
+
+    from 0 to SET_HEIGHT by 1 |y: int| {
+        from 0 to SET_WIDTH by 1 |x: int| {
+            real: double = REAL_MIN + (REAL_MAX - REAL_MIN) * @double(x) / @double(SET_WIDTH - 1)
+            imag: double = IMAG_MIN + (IMAG_MAX - IMAG_MIN) * @double(y) / @double(SET_HEIGHT - 1)
+
+            zx: double = 0,0
+            zy: double = 0,0
+
+            iter: int = 0
+
+            loop (zx * zx + zy * zy < 4,0) and (iter < MAX_ITER) {
+                temp: double = zx * zx - zy * zy + real
+                zy = 2,0 * zx * zy + imag
+                zx = temp
+                iter = iter + 1
+            }
+
+            char_index: int = 0
+
+            if iter is MAX_ITER {
+                char_index = CHARSET_LENGTH - 1
+            } else {
+                char_index = iter * CHARSET_LENGTH / MAX_ITER
+            }
+
+            ptr: *byte = ASCII_CHARSET + char_index
+            printf("%c" ptr.*)
+        }
+        printf("\n" 0)
+    }
+
+    0
+}
+
+%%
+% Main function
+%%
+main: never -> int = {
+    render_mandelbrot()
+}

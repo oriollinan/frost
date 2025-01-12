@@ -1,0 +1,48 @@
+%%
+% Implementation of the putstr function
+%%
+
+%%
+% External function declarations
+%%
+write: foreign int *byte int -> int
+strlen: foreign *byte -> int
+perror: foreign *byte -> never
+
+%%
+% Function to write a string to stdout
+%
+% The function writes a string to stdout using the write system call.
+% The function returns the number of bytes written to stdout.
+%%
+putstr: *byte -> int = string {
+    STDOUT_FILENO: int = 1
+
+    out: int = 0
+    len: int = strlen(string)
+    
+    from 0 to len + 1 by 1 |i: int| {
+        ptr: *byte = string + i
+
+        out = out + write(STDOUT_FILENO ptr 1)
+    }
+
+    out
+}
+
+%%
+% Main function
+%%
+main: never -> int = {
+    string: *byte = "Hello, world!\n"
+
+    length: int = strlen(string)
+    result: int = putstr(string) - 1 % account for '\0'
+    
+    if not (result is length) {
+        perror("putstr")
+        ret 1
+    }
+
+    0
+}
