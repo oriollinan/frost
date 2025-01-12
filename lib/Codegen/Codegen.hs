@@ -152,6 +152,7 @@ instance ToLLVM AT.Type where
     AT.TUnion _ variants -> T.StructureType False (map (toLLVM . snd) variants)
     AT.TTypedef _ t -> toLLVM t
     AT.TMutable t -> toLLVM t
+    AT.TUnknown -> T.void
 
 -- | Generate LLVM code for a program.
 codegen :: AT.Program -> Either CodegenError AST.Module
@@ -351,8 +352,8 @@ data UnaryOp m = UnaryOp
   }
 
 -- | List of supported unary operators.
-unaryOperators :: (MonadCodegen m) => [UnaryOp m]
-unaryOperators =
+unaryOperators :: (MonadCodegen m) => AT.SrcLoc -> [UnaryOp m]
+unaryOperators loc =
   [ UnaryOp AT.PreInc $ \operand -> do
       case TD.typeOf operand of
         T.PointerType _ _ -> do
@@ -360,8 +361,13 @@ unaryOperators =
           newVal <- I.add val (AST.ConstantOperand $ C.Int 32 1)
           I.store operand 0 newVal
           pure newVal
-        -- TODO: Implement pre-increment for non-pointer types
-        _ -> E.throwError $ CodegenError unknownLoc $ UnsupportedUnaryOperator AT.PreInc,
+        T.IntegerType bits -> do
+          I.add operand (AST.ConstantOperand $ C.Int bits 1)
+        T.FloatingPointType T.FloatFP -> do
+          I.fadd operand (AST.ConstantOperand $ C.Float $ FF.Single 1.0)
+        T.FloatingPointType T.DoubleFP -> do
+          I.fadd operand (AST.ConstantOperand $ C.Float $ FF.Double 1.0)
+        _ -> E.throwError $ CodegenError loc $ UnsupportedUnaryOperator AT.PreInc,
     UnaryOp AT.PreDec $ \operand -> do
       case TD.typeOf operand of
         T.PointerType _ _ -> do
@@ -369,8 +375,13 @@ unaryOperators =
           newVal <- I.sub val (AST.ConstantOperand $ C.Int 32 1)
           I.store operand 0 newVal
           pure newVal
-        -- TODO: Implement pre-decrement for non-pointer types
-        _ -> E.throwError $ CodegenError unknownLoc $ UnsupportedUnaryOperator AT.PreDec,
+        T.IntegerType bits -> do
+          I.sub operand (AST.ConstantOperand $ C.Int bits 1)
+        T.FloatingPointType T.FloatFP -> do
+          I.fsub operand (AST.ConstantOperand $ C.Float $ FF.Single 1.0)
+        T.FloatingPointType T.DoubleFP -> do
+          I.fsub operand (AST.ConstantOperand $ C.Float $ FF.Double 1.0)
+        _ -> E.throwError $ CodegenError loc $ UnsupportedUnaryOperator AT.PreDec,
     UnaryOp AT.PostInc $ \operand -> do
       case TD.typeOf operand of
         T.PointerType _ _ -> do
@@ -378,8 +389,19 @@ unaryOperators =
           newVal <- I.add oldVal (AST.ConstantOperand $ C.Int 32 1)
           I.store operand 0 newVal
           pure oldVal
-        -- TODO: Implement post-increment for non-pointer types
-        _ -> E.throwError $ CodegenError unknownLoc $ UnsupportedUnaryOperator AT.PostInc,
+        T.IntegerType bits -> do
+          let oldVal = operand
+          _ <- I.add operand (AST.ConstantOperand $ C.Int bits 1)
+          pure oldVal
+        T.FloatingPointType T.FloatFP -> do
+          let oldVal = operand
+          _ <- I.fadd operand (AST.ConstantOperand $ C.Float $ FF.Single 1.0)
+          pure oldVal
+        T.FloatingPointType T.DoubleFP -> do
+          let oldVal = operand
+          _ <- I.fadd operand (AST.ConstantOperand $ C.Float $ FF.Double 1.0)
+          pure oldVal
+        _ -> E.throwError $ CodegenError loc $ UnsupportedUnaryOperator AT.PostInc,
     UnaryOp AT.PostDec $ \operand -> do
       case TD.typeOf operand of
         T.PointerType _ _ -> do
@@ -387,23 +409,50 @@ unaryOperators =
           newVal <- I.sub oldVal (AST.ConstantOperand $ C.Int 32 1)
           I.store operand 0 newVal
           pure oldVal
-        -- TODO: Implement post-decrement for non-pointer types
-        _ -> E.throwError $ CodegenError unknownLoc $ UnsupportedUnaryOperator AT.PostDec,
+        T.IntegerType bits -> do
+          let oldVal = operand
+          _ <- I.sub operand (AST.ConstantOperand $ C.Int bits 1)
+          pure oldVal
+        T.FloatingPointType T.FloatFP -> do
+          let oldVal = operand
+          _ <- I.fsub operand (AST.ConstantOperand $ C.Float $ FF.Single 1.0)
+          pure oldVal
+        T.FloatingPointType T.DoubleFP -> do
+          let oldVal = operand
+          _ <- I.fsub operand (AST.ConstantOperand $ C.Float $ FF.Double 1.0)
+          pure oldVal
+        _ -> E.throwError $ CodegenError loc $ UnsupportedUnaryOperator AT.PostDec,
     UnaryOp AT.Not $ \operand -> do
       let operandType = TD.typeOf operand
       case operandType of
         T.PointerType _ _ -> do
           I.icmp IP.EQ operand (AST.ConstantOperand $ C.Null operandType)
         T.IntegerType _ -> I.xor operand (AST.ConstantOperand $ C.Int 32 (-1))
-        _ -> E.throwError $ CodegenError unknownLoc $ UnsupportedUnaryOperator AT.Not,
+        T.FloatingPointType T.FloatFP -> do
+          I.fcmp FP.OEQ operand (AST.ConstantOperand $ C.Float $ FF.Single 0.0)
+        T.FloatingPointType T.DoubleFP -> do
+          I.fcmp FP.OEQ operand (AST.ConstantOperand $ C.Float $ FF.Double 0.0)
+        _ -> E.throwError $ CodegenError loc $ UnsupportedUnaryOperator AT.Not,
     UnaryOp AT.BitNot $ \operand -> do
-      I.xor operand (AST.ConstantOperand $ C.Int 32 (-1)),
+      case TD.typeOf operand of
+        T.IntegerType bits ->
+          I.xor operand (AST.ConstantOperand $ C.Int bits (-1))
+        T.FloatingPointType T.FloatFP -> do
+          intValue <- I.bitcast operand (T.IntegerType 32)
+          notted <- I.xor intValue (AST.ConstantOperand $ C.Int 32 (-1))
+          I.bitcast notted (T.FloatingPointType T.FloatFP)
+        T.FloatingPointType T.DoubleFP -> do
+          intValue <- I.bitcast operand (T.IntegerType 64)
+          notted <- I.xor intValue (AST.ConstantOperand $ C.Int 64 (-1))
+          I.bitcast notted (T.FloatingPointType T.DoubleFP)
+        _ -> E.throwError $ CodegenError loc $ UnsupportedUnaryOperator AT.BitNot,
     UnaryOp AT.Deref $ \operand -> do
-      I.load operand 0
+      I.load operand 0,
+    UnaryOp AT.AddrOf $ \operand -> do
+      ptr <- I.alloca (TD.typeOf operand) Nothing 0
+      I.store ptr 0 operand
+      pure ptr
   ]
-  where
-    -- TODO: Pass the actual location when generating errors
-    unknownLoc = AT.SrcLoc "unknown.ff" 0 0
 
 -- | Generate LLVM code for unary operations.
 generateUnaryOp :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -413,7 +462,7 @@ generateUnaryOp (AT.UnaryOp loc op expr) = do
     Just f -> f operand
     Nothing -> E.throwError $ CodegenError loc $ UnsupportedUnaryOperator op
   where
-    findOperator op' = L.find ((== op') . unaryMapping) unaryOperators >>= Just . unaryFunction
+    findOperator op' = L.find ((== op') . unaryMapping) (unaryOperators loc) >>= Just . unaryFunction
 generateUnaryOp expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 
@@ -517,8 +566,8 @@ generateForeignFunction expr =
   E.throwError $ CodegenError (U.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Convert an operand to match a desired LLVM type if needed.
-ensureMatchingType :: (MonadCodegen m) => AST.Operand -> T.Type -> m AST.Operand
-ensureMatchingType val targetTy
+ensureMatchingType :: (MonadCodegen m) => AT.SrcLoc -> AST.Operand -> T.Type -> m AST.Operand
+ensureMatchingType loc val targetTy
   | TD.typeOf val == targetTy = pure val
   | otherwise = case (TD.typeOf val, targetTy) of
       (T.IntegerType fromW, T.IntegerType toW)
@@ -532,10 +581,7 @@ ensureMatchingType val targetTy
       (T.PointerType _ _, T.IntegerType _) -> I.ptrtoint val targetTy
       (T.ArrayType _ _, T.PointerType _ _) -> I.bitcast val targetTy
       (T.ArrayType _ _, T.ArrayType _ _) -> I.bitcast val targetTy
-      _ -> E.throwError $ CodegenError unknownLoc $ UnsupportedType AT.TVoid
-  where
-    -- TODO: Pass the actual location when generating errors
-    unknownLoc = AT.SrcLoc "unknown.ff" 0 0
+      _ -> E.throwError $ CodegenError loc $ UnsupportedType AT.TVoid
 
 -- | Generate LLVM code for declarations.
 generateDeclaration :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -548,7 +594,7 @@ generateDeclaration (AT.Declaration loc name typ mInitExpr) = do
           initValue <- generateExpr initExpr
           -- TODO: This makes us lose precision in some cases,
           -- e.g. when initializing a float with an integer
-          initValue' <- ensureMatchingType initValue (toLLVM typ)
+          initValue' <- ensureMatchingType loc initValue (toLLVM typ)
           I.store ptr 0 initValue'
           I.load ptr 0
         Nothing -> I.load ptr 0
@@ -672,8 +718,8 @@ generateCast expr =
       UnsupportedDefinition expr
 
 -- | Convert an operand to a boolean value.
-toBool :: (MonadCodegen m) => AST.Operand -> m AST.Operand
-toBool val = do
+toBool :: (MonadCodegen m) => AT.SrcLoc -> AST.Operand -> m AST.Operand
+toBool loc val = do
   let ty = TD.typeOf val
   case ty of
     T.IntegerType 1 -> pure val
@@ -684,10 +730,7 @@ toBool val = do
       let zero32 = AST.ConstantOperand (C.Int 32 0)
       I.icmp IP.NE val zero32
     _ ->
-      E.throwError $ CodegenError unknownLoc $ UnsupportedType AT.TVoid
-  where
-    -- TODO: Pass the actual location when generating errors
-    unknownLoc = AT.SrcLoc "unknown.ff" 0 0
+      E.throwError $ CodegenError loc $ UnsupportedType AT.TVoid
 
 -- | Pre-allocate variables before generating code.
 preAllocateVars :: (MonadCodegen m) => AT.Expr -> m ()
@@ -725,7 +768,7 @@ preAllocateVars _ = pure ()
 
 -- | Generate LLVM code for for loops.
 generateForLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateForLoop (AT.For _ initExpr condExpr stepExpr bodyExpr) = mdo
+generateForLoop (AT.For loc initExpr condExpr stepExpr bodyExpr) = mdo
   condPtr <- I.alloca T.i1 Nothing 0
   _ <- generateExpr initExpr
   I.br condBlock
@@ -734,7 +777,7 @@ generateForLoop (AT.For _ initExpr condExpr stepExpr bodyExpr) = mdo
   condVal <- generateExpr condExpr
   I.store condPtr 0 condVal
   loadedCond <- I.load condPtr 0
-  boolCondVal <- toBool loadedCond
+  boolCondVal <- toBool loc loadedCond
   I.condBr boolCondVal bodyBlock exitBlock
 
   bodyBlock <- IRM.block `IRM.named` U.stringToByteString "for.body"
@@ -757,7 +800,7 @@ generateForLoop expr =
 
 -- | Generate LLVM code for while loops.
 generateWhileLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateWhileLoop (AT.While _ condExpr bodyExpr) = mdo
+generateWhileLoop (AT.While loc condExpr bodyExpr) = mdo
   condPtr <- I.alloca T.i1 Nothing 0
   I.br condBlock
 
@@ -765,7 +808,7 @@ generateWhileLoop (AT.While _ condExpr bodyExpr) = mdo
   condVal <- generateExpr condExpr
   I.store condPtr 0 condVal
   loadedCond <- I.load condPtr 0
-  boolCondVal <- toBool loadedCond
+  boolCondVal <- toBool loc loadedCond
   I.condBr boolCondVal bodyBlock exitBlock
 
   bodyBlock <- IRM.block `IRM.named` U.stringToByteString "while.body"
