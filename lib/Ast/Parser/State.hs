@@ -1,6 +1,7 @@
 module Ast.Parser.State where
 
 import qualified Ast.Types as AT
+import Debug.Trace
 
 type TypeState = [(String, AT.Type)]
 
@@ -13,6 +14,7 @@ data ParserState = ParserState
     varState :: VarState,
     deferState :: DeferState
   }
+  deriving (Show, Eq)
 
 parserState :: ParserState
 parserState = ParserState {typeState = [], varState = [], deferState = []}
@@ -32,10 +34,22 @@ insertVar name t s = s {varState = (name, t) : varState s}
 lookupVar :: String -> ParserState -> Maybe AT.Type
 lookupVar name (ParserState _ vars _) = lookup name vars
 
+-- | Pushes a deferred expression onto the current defer stack.
 pushDefered :: AT.Expr -> ParserState -> ParserState
 pushDefered e s@(ParserState {deferState = ds}) = case ds of
   [] -> s {deferState = [[e]]}
-  [first : rest] -> s {deferState = [e : first, rest]}
+  (current : rest) -> s {deferState = (e : current) : rest}
 
-insertDefered :: AT.Expr -> ParserState -> ParserState
-insertDefered e s@(ParserState {deferState = ds}) = s {deferState = e : ds}
+-- | Pushes a new empty array onto the defer state to represent entering a new scope.
+pushScope :: ParserState -> ParserState
+pushScope s@(ParserState {deferState = ds}) =
+  let newState = s {deferState = [] : ds}
+   in trace ("pushScope: " ++ show newState) newState
+
+-- | Pops the top scope expressions stack.
+-- Returns the popped stack and the updated ParserState.
+popScope :: ParserState -> ([AT.Expr], ParserState)
+popScope s@(ParserState {deferState = ds}) =
+  case ds of
+    [] -> ([], s) -- No deferred expressions to pop.
+    (top : rest) -> (top, s {deferState = rest}) -- Pop the top stack and update state.

@@ -216,13 +216,17 @@ parseFor = do
 
 parseBlock :: (AT.Expr -> AT.Expr) -> PU.Parser AT.Expr
 parseBlock f = do
-  state <- S.get
-  es <- M.between (PU.symbol "{") (PU.symbol "}") $ M.many $ PU.lexeme parseExpr
+  _ <- PU.symbol "{"
+  outerState <- S.get
+  S.modify PS.pushScope
+  es <- M.many $ PU.lexeme parseExpr
+  _ <- PU.symbol "}"
   blockState <- S.get
-  S.modify $ const state
-  return $ deferedExpr (PS.deferState blockState) . f $ AT.Block es
+  let (deferred, ds) = PS.popScope blockState
+  S.put outerState {PS.deferState = PS.deferState ds}
+  return $ deferedExpr deferred . f $ AT.Block es
 
-deferedExpr :: PS.DeferState -> AT.Expr -> AT.Expr
+deferedExpr :: [AT.Expr] -> AT.Expr -> AT.Expr
 deferedExpr ds (AT.Block []) = AT.Block ds
 deferedExpr ds (AT.Block es) = case last es of
   e@(AT.Return _ _) -> AT.Block $ init es ++ ds ++ [e]
@@ -257,7 +261,7 @@ parseCast = do
 parseDefer :: PU.Parser ()
 parseDefer = do
   defered <- PU.symbol "defer" *> parseExpr
-  S.modify $ PS.insertDefered defered
+  S.modify $ PS.pushDefered defered
 
 parseParenExpr :: PU.Parser AT.Expr
 parseParenExpr = M.between (PU.symbol "(") (PU.symbol ")") parseExpr
