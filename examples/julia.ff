@@ -3,12 +3,11 @@
 %%
 
 %%
-% External function declarations
+% Standard Library
 %%
-printf: foreign *byte ... -> int
-usleep: foreign int -> never
-sin: foreign double -> double
-cos: foreign double -> double
+import "./examples/std/io.ff"
+import "./examples/std/math.ff"
+import "./examples/std/uni.ff"
 
 %%
 % Function to clear the screen
@@ -79,13 +78,13 @@ main: never -> int = {
     FRAME_DELAY: int = 50000
     PI: double = 3,14159265359
     t: double = 0,0
-    
+
     loop true {
         clear_screen()
 
         c_real: double = -0,4 + 0,4 * cos(t)
         c_imag: double = 0,4 * sin(t)
-        
+
         render_julia(c_real c_imag)
 
         t = t + 0,05
@@ -95,6 +94,6 @@ main: never -> int = {
 
         usleep(FRAME_DELAY)
     }
-    
+
     0
 }
