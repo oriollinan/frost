@@ -5,9 +5,9 @@
 %%
 % Standard Library
 %%
-import "./examples/std/io.ff"
-import "./examples/std/math.ff"
-import "./examples/std/uni.ff"
+import "std/io.ff"
+import "std/math.ff"
+import "std/uni.ff"
 
 %%
 % Function to clear the screen

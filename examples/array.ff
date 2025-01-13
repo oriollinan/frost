@@ -1,5 +1,15 @@
-printf: foreign *byte ... -> int
+%%
+% Hello world with arguments
+%%
 
+%%
+% Standard Library
+%%
+import "std/io.ff"
+
+%%
+% Main function
+%%
 main: int **byte -> int = argc argv {
     printf("Hello, %s!\n" argv.#(argc - 1))
 }

@@ -5,9 +5,9 @@
 %%
 % Standard Library
 %%
-import "./examples/std/io.ff"
-import "./examples/std/string.ff"
-import "./examples/std/uni.ff"
+import "std/io.ff"
+import "std/string.ff"
+import "std/uni.ff"
 
 %%
 % Function to write a string to stdout
