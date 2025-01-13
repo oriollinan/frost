@@ -119,12 +119,15 @@ parseFunction = do
   name <- PU.identifier
   ft <- PU.symbol ":" *> PT.parseType
   case ft of
-    (AT.TFunction {AT.paramTypes = pts}) -> do
+    (AT.TFunction ret pts _) -> do
       params <- PU.symbol "=" *> M.many (PU.lexeme PU.identifier)
       mapM_ (\(p, t) -> S.modify (PS.insertVar p t)) $ zip params pts
       S.modify (PS.insertVar name ft)
       block <- parseBlock
-      let body = implicitReturn block
+      let body =
+            if ret /= AT.TVoid
+              then implicitReturn block
+              else block
       return $ AT.Function {AT.funcLoc = srcLoc, AT.funcName = name, AT.funcType = ft, AT.funcParams = params, AT.funcBody = body}
     _ -> M.customFailure $ AU.InvalidFunctionType name ft
 
