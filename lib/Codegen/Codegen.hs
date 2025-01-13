@@ -669,7 +669,7 @@ generateArrayAccess (AT.ArrayAccess loc (AT.Var _ name _) indexExpr) = do
     Just arrayPtr -> return arrayPtr
     Nothing -> E.throwError $ CodegenError loc $ VariableNotFound name
   index <- generateExpr indexExpr
-  elementPtr <- I.gep ptr [IC.int32 0, index]
+  elementPtr <- I.gep ptr [index]
   I.load elementPtr 0
 generateArrayAccess expr =
   E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
