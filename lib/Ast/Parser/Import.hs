@@ -4,6 +4,7 @@ import qualified Ast.Parser.State as PS
 import qualified Ast.Parser.Utils as PU
 import qualified Control.Monad.IO.Class as IO
 import qualified Control.Monad.State as S
+import qualified Data.ByteString.Char8 as BS
 import qualified Network.HTTP.Simple as N
 import qualified Text.Megaparsec as M
 
@@ -42,4 +43,4 @@ externalImport url = do
     Left err -> fail ("Invalid URL: " ++ show err)
     Right req -> return req
   res <- N.httpBS req
-  return $ show $ N.getResponseBody res
+  return $ BS.unpack $ N.getResponseBody res
