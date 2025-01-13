@@ -1,0 +1,13 @@
+atoi: foreign *byte -> int
+atol: foreign *byte -> int
+atof: foreign *byte -> double
+abs: foreign int -> int
+labs: foreign int -> int
+strtol: foreign *byte *byte int -> int
+strtoll: foreign *byte *byte int -> int
+strtod: foreign *byte *byte -> double
+srand: foreign int -> never
+calloc: foreign int int -> *byte
+malloc: foreign int -> *byte
+realloc: foreign *byte int -> *byte
+free: foreign *byte -> never

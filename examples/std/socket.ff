@@ -1,0 +1,31 @@
+socket: foreign int int int -> int
+connect: foreign int *byte int -> int
+bind: foreign int *byte int -> int
+listen: foreign int int -> int
+accept: foreign int *byte *int -> int
+send: foreign int *byte int int -> int
+recv: foreign int *byte int int -> int
+sendto: foreign int *byte int int *byte int -> int
+recvfrom: foreign int *byte int int *byte *int -> int
+shutdown: foreign int int -> int
+setsockopt: foreign int int int *byte int -> int
+getsockopt: foreign int int int *byte *int -> int
+
+in_addr :: struct {
+    s_addr -> int
+}
+
+sockaddr_in :: struct {
+    sin_len -> byte
+    sin_family -> byte
+    sin_port -> int16
+    sin_addr -> in_addr
+    sin_zero -> [8]byte
+}
+
+sockaddr :: struct {
+    sa_len -> byte
+    sa_family -> byte
+    sa_data -> [14]byte
+}
+
