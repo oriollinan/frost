@@ -20,11 +20,9 @@ putstr: *byte -> int = string {
 
     out: int = 0
     len: int = strlen(string)
-    
-    from 0 to len + 1 by 1 |i: int| {
-        ptr: *byte = string + i
 
-        out = out + write(STDOUT_FILENO ptr 1)
+    from 0 to len + 1 by 1 |i: int| {
+        out = out + write(STDOUT_FILENO string.#i 1)
     }
 
     out
@@ -38,7 +36,7 @@ main: never -> int = {
 
     length: int = strlen(string)
     result: int = putstr(string) - 1 % account for '\0'
-    
+
     if not (result is length) {
         perror("putstr")
         ret 1

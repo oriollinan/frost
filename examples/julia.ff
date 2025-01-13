@@ -58,8 +58,7 @@ render_julia: double double -> int = c_real c_imag {
                 char_index = iter * CHARSET_LENGTH / MAX_ITER
             }
 
-            ptr: *byte = ASCII_CHARSET + char_index
-            printf("%c" ptr.*)
+            printf("%c" ASCII_CHARSET.#char_index)
         }
         printf("\n" 0)
     }
@@ -79,13 +78,13 @@ main: never -> int = {
     FRAME_DELAY: int = 50000
     PI: double = 3,14159265359
     t: double = 0,0
-    
+
     loop true {
         clear_screen()
 
         c_real: double = -0,4 + 0,4 * cos(t)
         c_imag: double = 0,4 * sin(t)
-        
+
         render_julia(c_real c_imag)
 
         t = t + 0,05
@@ -95,6 +94,6 @@ main: never -> int = {
 
         usleep(FRAME_DELAY)
     }
-    
+
     0
 }

@@ -1,0 +1,5 @@
+printf: foreign *byte ... -> int
+
+main: int **byte -> int = argc argv {
+    printf("Hello, %s!\n" argv.#(argc - 1))
+}
