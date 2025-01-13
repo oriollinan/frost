@@ -663,14 +663,10 @@ checkArgumentType expectedType expr = do
 
 -- | Generate LLVM code for array access.
 generateArrayAccess :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateArrayAccess (AT.ArrayAccess loc (AT.Var _ name _) indexExpr) = do
-  maybeVar <- getVar name
-  ptr <- case maybeVar of
-    Just arrayPtr -> return arrayPtr
-    Nothing -> E.throwError $ CodegenError loc $ VariableNotFound name
-  index <- generateExpr indexExpr
-  elementPtr <- I.gep ptr [index]
-  I.load elementPtr 0
+generateArrayAccess (AT.ArrayAccess _ arrayExpr indexExpr) = do
+  arrayOperand <- generateExpr arrayExpr
+  indexOperand <- generateExpr indexExpr
+  I.gep arrayOperand [indexOperand]
 generateArrayAccess expr =
   E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
