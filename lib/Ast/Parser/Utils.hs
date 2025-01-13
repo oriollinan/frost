@@ -14,20 +14,17 @@ type Parser = M.ParsecT ParseErrorCustom String (S.StateT PS.ParserState IO)
 
 data ParseErrorCustom
   = UnknownType String
-  | UndefinedVar String
-  | UndefinedFunction String
   | InvalidFunctionType String AT.Type
+  | InvalidDefer AT.Expr
   deriving (Show, Ord, Eq)
 
 instance M.ShowErrorComponent ParseErrorCustom where
   showErrorComponent (UnknownType n) =
     "Unknown type: type \"" ++ n ++ "\" does not exist"
-  showErrorComponent (UndefinedVar n) =
-    "Undefined Variable: variable \"" ++ n ++ "\" is not defined"
-  showErrorComponent (UndefinedFunction n) =
-    "Undefined Function: function \"" ++ n ++ "\" is not defined"
   showErrorComponent (InvalidFunctionType n t) =
     "Invalid Function Type: function \"" ++ n ++ "\" with type \"" ++ show t ++ "\" is not valid"
+  showErrorComponent (InvalidDefer e) =
+    "Invalid Defer: defer \"" ++ show e ++ "\" is not valid "
 
 -- | Skips whitespace and comments (starting with `%`). Ensures proper handling of spacing in parsers.
 sc :: Parser ()

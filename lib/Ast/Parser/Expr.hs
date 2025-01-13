@@ -8,6 +8,7 @@ import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
 import qualified Control.Monad.Combinators.Expr as CE
 import qualified Control.Monad.State as S
+import qualified Shared.Utils as SU
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char.Lexer as ML
 
@@ -89,8 +90,9 @@ parseTerm =
       parseReturn,
       parseBreak,
       parseContinue,
-      parseBlock,
+      parseBlock id,
       parseCast,
+      parseDefer,
       M.try parseFunction,
       M.try parseForeignFunction,
       M.try parseDeclaration,
@@ -123,13 +125,35 @@ parseFunction = do
       params <- PU.symbol "=" *> M.many (PU.lexeme PU.identifier)
       mapM_ (\(p, t) -> S.modify (PS.insertVar p t)) $ zip params pts
       S.modify (PS.insertVar name ft)
-      block <- parseBlock
-      let body =
-            if ret /= AT.TVoid
-              then implicitReturn block
-              else block
+      body <-
+        if ret /= AT.TVoid
+          then parseBlock implicitReturn
+          else parseBlock id
       return $ AT.Function {AT.funcLoc = srcLoc, AT.funcName = name, AT.funcType = ft, AT.funcParams = params, AT.funcBody = body}
     _ -> M.customFailure $ AU.InvalidFunctionType name ft
+
+implicitReturn :: AT.Expr -> AT.Expr
+implicitReturn e@(AT.Lit {}) = AT.Return (SU.getLoc e) $ Just e
+implicitReturn e@(AT.Var {}) = AT.Return (SU.getLoc e) $ Just e
+implicitReturn e@(AT.Function {}) = AT.Return (SU.getLoc e) $ Just e
+implicitReturn e@(AT.ForeignFunction {}) = AT.Return (SU.getLoc e) $ Just e
+implicitReturn e@(AT.Declaration {}) = AT.Return (SU.getLoc e) $ Just e
+implicitReturn e@(AT.Assignment {}) = AT.Return (SU.getLoc e) $ Just e
+implicitReturn e@(AT.Call {}) = AT.Return (SU.getLoc e) $ Just e
+implicitReturn (AT.If loc cond then' (Just else')) = AT.If loc cond (implicitReturn then') $ Just $ implicitReturn else'
+implicitReturn (AT.If loc cond then' Nothing) = AT.If loc cond (implicitReturn then') Nothing
+implicitReturn e@(AT.While {}) = e
+implicitReturn e@(AT.For {}) = e
+implicitReturn (AT.Block []) = AT.Block []
+implicitReturn (AT.Block es) = AT.Block $ init es ++ [implicitReturn $ last es]
+implicitReturn e@(AT.Return _ _) = e
+implicitReturn e@(AT.Break {}) = e
+implicitReturn e@(AT.Continue {}) = e
+implicitReturn e@(AT.Op {}) = AT.Return (SU.getLoc e) $ Just e
+implicitReturn e@(AT.UnaryOp {}) = AT.Return (SU.getLoc e) $ Just e
+implicitReturn e@(AT.StructAccess {}) = AT.Return (SU.getLoc e) $ Just e
+implicitReturn e@(AT.ArrayAccess {}) = AT.Return (SU.getLoc e) $ Just e
+implicitReturn e@(AT.Cast {}) = AT.Return (SU.getLoc e) $ Just e
 
 parseForeignFunction :: PU.Parser AT.Expr
 parseForeignFunction = do
@@ -147,28 +171,6 @@ parseForeignFunction = do
           }
     _ -> M.customFailure $ AU.InvalidFunctionType name ft
 
-implicitReturn :: AT.Expr -> AT.Expr
-implicitReturn e@(AT.Lit loc _) = AT.Return loc $ Just e
-implicitReturn e@(AT.Var loc _ _) = AT.Return loc $ Just e
-implicitReturn e@(AT.Function loc _ _ _ _) = AT.Return loc $ Just e
-implicitReturn e@(AT.ForeignFunction loc _ _) = AT.Return loc $ Just e
-implicitReturn e@(AT.Declaration loc _ _ _) = AT.Return loc $ Just e
-implicitReturn e@(AT.Assignment loc _ _) = AT.Return loc $ Just e
-implicitReturn e@(AT.Call loc _ _) = AT.Return loc $ Just e
-implicitReturn (AT.If loc cond then' (Just else')) = AT.If loc cond (implicitReturn then') $ Just $ implicitReturn else'
-implicitReturn (AT.If loc cond then' Nothing) = AT.If loc cond (implicitReturn then') Nothing
-implicitReturn e@(AT.While {}) = e
-implicitReturn e@(AT.For {}) = e
-implicitReturn (AT.Block es) = AT.Block $ init es ++ [implicitReturn $ last es]
-implicitReturn e@(AT.Return _ _) = e
-implicitReturn e@(AT.Break {}) = e
-implicitReturn e@(AT.Continue {}) = e
-implicitReturn e@(AT.Op loc _ _ _) = AT.Return loc $ Just e
-implicitReturn e@(AT.UnaryOp loc _ _) = AT.Return loc $ Just e
-implicitReturn e@(AT.StructAccess loc _ _) = AT.Return loc $ Just e
-implicitReturn e@(AT.ArrayAccess loc _ _) = AT.Return loc $ Just e
-implicitReturn e@(AT.Cast loc _ _) = AT.Return loc $ Just e
-
 parseDeclaration :: PU.Parser AT.Expr
 parseDeclaration = do
   srcLoc <- PU.parseSrcLoc
@@ -182,15 +184,15 @@ parseIf :: PU.Parser AT.Expr
 parseIf = do
   srcLoc <- PU.parseSrcLoc
   cond <- PU.symbol "if" *> PU.lexeme parseExpr
-  then' <- parseBlock
-  else' <- M.optional $ PU.symbol "else" *> parseBlock
+  then' <- parseBlock id
+  else' <- M.optional $ PU.symbol "else" *> parseBlock id
   return $ AT.If {AT.ifLoc = srcLoc, AT.ifCond = cond, AT.ifThen = then', AT.ifElse = else'}
 
 parseWhile :: PU.Parser AT.Expr
 parseWhile = do
   srcLoc <- PU.parseSrcLoc
   cond <- PU.symbol "loop" *> parseExpr
-  body <- parseBlock
+  body <- parseBlock id
   return $ AT.While {AT.whileLoc = srcLoc, AT.whileCond = cond, AT.whileBody = body}
 
 -- TODO: handle dynamic ranges
@@ -207,19 +209,31 @@ parseFor = do
   let init' = AT.Declaration srcLoc name type' (Just from)
   let var = AT.Var srcLoc name type'
   S.modify (PS.insertVar name type')
-  body <- parseBlock
+  body <- parseBlock id
   let step = case by of
         Just n -> AT.Assignment srcLoc var (AT.Op srcLoc AT.Add var (AT.Lit srcLoc (AT.LInt n)))
         _ -> AT.UnaryOp srcLoc AT.PostInc var
   let cond = (if maybe True (>= 0) by then AT.Op srcLoc AT.Lt var to else AT.Op srcLoc AT.Gt var to)
   return $ AT.For {AT.forLoc = srcLoc, AT.forInit = init', AT.forCond = cond, AT.forStep = step, AT.forBody = body}
 
-parseBlock :: PU.Parser AT.Expr
-parseBlock = do
-  env <- S.get
-  es <- M.between (PU.symbol "{") (PU.symbol "}") $ M.many $ PU.lexeme parseExpr
-  S.modify $ const env
-  return $ AT.Block es
+parseBlock :: (AT.Expr -> AT.Expr) -> PU.Parser AT.Expr
+parseBlock f = do
+  _ <- PU.symbol "{"
+  outerState <- S.get
+  S.modify PS.pushScope
+  es <- M.many $ PU.lexeme parseExpr
+  _ <- PU.symbol "}"
+  blockState <- S.get
+  let (deferred, ds) = PS.popScope blockState
+  S.put outerState {PS.deferState = PS.deferState ds}
+  return $ deferedExpr deferred . f $ AT.Block es
+
+deferedExpr :: [AT.Expr] -> AT.Expr -> AT.Expr
+deferedExpr ds (AT.Block []) = AT.Block ds
+deferedExpr ds (AT.Block es) = case last es of
+  e@(AT.Return _ _) -> AT.Block $ init es ++ ds ++ [e]
+  _ -> AT.Block $ es ++ ds
+deferedExpr _ e = e
 
 parseReturn :: PU.Parser AT.Expr
 parseReturn = do
@@ -245,6 +259,15 @@ parseCast = do
   type' <- PU.symbol "@" *> PT.parseType
   expr <- M.between (PU.symbol "(") (PU.symbol ")") parseExpr
   return $ AT.Cast srcLoc type' expr
+
+parseDefer :: PU.Parser AT.Expr
+parseDefer = do
+  defered <- PU.symbol "defer" *> parseExpr
+  S.modify $ PS.pushDefered defered
+  next <- M.optional parseExpr
+  case next of
+    Nothing -> M.customFailure $ PU.InvalidDefer defered
+    (Just e) -> return e
 
 parseParenExpr :: PU.Parser AT.Expr
 parseParenExpr = M.between (PU.symbol "(") (PU.symbol ")") parseExpr
