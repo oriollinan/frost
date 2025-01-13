@@ -551,6 +551,69 @@ spec = do
                   ]
         result `shouldBe` expected
 
+    it "parses a function with only a defer inside it" $
+      do
+        let input = "main: never -> int = { defer 1 }"
+        let result = normalizeExpr <$> parseWithEnv input
+        let expected =
+              Right $
+                AT.Function
+                  normalizeLoc
+                  "main"
+                  (AT.TFunction (AT.TInt 32) [AT.TVoid] False)
+                  []
+                  ( AT.Block
+                      [ AT.Lit normalizeLoc (AT.LInt 1)
+                      ]
+                  )
+        result `shouldBe` expected
+
+    it "parses a function with a defer and a return statement" $
+      do
+        let input = "main: never -> int = { defer 1 ret 42 }"
+        let result = normalizeExpr <$> parseWithEnv input
+        let expected =
+              Right $
+                AT.Function
+                  normalizeLoc
+                  "main"
+                  (AT.TFunction (AT.TInt 32) [AT.TVoid] False)
+                  []
+                  ( AT.Block
+                      [ AT.Lit normalizeLoc (AT.LInt 1),
+                        AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 42)))
+                      ]
+                  )
+        result `shouldBe` expected
+
+    it "parses a function with a defer, an if statement, and a return" $
+      do
+        let input = "main: never -> int = { defer 10 if 1 is 0 { 2 } ret 42 }"
+        let result = normalizeExpr <$> parseWithEnv input
+        let expected =
+              Right $
+                AT.Function
+                  normalizeLoc
+                  "main"
+                  (AT.TFunction (AT.TInt 32) [AT.TVoid] False)
+                  []
+                  ( AT.Block
+                      [ AT.If
+                          normalizeLoc
+                          ( AT.Op
+                              normalizeLoc
+                              AT.Eq
+                              (AT.Lit normalizeLoc (AT.LInt 1))
+                              (AT.Lit normalizeLoc (AT.LInt 0))
+                          )
+                          (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 2)))])
+                          Nothing,
+                        AT.Lit normalizeLoc (AT.LInt 1),
+                        AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 42)))
+                      ]
+                  )
+        result `shouldBe` expected
+
 normalizeLoc :: AT.SrcLoc
 normalizeLoc = AT.SrcLoc "" 0 0
 

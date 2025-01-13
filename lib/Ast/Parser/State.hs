@@ -6,7 +6,7 @@ type TypeState = [(String, AT.Type)]
 
 type VarState = [(String, AT.Type)]
 
-type DeferState = [AT.Expr]
+type DeferState = [[AT.Expr]]
 
 data ParserState = ParserState
   { typeState :: TypeState,
@@ -31,6 +31,11 @@ insertVar name t s = s {varState = (name, t) : varState s}
 
 lookupVar :: String -> ParserState -> Maybe AT.Type
 lookupVar name (ParserState _ vars _) = lookup name vars
+
+pushDefered :: AT.Expr -> ParserState -> ParserState
+pushDefered e s@(ParserState {deferState = ds}) = case ds of
+  [] -> s {deferState = [[e]]}
+  [first : rest] -> s {deferState = [e : first, rest]}
 
 insertDefered :: AT.Expr -> ParserState -> ParserState
 insertDefered e s@(ParserState {deferState = ds}) = s {deferState = e : ds}
