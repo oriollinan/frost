@@ -10,7 +10,7 @@ import qualified Text.Megaparsec.Char.Lexer as ML
 import qualified Text.Megaparsec.Pos as MP
 
 -- | A type alias for the parser, based on `Parsec` with `Void` error type and `String` input.
-type Parser = M.ParsecT ParseErrorCustom String (S.State PS.ParserState)
+type Parser = M.ParsecT ParseErrorCustom String (S.StateT PS.ParserState IO)
 
 data ParseErrorCustom
   = UnknownType String

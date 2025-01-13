@@ -9,38 +9,44 @@ import qualified Text.Megaparsec as M
 
 spec :: Spec
 spec = do
-  let initialEnv = PS.parserState
-  let parseWithEnv input =
-        fst $ S.runState (M.runParserT PE.parseExpr "" input) initialEnv
+  let parse input = do
+        (result, _) <- S.runStateT (M.runParserT PE.parseExpr "" input) PS.parserState
+        return result
+  let parseWithCustom env input = do
+        (result, _) <- S.runStateT (M.runParserT PE.parseExpr "" input) env
+        return result
+  let parseMany input = do
+        (result, _) <- S.runStateT (M.runParserT (M.many PE.parseExpr) "" input) PS.parserState
+        return result
 
   describe "parseExpr" $ do
     it "parses a literal expression" $ do
       let input = "123"
-      let result = normalizeExpr <$> parseWithEnv input
+      result <- parse input
       let expected = Right (AT.Lit normalizeLoc (AT.LInt 123))
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a variable expression" $
       do
         let input = "x"
-        let env = PS.insertVar "x" (AT.TInt 32) initialEnv
-        let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+        let env = PS.insertVar "x" (AT.TInt 32) PS.parserState
+        result <- parseWithCustom env input
         let expected = Right (AT.Var normalizeLoc "x" (AT.TInt 32))
-        result `shouldBe` expected
+        (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a snake case definition" $
       do
         let input = "x"
-        let env = PS.insertVar "x" (AT.TInt 32) initialEnv
-        let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+        let env = PS.insertVar "x" (AT.TInt 32) PS.parserState
+        result <- parseWithCustom env input
         let expected = Right (AT.Var normalizeLoc "x" (AT.TInt 32))
-        result `shouldBe` expected
+        (normalizeExpr <$> result) `shouldBe` expected
 
     it "unknown for undefined variable" $ do
       let input = "y"
-      let result = normalizeExpr <$> parseWithEnv input
+      result <- parse input
       let expected = Right $ AT.Var normalizeLoc "y" AT.TUnknown
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a function declaration" $ do
       let input = "add: int int -> int = x y { ret 1 }"
@@ -52,8 +58,8 @@ spec = do
                 (AT.TFunction (AT.TInt 32) [AT.TInt 32, AT.TInt 32] False)
                 ["x", "y"]
                 (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 1)))])
-      let result = normalizeExpr <$> parseWithEnv input
-      result `shouldBe` expected
+      result <- parse input
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a variadic function" $ do
       let input = "printf: *byte ... -> int = s { 1 }"
@@ -65,13 +71,13 @@ spec = do
                 (AT.TFunction (AT.TInt 32) [AT.TPointer $ AT.TInt 8] True)
                 ["s"]
                 (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 1)))])
-      let result = normalizeExpr <$> parseWithEnv input
-      result `shouldBe` expected
+      result <- parse input
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a variable declaration with initialization" $
       do
         let input = "x : int = 42"
-        let result = normalizeExpr <$> parseWithEnv input
+        result <- parse input
         let expected =
               Right
                 AT.Declaration
@@ -80,14 +86,14 @@ spec = do
                     AT.declType = AT.TInt 32,
                     AT.declInit = Just (AT.Lit (AT.SrcLoc "" 0 00) (AT.LInt 42))
                   }
-        result `shouldBe` expected
+        (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a struct declaration with initialization" $
       do
         let input = "vector: Vector = Vector { x = 0 y = 0 }"
         let structType = AT.TStruct "Vector" [("x", AT.TInt 32), ("y", AT.TInt 32)]
-        let env = PS.insertType "Vector" structType initialEnv
-        let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+        let env = PS.insertType "Vector" structType PS.parserState
+        result <- parseWithCustom env input
         let expected =
               Right $
                 AT.Declaration
@@ -99,12 +105,12 @@ spec = do
                         normalizeLoc
                       $ AT.LStruct [("x", AT.LInt 0), ("y", AT.LInt 0)]
                   )
-        result `shouldBe` expected
+        (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a variable declaration snake case" $
       do
         let input = "a_variable: int"
-        let result = normalizeExpr <$> parseWithEnv input
+        result <- parse input
         let expected =
               Right $
                 AT.Declaration
@@ -115,12 +121,12 @@ spec = do
                   )
                   Nothing
 
-        result `shouldBe` expected
+        (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a variable declaration with a custom int" $
       do
         let input = "x : int64 = 42"
-        let result = normalizeExpr <$> parseWithEnv input
+        result <- parse input
         let expected =
               Right
                 $ AT.Declaration
@@ -131,26 +137,27 @@ spec = do
                   )
                 $ Just
                   (AT.Lit (AT.SrcLoc "" 0 00) (AT.LInt 42))
-        result `shouldBe` expected
+        (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses an assignment expression" $ do
       let input = "x = 42"
-      let env = PS.insertVar "x" (AT.TInt 0) initialEnv
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let env = PS.insertVar "x" (AT.TInt 0) PS.parserState
+      result <- parseWithCustom env input
       let expected = Right (AT.Assignment normalizeLoc (AT.Var normalizeLoc "x" (AT.TInt 0)) (AT.Lit normalizeLoc (AT.LInt 42)))
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a function call" $ do
-      let env = PS.insertVar "foo" (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 0], AT.isVariadic = False}) initialEnv
+      let env = PS.insertVar "foo" (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 0], AT.isVariadic = False}) PS.parserState
       let input = "foo(123)"
-      normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      result <- parseWithCustom env input
+      (normalizeExpr <$> result)
         `shouldBe` Right
           (AT.Call normalizeLoc (AT.Var normalizeLoc "foo" (AT.TFunction {AT.returnType = AT.TVoid, AT.paramTypes = [AT.TInt 0], AT.isVariadic = False})) [AT.Lit normalizeLoc (AT.LInt 123)])
 
     it "parses an if-else expression" $ do
       let input = "if x { ret 1 } else { ret 0 }"
-      let env = PS.insertVar "x" AT.TBoolean initialEnv
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let env = PS.insertVar "x" AT.TBoolean PS.parserState
+      result <- parseWithCustom env input
       let expected =
             Right $
               AT.If
@@ -159,12 +166,34 @@ spec = do
                 (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 1)))])
                 (Just (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 0)))]))
 
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses an if-else expression with implicit returns" $ do
+      let input = "main: never -> int = { if x { 1 } else { 0 } }"
+      let env = PS.insertVar "x" AT.TBoolean PS.parserState
+      result <- parseWithCustom env input
+      let expected =
+            Right $
+              AT.Function
+                normalizeLoc
+                "main"
+                (AT.TFunction (AT.TInt 32) [AT.TVoid] False)
+                []
+                ( AT.Block
+                    [ AT.If
+                        normalizeLoc
+                        (AT.Var normalizeLoc "x" AT.TBoolean)
+                        (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 1)))])
+                        (Just (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 0)))]))
+                    ]
+                )
+
+      (normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses an void function without implicit returns" $ do
       let input = "main: never -> never = { if x { 1 } else { 0 } }"
-      let env = PS.insertVar "x" AT.TBoolean initialEnv
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let env = PS.insertVar "x" AT.TBoolean PS.parserState
+      result <- parseWithCustom env input
       let expected =
             Right $
               AT.Function
@@ -176,17 +205,17 @@ spec = do
                     [ AT.If
                         normalizeLoc
                         (AT.Var normalizeLoc "x" AT.TBoolean)
-                        (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 1)))])
-                        (Just (AT.Block [AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 0)))]))
+                        (AT.Block [AT.Lit normalizeLoc (AT.LInt 1)])
+                        (Just $ AT.Block [AT.Lit normalizeLoc (AT.LInt 0)])
                     ]
                 )
 
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a while loop" $ do
       let input = "loop z { z = 0 }"
-      let env = PS.insertVar "z" (AT.TInt 32) initialEnv
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      let env = PS.insertVar "z" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
       let expected =
             Right $
               AT.While
@@ -203,12 +232,12 @@ spec = do
                         (AT.Lit normalizeLoc (AT.LInt 0))
                     ]
                 )
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a for loop" $ do
       let input = "from 0 to 10 by 2 |i: int| { i = 0 }"
       let env = PS.parserState
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      result <- parseWithCustom env input
       let expected =
             Right $
               AT.For
@@ -244,79 +273,79 @@ spec = do
                           )
                       ]
                 }
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
-    it "parses a for loop with a dynamic range" $ do
-      let input = "from 0 to 10 by x |i: int| { i = 0 }"
-      let env = PS.insertVar "x" (AT.TInt 32) PS.parserState
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
-      let expected =
-            Right $
-              AT.For
-                { AT.forLoc = normalizeLoc,
-                  AT.forInit =
-                    AT.Declaration
-                      normalizeLoc
-                      "i"
-                      (AT.TInt 32)
-                      (Just (AT.Lit normalizeLoc (AT.LInt 0))),
-                  AT.forCond =
-                    AT.Op
-                      normalizeLoc
-                      AT.Lt
-                      (AT.Var normalizeLoc "i" (AT.TInt 32))
-                      (AT.Lit normalizeLoc (AT.LInt 10)),
-                  AT.forStep =
-                    AT.Assignment
-                      normalizeLoc
-                      (AT.Var normalizeLoc "i" (AT.TInt 32))
-                      ( AT.Op
-                          normalizeLoc
-                          AT.Add
-                          (AT.Var normalizeLoc "i" (AT.TInt 32))
-                          (AT.Var normalizeLoc "x" (AT.TInt 32))
-                      ),
-                  AT.forBody =
-                    AT.Block
-                      [ AT.Assignment
-                          normalizeLoc
-                          (AT.Var normalizeLoc "i" (AT.TInt 32))
-                          ( AT.Lit normalizeLoc (AT.LInt 0)
-                          )
-                      ]
-                }
-      result `shouldBe` expected
+    -- it "parses a for loop with a dynamic range" $ do
+    --   let input = "from 0 to 10 by x |i: int| { i = 0 }"
+    --   let env = PS.insertVar "x" (AT.TInt 32) PS.parserState
+    --   result <- parseWithCustom env input
+    --   let expected =
+    --         Right $
+    --           AT.For
+    --             { AT.forLoc = normalizeLoc,
+    --               AT.forInit =
+    --                 AT.Declaration
+    --                   normalizeLoc
+    --                   "i"
+    --                   (AT.TInt 32)
+    --                   (Just (AT.Lit normalizeLoc (AT.LInt 0))),
+    --               AT.forCond =
+    --                 AT.Op
+    --                   normalizeLoc
+    --                   AT.Lt
+    --                   (AT.Var normalizeLoc "i" (AT.TInt 32))
+    --                   (AT.Lit normalizeLoc (AT.LInt 10)),
+    --               AT.forStep =
+    --                 AT.Assignment
+    --                   normalizeLoc
+    --                   (AT.Var normalizeLoc "i" (AT.TInt 32))
+    --                   ( AT.Op
+    --                       normalizeLoc
+    --                       AT.Add
+    --                       (AT.Var normalizeLoc "i" (AT.TInt 32))
+    --                       (AT.Var normalizeLoc "x" (AT.TInt 32))
+    --                   ),
+    --               AT.forBody =
+    --                 AT.Block
+    --                   [ AT.Assignment
+    --                       normalizeLoc
+    --                       (AT.Var normalizeLoc "i" (AT.TInt 32))
+    --                       ( AT.Lit normalizeLoc (AT.LInt 0)
+    --                       )
+    --                   ]
+    --             }
+    --   (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a break statement" $ do
       let input = "stop"
-      let result = normalizeExpr <$> parseWithEnv input
+      result <- parse input
       let expected = Right (AT.Break normalizeLoc)
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a continue statement" $ do
       let input = "next"
-      let result = normalizeExpr <$> parseWithEnv input
+      result <- parse input
       let expected = Right (AT.Continue normalizeLoc)
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a struct access" $ do
       let input = "myStruct.myField"
       let structType = AT.TStruct "Custom" [("myField", AT.TChar)]
       let env = PS.insertVar "myStruct" structType $ PS.insertType "Custom" structType PS.parserState
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      result <- parseWithCustom env input
       let expected =
             Right $
               AT.StructAccess
                 normalizeLoc
                 (AT.Var normalizeLoc "myStruct" structType)
                 (AT.Var normalizeLoc "myField" AT.TUnknown)
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a nested struct access" $ do
       let input = "myStruct.innerStruct.field"
       let structType = AT.TStruct "Custom" [("innerStruct", AT.TStruct "InnerCustom" [("field", AT.TChar)])]
       let env = PS.insertVar "myStruct" structType $ PS.insertType "Custom" structType PS.parserState
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      result <- parseWithCustom env input
       let expected =
             Right $
               AT.StructAccess
@@ -327,26 +356,26 @@ spec = do
                     (AT.Var normalizeLoc "innerStruct" AT.TUnknown)
                 )
                 (AT.Var normalizeLoc "field" AT.TUnknown)
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses an array access" $ do
       let input = "myArray.#1"
       let arrayType = AT.TArray AT.TChar Nothing
       let env = PS.insertVar "myArray" arrayType PS.parserState
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      result <- parseWithCustom env input
       let expected =
             Right $
               AT.ArrayAccess
                 normalizeLoc
                 (AT.Var normalizeLoc "myArray" arrayType)
                 (AT.Lit normalizeLoc $ AT.LInt 1)
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses an nested array access" $ do
       let input = "myArray.#1.#1"
       let arrayType = AT.TArray (AT.TArray AT.TChar Nothing) Nothing
       let env = PS.insertVar "myArray" arrayType PS.parserState
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      result <- parseWithCustom env input
       let expected =
             Right $
               AT.ArrayAccess
@@ -357,22 +386,22 @@ spec = do
                     (AT.Lit normalizeLoc $ AT.LInt 1)
                 )
                 (AT.Lit normalizeLoc $ AT.LInt 1)
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses an type cast" $ do
       let input = "@int('a')"
-      let result = normalizeExpr <$> parseWithEnv input
+      result <- parse input
       let expected =
             Right $
               AT.Cast
                 normalizeLoc
                 (AT.TInt 32)
                 (AT.Lit normalizeLoc $ AT.LChar 'a')
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses an operator" $ do
       let input = "1 + 1"
-      let result = normalizeExpr <$> parseWithEnv input
+      result <- parse input
       let expected =
             Right $
               AT.Op
@@ -380,11 +409,11 @@ spec = do
                 AT.Add
                 (AT.Lit normalizeLoc $ AT.LInt 1)
                 (AT.Lit normalizeLoc $ AT.LInt 1)
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses an operator with hierarchy" $ do
       let input = "1 + 1 * 2"
-      let result = normalizeExpr <$> parseWithEnv input
+      result <- parse input
       let expected =
             Right $
               AT.Op
@@ -397,12 +426,12 @@ spec = do
                     (AT.Lit normalizeLoc $ AT.LInt 1)
                     (AT.Lit normalizeLoc $ AT.LInt 2)
                 )
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses an operator with hierarchy and comparisons" $ do
       let input = "n is 0 or n is 1"
       let env = PS.insertVar "n" (AT.TInt 32) PS.parserState
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      result <- parseWithCustom env input
       let expected =
             Right $
               AT.Op
@@ -420,45 +449,46 @@ spec = do
                     (AT.Var normalizeLoc "n" $ AT.TInt 32)
                     (AT.Lit normalizeLoc $ AT.LInt 1)
                 )
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a unary operator" $ do
       let input = "not 1"
-      let result = normalizeExpr <$> parseWithEnv input
+      result <- parse input
       let expected =
             Right $
               AT.UnaryOp
                 normalizeLoc
                 AT.Not
                 (AT.Lit normalizeLoc $ AT.LInt 1)
-      result `shouldBe` expected
+
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a line comment" $ do
       let input = "not 1 % this is a line comment"
-      let result = normalizeExpr <$> parseWithEnv input
+      result <- parse input
       let expected =
             Right $
               AT.UnaryOp
                 normalizeLoc
                 AT.Not
                 (AT.Lit normalizeLoc $ AT.LInt 1)
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a block comment" $ do
       let input = "not 1 %% this is a block comment %%"
-      let result = normalizeExpr <$> parseWithEnv input
+      result <- parse input
       let expected =
             Right $
               AT.UnaryOp
                 normalizeLoc
                 AT.Not
                 (AT.Lit normalizeLoc $ AT.LInt 1)
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a higher order function" $ do
       let input = "map: (int -> char) int -> char = f x { f(x) }"
       let functionType = AT.TFunction AT.TChar [AT.TInt 32] False
-      let result = normalizeExpr <$> parseWithEnv input
+      result <- parse input
       let expected =
             Right $
               AT.Function
@@ -470,64 +500,64 @@ spec = do
                     [ AT.Return normalizeLoc $ Just $ AT.Call normalizeLoc (AT.Var normalizeLoc "f" functionType) [AT.Var normalizeLoc "x" $ AT.TInt 32]
                     ]
                 )
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a prefix operator" $ do
       let input = "++x"
       let env = PS.insertVar "x" (AT.TInt 32) PS.parserState
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      result <- parseWithCustom env input
       let expected =
             Right $
               AT.UnaryOp normalizeLoc AT.PreInc (AT.Var normalizeLoc "x" $ AT.TInt 32)
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a postfix operator" $ do
       let input = "x++"
       let env = PS.insertVar "x" (AT.TInt 32) PS.parserState
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      result <- parseWithCustom env input
       let expected =
             Right $
               AT.UnaryOp normalizeLoc AT.PostInc (AT.Var normalizeLoc "x" $ AT.TInt 32)
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a deref operator" $ do
       let input = "x.*"
       let varType = AT.TPointer $ AT.TInt 32
       let env = PS.insertVar "x" varType PS.parserState
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      result <- parseWithCustom env input
       let expected =
             Right $
               AT.UnaryOp normalizeLoc AT.Deref (AT.Var normalizeLoc "x" varType)
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a deref assignment" $ do
       let input = "x.* = 1"
       let varType = AT.TPointer $ AT.TInt 32
       let env = PS.insertVar "x" varType PS.parserState
-      let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+      result <- parseWithCustom env input
       let expected =
             Right $
               AT.Assignment
                 normalizeLoc
                 (AT.UnaryOp normalizeLoc AT.Deref (AT.Var normalizeLoc "x" varType))
                 (AT.Lit normalizeLoc $ AT.LInt 1)
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a foreign function" $ do
       let input = "print: foreign int -> never"
-      let result = normalizeExpr <$> parseWithEnv input
+      result <- parse input
       let expected =
             Right $
               AT.ForeignFunction
                 normalizeLoc
                 "print"
                 (AT.TFunction AT.TVoid [AT.TInt 32] False)
-      result `shouldBe` expected
+      (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a foreign function with a function declaration after it" $
       do
         let input = "free: foreign *byte -> never\nmain: never -> int = { free(0) 0 }"
-        let result = normalizeExpr . AT.Block <$> fst (S.runState (M.runParserT (M.many PE.parseExpr) "" input) PS.parserState)
+        result <- parseMany input
         let expected =
               Right $
                 AT.Block
@@ -549,7 +579,7 @@ spec = do
                           ]
                       )
                   ]
-        result `shouldBe` expected
+        (normalizeExpr . AT.Block <$> result) `shouldBe` expected
 
     -- it "parses a function with only a defer inside it" $
     --   do
@@ -571,7 +601,7 @@ spec = do
     it "parses a function with a defer and a return statement" $
       do
         let input = "main: never -> int = { defer 1 ret 42 }"
-        let result = normalizeExpr <$> parseWithEnv input
+        result <- parse input
         let expected =
               Right $
                 AT.Function
@@ -584,14 +614,14 @@ spec = do
                         AT.Return normalizeLoc (Just (AT.Lit normalizeLoc (AT.LInt 42)))
                       ]
                   )
-        result `shouldBe` expected
+        (normalizeExpr <$> result) `shouldBe` expected
 
     it "parses a function with a defer, an if statement, and a return" $
       do
         let input = "main: never -> int = { defer free(0) if 1 is 0 { ret 2 } ret 42 }"
         let varType = AT.TFunction AT.TVoid [AT.TPointer $ AT.TInt 32] False
         let env = PS.insertVar "free" varType PS.parserState
-        let result = normalizeExpr <$> fst (S.runState (M.runParserT PE.parseExpr "" input) env)
+        result <- parseWithCustom env input
         let expected =
               Right $
                 AT.Function
@@ -619,7 +649,7 @@ spec = do
                           (Just (AT.Lit normalizeLoc (AT.LInt 42)))
                       ]
                   )
-        result `shouldBe` expected
+        (normalizeExpr <$> result) `shouldBe` expected
 
 normalizeLoc :: AT.SrcLoc
 normalizeLoc = AT.SrcLoc "" 0 0

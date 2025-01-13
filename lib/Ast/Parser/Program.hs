@@ -1,17 +1,37 @@
 module Ast.Parser.Program where
 
 import qualified Ast.Parser.Expr as PE
+import qualified Ast.Parser.Import as PI
+import qualified Ast.Parser.State as PS
 import qualified Ast.Parser.TypeDefinition as PT
 import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
+import qualified Control.Monad.State as S
 import qualified Text.Megaparsec as M
 
 parseProgram :: String -> PU.Parser AT.Program
 parseProgram sourceFile = do
   _ <- PU.sc
-  types <- M.many $ M.try $ PU.lexeme PT.parseTypeDefinition
-  exprs <- M.many PE.parseExpr
-  return $ AT.Program {AT.globals = map globalExpr exprs, AT.types = map globalType types, AT.sourceFile = sourceFile}
+  S.modify $ PS.insertImport sourceFile
+  source <- preprocess
+  M.setInput source
+  components <- M.many $ M.choice [M.try parseTypeDefinition, parseExpr]
+  return $ AT.Program (concatMap AT.globals components) (concatMap AT.types components) sourceFile
+
+preprocess :: PU.Parser String
+preprocess = do
+  sources <- M.many $ M.choice [PI.parseImport preprocess, (: []) <$> M.anySingle]
+  return $ concat sources
+
+parseTypeDefinition :: PU.Parser AT.Program
+parseTypeDefinition = do
+  type' <- PU.lexeme PT.parseTypeDefinition
+  return $ AT.Program [] [globalType type'] ""
+
+parseExpr :: PU.Parser AT.Program
+parseExpr = do
+  expr <- PE.parseExpr
+  return $ AT.Program [globalExpr expr] [] ""
 
 globalExpr :: AT.Expr -> (String, AT.Expr)
 globalExpr e@(AT.Function {AT.funcName = name}) = (name, e)

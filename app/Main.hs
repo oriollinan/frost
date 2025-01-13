@@ -61,7 +61,8 @@ optionsInfo =
 
 compile :: String -> String -> Bool -> E.ExceptT CompileError IO String
 compile input source verbose = do
-  ast <- case P.parse input source of
+  result <- IO.liftIO $ P.parse input source
+  ast <- case result of
     Left err -> E.throwE $ ParseError err
     Right res -> return res
 
