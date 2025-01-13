@@ -3,9 +3,9 @@
 %%
 
 %%
-% External function declarations
+% Standard Library
 %%
-printf: foreign *byte ... -> int
+import "./examples/std/io.ff"
 
 %%
 % Draw the Sierpinski Triangle

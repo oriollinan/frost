@@ -1,0 +1,22 @@
+sin: foreign double -> double
+cos: foreign double -> double
+tan: foreign double -> double
+asin: foreign double -> double
+acos: foreign double -> double
+atan: foreign double -> double
+atan2: foreign double double -> double
+sinh: foreign double -> double
+cosh: foreign double -> double
+tanh: foreign double -> double
+exp: foreign double -> double
+log: foreign double -> double
+log10: foreign double -> double
+sqrt: foreign double -> double
+ceil: foreign double -> double
+floor: foreign double -> double
+fabs: foreign double -> double
+pow: foreign double double -> double
+fmod: foreign double double -> double
+hypot: foreign double double -> double
+ldexp: foreign double int -> double
+frexp: foreign double *int -> double

@@ -3,16 +3,16 @@
 %%
 
 %%
-% External function declarations
+% Standard Library
 %%
-sin: foreign double -> double
-printf: foreign *byte ... -> int
-usleep: foreign int -> never
+import "./examples/std/io.ff"
+import "./examples/std/math.ff"
+import "./examples/std/uni.ff"
 
 %%
 % Function to draw the sine wave
 %
-% This function plots a sine wave on the terminal using ASCII characters. 
+% This function plots a sine wave on the terminal using ASCII characters.
 % The sine wave is plotted based on the sine function and its amplitude is scaled
 % to fit within the screen height.
 %%

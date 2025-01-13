@@ -1,0 +1,14 @@
+strlen: foreign *byte -> int
+strcmp: foreign *byte *byte -> int
+strncmp: foreign *byte *byte int -> int
+strcpy: foreign *byte *byte -> *byte
+strncpy: foreign *byte *byte int -> *byte
+strcat: foreign *byte *byte -> *byte
+strncat: foreign *byte *byte int -> *byte
+strchr: foreign *byte int -> *byte
+strrchr: foreign *byte int -> *byte
+strstr: foreign *byte *byte -> *byte
+memset: foreign *byte int int -> *byte
+memcpy: foreign *byte *byte int -> *byte
+memmove: foreign *byte *byte int -> *byte
+memcmp: foreign *byte *byte int -> int
