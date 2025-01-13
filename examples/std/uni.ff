@@ -1,0 +1,9 @@
+write: foreign int *byte int -> int
+read: foreign int *byte int -> int
+close: foreign int -> int
+unlink: foreign *byte -> int
+access: foreign *byte int -> int
+chdir: foreign *byte -> int
+rmdir: foreign *byte -> int
+sleep: foreign int -> int
+usleep: foreign int -> int

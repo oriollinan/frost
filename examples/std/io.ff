@@ -1,0 +1,5 @@
+printf: foreign *byte ... -> int
+scanf: foreign *byte ... -> int
+puts: foreign *byte -> int
+putchar: foreign byte -> int
+perror: foreign *byte -> never

@@ -3,12 +3,11 @@
 %%
 
 %%
-% External function declarations
+% Standard Library
 %%
-printf: foreign *byte ... -> int
-usleep: foreign int -> never
-sin: foreign double -> double
-cos: foreign double -> double
+import "./examples/std/io.ff"
+import "./examples/std/math.ff"
+import "./examples/std/uni.ff"
 
 %%
 % Function to clear the screen
