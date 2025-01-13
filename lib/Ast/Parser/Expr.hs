@@ -90,7 +90,7 @@ parseTerm =
       parseReturn,
       parseBreak,
       parseContinue,
-      parseBlock,
+      parseBlock id,
       parseCast,
       parseDefer *> parseExpr,
       M.try parseFunction,
@@ -125,9 +125,8 @@ parseFunction = do
       params <- PU.symbol "=" *> M.many (PU.lexeme PU.identifier)
       mapM_ (\(p, t) -> S.modify (PS.insertVar p t)) $ zip params pts
       S.modify (PS.insertVar name ft)
-      block <- parseBlock
-      state <- S.get
-      let body = (`deferedExpr` PS.deferState state) . implicitReturn $ block
+      block <- parseBlock implicitReturn
+      let body = implicitReturn block
       return $ AT.Function {AT.funcLoc = srcLoc, AT.funcName = name, AT.funcType = ft, AT.funcParams = params, AT.funcBody = body}
     _ -> M.customFailure $ AU.InvalidFunctionType name ft
 
@@ -153,13 +152,6 @@ implicitReturn e@(AT.UnaryOp {}) = AT.Return (SU.getLoc e) $ Just e
 implicitReturn e@(AT.StructAccess {}) = AT.Return (SU.getLoc e) $ Just e
 implicitReturn e@(AT.ArrayAccess {}) = AT.Return (SU.getLoc e) $ Just e
 implicitReturn e@(AT.Cast {}) = AT.Return (SU.getLoc e) $ Just e
-
-deferedExpr :: AT.Expr -> PS.DeferState -> AT.Expr
-deferedExpr (AT.If loc cond then' (Just else')) ds = AT.If loc cond (deferedExpr then' ds) $ Just $ deferedExpr else' ds
-deferedExpr (AT.If loc cond then' Nothing) ds = AT.If loc cond (deferedExpr then' ds) Nothing
-deferedExpr (AT.Block es) ds = AT.Block $ map (`deferedExpr` ds) es
-deferedExpr e@(AT.Return _ _) ds = AT.Block $ ds ++ [e]
-deferedExpr e _ = e
 
 parseForeignFunction :: PU.Parser AT.Expr
 parseForeignFunction = do
@@ -190,15 +182,15 @@ parseIf :: PU.Parser AT.Expr
 parseIf = do
   srcLoc <- PU.parseSrcLoc
   cond <- PU.symbol "if" *> PU.lexeme parseExpr
-  then' <- parseBlock
-  else' <- M.optional $ PU.symbol "else" *> parseBlock
+  then' <- parseBlock id
+  else' <- M.optional $ PU.symbol "else" *> parseBlock id
   return $ AT.If {AT.ifLoc = srcLoc, AT.ifCond = cond, AT.ifThen = then', AT.ifElse = else'}
 
 parseWhile :: PU.Parser AT.Expr
 parseWhile = do
   srcLoc <- PU.parseSrcLoc
   cond <- PU.symbol "loop" *> parseExpr
-  body <- parseBlock
+  body <- parseBlock id
   return $ AT.While {AT.whileLoc = srcLoc, AT.whileCond = cond, AT.whileBody = body}
 
 -- TODO: handle dynamic ranges
@@ -215,19 +207,27 @@ parseFor = do
   let init' = AT.Declaration srcLoc name type' (Just from)
   let var = AT.Var srcLoc name type'
   S.modify (PS.insertVar name type')
-  body <- parseBlock
+  body <- parseBlock id
   let step = case by of
         Just n -> AT.Assignment srcLoc var (AT.Op srcLoc AT.Add var (AT.Lit srcLoc (AT.LInt n)))
         _ -> AT.UnaryOp srcLoc AT.PostInc var
   let cond = (if maybe True (>= 0) by then AT.Op srcLoc AT.Lt var to else AT.Op srcLoc AT.Gt var to)
   return $ AT.For {AT.forLoc = srcLoc, AT.forInit = init', AT.forCond = cond, AT.forStep = step, AT.forBody = body}
 
-parseBlock :: PU.Parser AT.Expr
-parseBlock = do
+parseBlock :: (AT.Expr -> AT.Expr) -> PU.Parser AT.Expr
+parseBlock f = do
   state <- S.get
   es <- M.between (PU.symbol "{") (PU.symbol "}") $ M.many $ PU.lexeme parseExpr
-  S.modify (\s -> s {PS.varState = PS.varState state})
-  return $ AT.Block es
+  blockState <- S.get
+  S.modify $ const state
+  return $ deferedExpr (PS.deferState blockState) . f $ AT.Block es
+
+deferedExpr :: PS.DeferState -> AT.Expr -> AT.Expr
+deferedExpr ds (AT.Block []) = AT.Block ds
+deferedExpr ds (AT.Block es) = case last es of
+  e@(AT.Return _ _) -> AT.Block $ init es ++ ds ++ [e]
+  _ -> AT.Block $ es ++ ds
+deferedExpr _ e = e
 
 parseReturn :: PU.Parser AT.Expr
 parseReturn = do
