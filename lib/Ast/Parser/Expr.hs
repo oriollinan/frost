@@ -92,7 +92,7 @@ parseTerm =
       parseContinue,
       parseBlock id,
       parseCast,
-      parseDefer *> parseExpr,
+      parseDefer,
       M.try parseFunction,
       M.try parseForeignFunction,
       M.try parseDeclaration,
@@ -258,10 +258,14 @@ parseCast = do
   expr <- M.between (PU.symbol "(") (PU.symbol ")") parseExpr
   return $ AT.Cast srcLoc type' expr
 
-parseDefer :: PU.Parser ()
+parseDefer :: PU.Parser AT.Expr
 parseDefer = do
   defered <- PU.symbol "defer" *> parseExpr
   S.modify $ PS.pushDefered defered
+  next <- M.optional parseExpr
+  case next of
+    Nothing -> M.customFailure $ PU.InvalidDefer defered
+    (Just e) -> return e
 
 parseParenExpr :: PU.Parser AT.Expr
 parseParenExpr = M.between (PU.symbol "(") (PU.symbol ")") parseExpr
