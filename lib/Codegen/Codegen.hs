@@ -44,12 +44,16 @@ type GlobalState = [(String, AST.Operand)]
 -- | Type alias for the loop code generation state.
 type LoopState = Maybe (AST.Name, AST.Name)
 
+-- | Type alias for the variables name .
+type UniqueNameState = Integer
+
 -- | Combined state for code generation.
 data CodegenState = CodegenState
   { localState :: LocalState,
     globalState :: GlobalState,
     loopState :: LoopState,
-    allocatedVars :: LocalState
+    allocatedVars :: LocalState,
+    uniqueNameState :: UniqueNameState
   }
   deriving (Show)
 
@@ -160,7 +164,7 @@ codegen program =
   E.runExcept $
     M.buildModuleT (U.stringToByteString $ AT.sourceFile program) $
       IRM.runIRBuilderT IRM.emptyIRBuilder $
-        S.evalStateT (mapM_ (generateGlobal . snd) (AT.globals program)) (CodegenState [] [] Nothing [])
+        S.evalStateT (mapM_ (generateGlobal . snd) (AT.globals program)) (CodegenState [] [] Nothing [] 0)
 
 -- | Generate LLVM code for global expressions.
 generateGlobal :: (MonadCodegen m) => AT.Expr -> m ()
@@ -168,6 +172,24 @@ generateGlobal expr = case expr of
   AT.Function {} -> CM.void $ generateFunction expr
   AT.ForeignFunction {} -> CM.void $ generateForeignFunction expr
   _ -> E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedTopLevel expr
+
+-- Generates a fresh unique name.
+fresh :: (MonadCodegen m) => m AST.Name
+fresh = do
+  state <- S.get
+  let uniqueName = uniqueNameState state
+  S.put $ state {uniqueNameState = uniqueName + 1}
+  let fullName = "_" ++ show uniqueName
+  return $ AST.Name (U.stringToByteString fullName)
+
+-- Generates a fresh unique name with the given prefix.
+freshName :: (MonadCodegen m) => String -> m AST.Name
+freshName prefix = do
+  state <- S.get
+  let uniqueName = uniqueNameState state
+  S.put $ state {uniqueNameState = uniqueName + 1}
+  let fullName = prefix ++ show uniqueName
+  return $ AST.Name (U.stringToByteString fullName)
 
 -- | Generate LLVM code for an expression.
 class ExprGen a where
@@ -237,7 +259,7 @@ createGlobalString str = do
           (T.IntegerType 8)
           (map (C.Int 8 . fromIntegral . fromEnum) (str ++ "\0"))
   let strType = T.ArrayType (fromIntegral $ length str + 1) (T.IntegerType 8)
-  name <- IRM.fresh
+  name <- fresh
   let global =
         AST.GlobalVariable
           { G.name = name,
