@@ -8,10 +8,11 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.CaseInsensitive as CI
 import qualified Network.HTTP.Simple as N
 import qualified System.Environment as E
+import qualified System.IO.Error as IOE
 import qualified Text.Megaparsec as M
 
-parseImport :: PU.Parser String -> PU.Parser String
-parseImport p = do
+parseImport :: String -> PU.Parser String -> PU.Parser String
+parseImport sourceFile p = do
   import' <- PU.symbol "import" *> M.between (PU.symbol "\"") (PU.symbol "\"") (M.some $ M.anySingleBut '\"')
   state <- S.get
   let visited = PS.lookupImport import' state
@@ -25,9 +26,7 @@ parseImport p = do
         else do
           S.modify $ PS.insertImport import'
           S.modify $ PS.setImportDepth $ depth + 1
-          source <- case import' of
-            ('.' : _) -> IO.liftIO $ localImport import'
-            _ -> IO.liftIO $ externalImport import'
+          source <- IO.liftIO $ IOE.catchIOError (localImport sourceFile import') (\_ -> externalImport import')
           input <- M.getInput
           M.setInput $ source ++ input
           source' <- p
@@ -36,8 +35,10 @@ parseImport p = do
   where
     maxDepth = 25
 
-localImport :: String -> IO String
-localImport = readFile
+localImport :: String -> String -> IO String
+localImport sourceFile import' = readFile $ dir sourceFile ++ import'
+  where
+    dir = reverse . dropWhile (/= '/') . reverse
 
 externalImport :: String -> IO String
 externalImport url = do
@@ -46,7 +47,7 @@ externalImport url = do
     Just token ->
       N.setRequestHeaders
         [(CI.mk $ BS.pack "Authorization", BS.pack $ "Bearer " ++ token)]
-        <$> N.parseRequest url
-    Nothing -> N.parseRequest url
+        <$> N.parseRequestThrow url
+    Nothing -> N.parseRequestThrow url
   res <- N.httpBS req
   return $ BS.unpack $ N.getResponseBody res
