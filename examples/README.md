@@ -74,3 +74,108 @@ displayed in the terminal.
                                       @@@@@@@                                  
                                       @@@@@@
 ```
+
+### Embedding `frost` in other languages
+
+1. Create a `sum.ff` file with the following content:
+
+```
+sum: int int -> int = a b {
+  a + b
+}
+```
+
+2. Compile the `sum.ff` file to LLVM IR:
+
+```sh
+$ ./glados -i sum.ff -o sum.ll
+```
+
+#### Embedding in `C`
+
+Since `frost` compiles to LLVM IR, you can embed `frost` code in your C, C++ or
+C-API compatible code. For example, to embed the `sum` function in a C program,
+you can follow the steps below:
+
+1. Compile the following C program that embeds the `sum` function:
+
+```c
+#include <stdio.h>
+
+extern int sum(int a, int b);
+
+int main()
+{
+    int a = 10;
+    int b = 20;
+    int result = sum(a, b);
+    printf("The sum of %d and %d is %d\n", a, b, result);
+
+    return 0;
+}
+```
+
+> [!WARNING]
+> Since `clang` uses LLVM as its backend, you can use `clang` to compile the
+> generated LLVM IR directly. If you want to use `gcc` or another compiler, you
+> must first convert the LLVM IR to an object file using `llc` and then compile
+> the object file with `gcc`.
+>
+> ```sh
+> $ llc -filetype=obj sum.ll -o sum.o
+> $ gcc -o sum sum.o sum.c
+> ```
+
+2. Compile the C program and link it with the `sum.ll` file:
+
+```sh
+$ clang -o sum sum.c sum.ll
+```
+
+3. Run the compiled program:
+
+```sh
+$ ./sum
+The sum of 10 and 20 is 30
+```
+
+#### Using `dlopen` and `dlsym`
+
+You can also use `dlopen` and `dlsym` to load the `sum` function at runtime. To
+do this:
+
+1. Compile the `sum.ll` file to a shared object file:
+
+```sh
+$ llc -filetype=obj sum.ll -o sum.o
+```
+
+2. Create a shared object file from the object file:
+
+```sh
+$ clang -shared -o libsum.so sum.o
+```
+
+3. Create a TypeScript program that loads the `sum` function at runtime:
+
+```ts
+const handle = Deno.dlopen("libsum.so", {
+  sum: {
+    parameters: ["i32", "i32"],
+    result: "i32",
+  },
+});
+
+const sum = handle.symbols.sum as CallableFunction;
+
+console.log(`The sum of 10 and 20 is ${sum(10, 20)}`);
+
+handle.close();
+```
+
+4. Run the TypeScript program:
+
+```sh
+$ deno run --allow-all sum.ts
+The sum of 10 and 20 is 30
+```
