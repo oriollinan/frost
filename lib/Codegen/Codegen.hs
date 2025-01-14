@@ -789,15 +789,12 @@ preAllocateVars _ = pure ()
 -- | Generate LLVM code for for loops.
 generateForLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateForLoop (AT.For loc initExpr condExpr stepExpr bodyExpr) = mdo
-  condPtr <- I.alloca T.i1 Nothing 0
   _ <- generateExpr initExpr
   I.br condBlock
 
   condBlock <- IRM.block `IRM.named` U.stringToByteString "for.cond"
   condVal <- generateExpr condExpr
-  I.store condPtr 0 condVal
-  loadedCond <- I.load condPtr 0
-  boolCondVal <- toBool loc loadedCond
+  boolCondVal <- toBool loc condVal
   I.condBr boolCondVal bodyBlock exitBlock
 
   bodyBlock <- IRM.block `IRM.named` U.stringToByteString "for.body"
@@ -821,14 +818,11 @@ generateForLoop expr =
 -- | Generate LLVM code for while loops.
 generateWhileLoop :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateWhileLoop (AT.While loc condExpr bodyExpr) = mdo
-  condPtr <- I.alloca T.i1 Nothing 0
   I.br condBlock
 
   condBlock <- IRM.block `IRM.named` U.stringToByteString "while.cond"
   condVal <- generateExpr condExpr
-  I.store condPtr 0 condVal
-  loadedCond <- I.load condPtr 0
-  boolCondVal <- toBool loc loadedCond
+  boolCondVal <- toBool loc condVal
   I.condBr boolCondVal bodyBlock exitBlock
 
   bodyBlock <- IRM.block `IRM.named` U.stringToByteString "while.body"
