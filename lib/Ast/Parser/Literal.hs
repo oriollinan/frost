@@ -4,7 +4,6 @@ import qualified Ast.Parser.State as PS
 import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
 import qualified Control.Monad.State as S
-import qualified Data.Char as C
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
 import qualified Text.Megaparsec.Char.Lexer as ML
@@ -44,7 +43,7 @@ parseFloat =
 -- | Parses a boolean literal (`true` or `false`).
 -- Returns a `Literal` of type `LBool`.
 parseBool :: PU.Parser AT.Literal
-parseBool = AT.LBool True <$ MC.string trueSymbol M.<|> AT.LBool False <$ MC.string falseSymbol
+parseBool = AT.LBool <$> PU.parseBool
 
 -- | Parses a character literal (e.g., 'a').
 -- Returns a `Literal` of type `LChar`.
@@ -63,47 +62,11 @@ parseArray =
   where
     parseStringArray =
       AT.LArray . map AT.LChar
-        <$> M.between (MC.char '\"') (MC.char '\"') (M.many parseStringChar)
+        <$> M.between (MC.char '\"') (MC.char '\"') (M.many PU.parseStringChar)
 
     parseLiteralArray =
       AT.LArray
         <$> M.between (PU.symbol "[") (PU.symbol "]") (M.sepBy parseLiteral PU.sc)
-
-    parseStringChar =
-      M.choice
-        [ parseEscapeSequence,
-          M.noneOf ['"', '\\']
-        ]
-
-    parseEscapeSequence =
-      MC.char '\\'
-        >> M.choice
-          [ '\a' <$ MC.char 'a',
-            '\b' <$ MC.char 'b',
-            '\f' <$ MC.char 'f',
-            '\n' <$ MC.char 'n',
-            '\r' <$ MC.char 'r',
-            '\t' <$ MC.char 't',
-            '\v' <$ MC.char 'v',
-            '\\' <$ MC.char '\\',
-            '\"' <$ MC.char '"',
-            '\'' <$ MC.char '\'',
-            '\0' <$ MC.char '0',
-            parseHexEscape,
-            parseOctalEscape
-          ]
-
-    parseHexEscape = do
-      _ <- MC.char 'x'
-      digits <- M.count 2 hexDigit
-      return $ C.chr $ read ("0x" ++ digits)
-
-    parseOctalEscape = do
-      digits <- M.count 3 octalDigit
-      return $ C.chr $ read ("0o" ++ digits)
-
-    hexDigit = M.oneOf $ ['0' .. '9'] ++ ['a' .. 'f'] ++ ['A' .. 'F']
-    octalDigit = M.oneOf ['0' .. '7']
 
 -- | Parses a `null` literal.
 -- Returns a `Literal` of type `LNull`.
