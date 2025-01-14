@@ -1,0 +1,129 @@
+%%
+% Generate a spinning 3D donut animation.
+%%
+
+%%
+% Standard Library
+%%
+import "std/io.ff"
+import "std/math.ff"
+import "std/uni.ff"
+import "std/string.ff"
+import "std/lib.ff"
+
+main: never -> int = {
+    SIZEOF_DOUBLE: int = 8
+    BUFFER_SIZE: int = 1760
+    SCREEN_WIDTH: int = 80
+    SCREEN_HEIGHT: int = 22
+    FILL_CHAR: int = 32
+    NEWL_CHAR: int = 10
+    TWO_PI: double = 6,28318530718
+    ROTATION_STEP1: double = 0,02
+    ROTATION_STEP2: double = 0,07
+    SCALE_X: double = 40,0
+    SCALE_Y: double = 30,0
+    OFFSET_Y: double = 12,0
+    OFFSET_X: double = 15,0
+    DEPTH_OFFSET: double = 5,0
+    INTENSITY_SCALE: double = 8,0
+    ANIMATION_STEP1: double = 0,00004
+    ANIMATION_STEP2: double = 0,00002
+    SLEEP_TIME: int = 30000
+
+    ASCII_CHARS: *byte = ".,-~:;=!*#$@"
+
+    A: double = 0,0
+    B: double = 0,0
+
+    i: double = 0,0
+    j: double = 0,0
+
+    k: int = 0
+
+    z: *double = malloc(BUFFER_SIZE * SIZEOF_DOUBLE)
+    defer free(z)
+
+    b: *byte = malloc(BUFFER_SIZE)
+    defer free(b)
+
+    printf("\x1b[2J")
+
+    loop true {
+        memset(b FILL_CHAR BUFFER_SIZE)
+        memset(z 0 BUFFER_SIZE * 8)
+
+        j = 0,0
+        loop j < TWO_PI {
+
+            i = 0,0
+            loop i < TWO_PI {
+                c: double = sin(i)
+                d: double = cos(j)
+                e: double = sin(A)
+                f: double = sin(j)
+                g: double = cos(A)
+                h: double = d + 2,0
+                D: double = 1,0 / (c * h * e + f * g + DEPTH_OFFSET)
+                l: double = cos(i)
+                m: double = cos(B)
+                n: double = sin(B)
+                t: double = c * h * g - f * e
+
+                xr: double = SCALE_X + SCALE_Y * D * (l * h * m - t * n)
+                yr: double = OFFSET_Y + OFFSET_X * D * (l * h * n + t * m)
+
+                x: int = @int(xr)
+                y: int = @int(yr)
+
+                o: int = x + SCREEN_WIDTH * y
+                
+                Nr: double = (f * e - c * d * g) * m - c * d * e - f * g - l * d * n
+                Ni: double = Nr * INTENSITY_SCALE
+                N: int = @int(Ni)
+
+                z_ptr: *double = z + (o * SIZEOF_DOUBLE)
+                if (SCREEN_HEIGHT > y) and (y > 0) and (x > 0) and (SCREEN_WIDTH > x) {
+                    z_ptr.* = D
+
+                    offset: int = 0
+                    b_ptr: *byte = b + o
+
+                    if N > 0 {
+                        offset = N
+                    }
+
+                    character: *byte = ASCII_CHARS + offset
+                    b_ptr.* = character.*
+                }
+
+                i = i + ROTATION_STEP1
+            }
+
+            j = j + ROTATION_STEP2
+        }
+
+        printf("\x1b[H")
+
+        loop k < BUFFER_SIZE + 1 {
+            ptr: *byte = b + k
+
+            A = A + ANIMATION_STEP1
+            B = B + ANIMATION_STEP2
+
+            k = k + 1
+
+            if ((k - 1) mod SCREEN_WIDTH) is 0 {
+                putchar(NEWL_CHAR)
+                next
+            }
+
+            putchar(ptr.*)
+        }
+        k = 0
+
+        usleep(SLEEP_TIME)
+    }
+
+    0
+}
