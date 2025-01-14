@@ -213,7 +213,7 @@ instance ExprGen AT.Expr where
     AT.UnaryOp {} -> generateUnaryOp expr
     AT.Call {} -> generateFunctionCall expr
     AT.ArrayAccess {} -> generateArrayAccess expr
-    AT.StructAccess {} -> do generateStructAccess expr
+    AT.StructAccess {} -> generateStructAccess expr
     AT.Cast {} -> generateCast expr
     AT.For {} -> generateForLoop expr
     AT.While {} -> generateWhileLoop expr
