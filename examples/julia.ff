@@ -57,7 +57,9 @@ render_julia: double double -> int = c_real c_imag {
                 char_index = iter * CHARSET_LENGTH / MAX_ITER
             }
 
-            printf("%c" ASCII_CHARSET.#char_index)
+            ptr: *byte = ASCII_CHARSET + char_index
+
+            printf("%c" ptr.*)
         }
         printf("\n" 0)
     }
