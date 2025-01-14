@@ -33,6 +33,9 @@ library
     Ast.Types
     Codegen.Codegen
     Codegen.Utils
+    Codegen.State
+    Codegen.Errors
+    Codegen.ExprGen
     Shared.Utils
 
   build-depends:
