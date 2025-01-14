@@ -18,6 +18,7 @@ parseExpr = CE.makeExprParser (PU.lexeme parseTerm) operationTable
 operationTable :: [[CE.Operator PU.Parser AT.Expr]]
 operationTable =
   [ [ PU.postfix ".*" (`AT.UnaryOp` AT.Deref),
+      PU.postfix ".&" (`AT.UnaryOp` AT.AddrOf),
       PU.postfix "++" (`AT.UnaryOp` AT.PostInc),
       PU.postfix "--" (`AT.UnaryOp` AT.PostDec),
       parseCall
@@ -25,7 +26,6 @@ operationTable =
     [ PU.prefix "!" (`AT.UnaryOp` AT.Not),
       PU.prefix "not" (`AT.UnaryOp` AT.Not),
       PU.prefix "~" (`AT.UnaryOp` AT.BitNot),
-      PU.prefix "&" (`AT.UnaryOp` AT.AddrOf),
       PU.prefix "++" (`AT.UnaryOp` AT.PreInc),
       PU.prefix "--" (`AT.UnaryOp` AT.PreDec)
     ],
