@@ -35,7 +35,8 @@ library
     Codegen.Utils
     Codegen.State
     Codegen.Errors
-    Codegen.ExprGen
+    Codegen.ExprGen.ExprGen
+    Codegen.ExprGen.Types
     Shared.Utils
 
   build-depends:

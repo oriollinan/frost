@@ -2,10 +2,11 @@
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE TupleSections #-}
 
-module Codegen.ExprGen where
+module Codegen.ExprGen.ExprGen where
 
 import qualified Ast.Types as AT
 import qualified Codegen.Errors as CC
+import qualified Codegen.ExprGen.Types as ET -- Phone Home
 import qualified Codegen.State as CS
 import qualified Codegen.Utils as U
 import qualified Control.Monad as CM
@@ -30,28 +31,6 @@ import qualified LLVM.IRBuilder.Instruction as I
 import qualified LLVM.IRBuilder.Module as M
 import qualified LLVM.IRBuilder.Monad as IRM
 import qualified Shared.Utils as SU
-
--- | Type conversion to LLVM IR.
-class ToLLVM a where
-  toLLVM :: a -> T.Type
-
-instance ToLLVM AT.Type where
-  toLLVM expr = case expr of
-    AT.TInt width -> T.IntegerType (fromIntegral width)
-    AT.TFloat -> T.FloatingPointType T.FloatFP
-    AT.TDouble -> T.FloatingPointType T.DoubleFP
-    AT.TChar -> T.IntegerType 8
-    AT.TBoolean -> T.IntegerType 1
-    AT.TVoid -> T.void
-    AT.TPointer t -> T.ptr (toLLVM t)
-    AT.TArray t (Just n) -> T.ArrayType (fromIntegral n) (toLLVM t)
-    AT.TArray t Nothing -> T.ptr (toLLVM t)
-    AT.TFunction ret params var -> T.FunctionType (toLLVM ret) (map toLLVM params) var
-    AT.TStruct _ fields -> T.StructureType False (map (toLLVM . snd) fields)
-    AT.TUnion _ variants -> T.StructureType False (map (toLLVM . snd) variants)
-    AT.TTypedef _ t -> toLLVM t
-    AT.TMutable t -> toLLVM t
-    AT.TUnknown -> T.void
 
 -- | Generate LLVM code for global expressions.
 generateGlobal :: (CS.MonadCodegen m) => AT.Expr -> m ()
@@ -423,9 +402,9 @@ generateFunction :: (CS.MonadCodegen m) => AT.Expr -> m AST.Operand
 generateFunction (AT.Function _ name (AT.TFunction ret params var) paramNames body) = do
   let funcName = AST.Name $ U.stringToByteString name
       paramTypes = zipWith mkParam params paramNames
-      funcType = T.ptr $ T.FunctionType (toLLVM ret) (map fst paramTypes) var
+      funcType = T.ptr $ T.FunctionType (ET.toLLVM ret) (map fst paramTypes) var
   CS.addGlobalVar name $ AST.ConstantOperand $ C.GlobalReference funcType funcName
-  M.function funcName paramTypes (toLLVM ret) $ \ops -> do
+  M.function funcName paramTypes (ET.toLLVM ret) $ \ops -> do
     S.modify (\s -> s {CS.localState = []})
     S.zipWithM_ CS.addVar paramNames ops
     oldAllocatedVars <- S.gets CS.allocatedVars
@@ -434,33 +413,27 @@ generateFunction (AT.Function _ name (AT.TFunction ret params var) paramNames bo
     I.ret result
     S.modify (\s -> s {CS.allocatedVars = oldAllocatedVars})
   where
-    mkParam t n = (toLLVM t, M.ParameterName $ U.stringToByteString n)
+    mkParam t n = (ET.toLLVM t, M.ParameterName $ U.stringToByteString n)
 generateFunction expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
 
 -- | Generate LLVM code for foreign function definitions.
 generateForeignFunction :: (CS.MonadCodegen m) => AT.Expr -> m AST.Operand
 generateForeignFunction (AT.ForeignFunction _ name (AT.TFunction ret params var)) = do
-  let funcType = T.ptr $ T.FunctionType (toLLVM ret) (map toLLVM params) var
+  let funcType = T.ptr $ T.FunctionType (ET.toLLVM ret) (map ET.toLLVM params) var
       funcName = AST.Name $ U.stringToByteString name
 
   _ <-
     (if var then M.externVarArgs else M.extern)
       funcName
-      (filter (/= T.void) $ map toLLVM params)
-      (toLLVM ret)
+      (filter (/= T.void) $ map ET.toLLVM params)
+      (ET.toLLVM ret)
 
   CS.addGlobalVar name $ AST.ConstantOperand $ C.GlobalReference funcType funcName
 
   pure $ AST.ConstantOperand $ C.GlobalReference funcType funcName
 generateForeignFunction expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
-
--- | Convert an operand to match a desired LLVM type if needed.
-ensureMatchingType :: (CS.MonadCodegen m) => AT.SrcLoc -> AST.Operand -> T.Type -> m AST.Operand
-ensureMatchingType loc val targetTy
-  | TD.typeOf val == targetTy = pure val
-  | otherwise = llvmCast loc val (TD.typeOf val) targetTy
 
 -- | Generate LLVM code for declarations.
 generateDeclaration :: (CS.MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -473,7 +446,7 @@ generateDeclaration (AT.Declaration loc name typ mInitExpr) = do
           initValue <- generateExpr initExpr
           -- TODO: This makes us lose precision in some cases,
           -- e.g. when initializing a float with an integer
-          initValue' <- ensureMatchingType loc initValue (toLLVM typ)
+          initValue' <- ET.ensureMatchingType loc initValue (ET.toLLVM typ)
           I.store ptr 0 initValue'
           I.load ptr 0
         Nothing -> I.load ptr 0
@@ -533,6 +506,7 @@ generateStructAccess expr = do
   (ptr, _) <- getStructFieldPointer expr
   I.load ptr 0
 
+-- | Get the pointer to a struct field.
 getStructFieldPointer :: (CS.MonadCodegen m) => AT.Expr -> m (AST.Operand, AT.Type)
 getStructFieldPointer (AT.StructAccess structLoc structExpr (AT.Var _ fieldName _)) = do
   (parentPtr, parentType) <- getStructFieldPointer structExpr
@@ -554,50 +528,11 @@ getStructFieldPointer (AT.Var structLoc structName structType) = do
 getStructFieldPointer expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedStructureAccess expr
 
-llvmCast :: (CS.MonadCodegen m) => AT.SrcLoc -> AST.Operand -> T.Type -> T.Type -> m AST.Operand
-llvmCast loc operand fromType toType = case (fromType, toType) of
-  (T.IntegerType fromBits, T.IntegerType toBits)
-    | fromBits < toBits -> I.zext operand toType
-    | fromBits > toBits -> I.trunc operand toType
-    | otherwise -> pure operand
-  (T.FloatingPointType fromFP, T.FloatingPointType toFP)
-    | isLargerFP fromFP toFP -> I.fpext operand toType
-    | isSmallerFP fromFP toFP -> I.fptrunc operand toType
-    | otherwise -> pure operand
-  (T.IntegerType _, T.FloatingPointType _) -> I.sitofp operand toType
-  (T.FloatingPointType _, T.IntegerType _) -> I.fptosi operand toType
-  (x, y) | isBitcastable x y -> I.bitcast operand toType
-  (T.VectorType n fromEl, T.VectorType m toEl)
-    | n == m && isBitcastable fromEl toEl -> I.bitcast operand toType
-    | n < m -> I.zext operand toType
-    | n > m -> I.trunc operand toType
-  (T.IntegerType _, T.VectorType _ _) -> I.inttoptr operand toType
-  (T.VectorType _ _, T.IntegerType _) -> I.ptrtoint operand toType
-  _ -> E.throwError $ CC.CodegenError loc $ CC.UnsupportedConversion fromType toType
-  where
-    isLargerFP T.FloatFP T.DoubleFP = True
-    isLargerFP T.FloatFP T.X86_FP80FP = True
-    isLargerFP T.DoubleFP T.X86_FP80FP = True
-    isLargerFP _ _ = False
-
-    isSmallerFP T.DoubleFP T.FloatFP = True
-    isSmallerFP T.X86_FP80FP T.DoubleFP = True
-    isSmallerFP T.X86_FP80FP T.FloatFP = True
-    isSmallerFP _ _ = False
-
-    isBitcastable (T.PointerType _ _) (T.PointerType _ _) = True
-    isBitcastable (T.ArrayType _ _) (T.PointerType _ _) = True
-    isBitcastable (T.ArrayType _ _) (T.ArrayType _ _) = True
-    isBitcastable (T.PointerType _ _) (T.IntegerType _) = True
-    isBitcastable (T.IntegerType _) (T.PointerType _ _) = True
-    isBitcastable (T.VectorType n fromEl) (T.VectorType m toEl) = n == m && isBitcastable fromEl toEl
-    isBitcastable _ _ = False
-
 -- | Generate LLVM code for type casts.
 generateCast :: (CS.MonadCodegen m) => AT.Expr -> m AST.Operand
 generateCast (AT.Cast _ typ expr) = do
   operand <- generateExpr expr
-  llvmCast (SU.getLoc expr) operand (TD.typeOf operand) (toLLVM typ)
+  ET.llvmCast (SU.getLoc expr) operand (TD.typeOf operand) (ET.toLLVM typ)
 generateCast expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
 
@@ -619,13 +554,13 @@ toBool loc val = do
 -- | Pre-allocate variables before generating code.
 preAllocateVars :: (CS.MonadCodegen m) => AT.Expr -> m ()
 preAllocateVars (AT.Assignment _ (AT.Var _ name typ) _) = do
-  let llvmType = toLLVM typ
+  let llvmType = ET.toLLVM typ
   existingVar <- CS.getVar name
   CM.when (M.isNothing existingVar) $ do
     ptr <- I.alloca llvmType Nothing 0
     S.modify (\s -> s {CS.allocatedVars = (name, ptr) : CS.allocatedVars s})
 preAllocateVars (AT.Declaration _ name typ init') = do
-  let llvmType = toLLVM typ
+  let llvmType = ET.toLLVM typ
   existingVar <- CS.getVar name
   CM.when (M.isNothing existingVar) $ do
     ptr <- I.alloca llvmType Nothing 0
