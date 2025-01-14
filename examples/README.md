@@ -10,10 +10,16 @@ feature of the `frost` programming language.
 
 ## List of Examples
 
+- [Array](array.ff): This example demonstrates how to access array elements.
+- [3D Spinning Donut](donut.ff): This example demonstrates how to generate a
+  spinning 3D donut using ASCII characters.
+- [Hello](hello.ff): This example demonstrates how to print "Hello, World!".
 - [Julia Set](julia.ff): This example demonstrates how to generate an animated
   Julia set.
 - [Mandelbrot Set](mandelbrot.ff): This example demonstrates how to generate an
   snapshot of the Mandelbrot set.
+- [Putstring](putstring.ff): This example implements the `putstring` function
+  that prints a string to the terminal.
 - [Sierpinski Triangle](sierpinski.ff): This example demonstrates how to
   generate a Sierpinski triangle.
 - [Sine Wave](sine.ff): This example demonstrates how to generate an animated
