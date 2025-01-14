@@ -52,6 +52,23 @@ data Type
   | TUnknown
   deriving (Show, Eq, Ord)
 
+-- | Assembly constraint type
+data AsmConstraint = AsmConstraint
+  { outputConstraint :: String,
+    inputConstraints :: [String]
+  }
+  deriving (Show, Eq, Ord)
+
+-- | Assembly expression type
+data AsmExpr = AsmExpr
+  { asmCode :: String,
+    asmConstraints :: AsmConstraint,
+    asmArgs :: [Expr],
+    asmSideEffects :: Bool,
+    asmAlignStack :: Bool
+  }
+  deriving (Show, Eq, Ord)
+
 -- | Enhanced expression nodes
 -- | StructAccess: For accessing struct fields
 -- | ArrayAccess: For array indexing
@@ -113,6 +130,11 @@ data Expr
   | StructAccess SrcLoc Expr Expr
   | ArrayAccess SrcLoc Expr Expr
   | Cast SrcLoc Type Expr
+  | Assembly
+      { asmLoc :: SrcLoc,
+        asmReturnType :: Type,
+        asmExpr :: AsmExpr
+      }
   deriving (Show, Eq, Ord)
 
 -- | Enhanced operations including bitwise operations

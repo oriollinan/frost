@@ -1,5 +1,6 @@
 module Ast.Parser.Expr where
 
+import qualified Ast.Parser.Asm as PA
 import qualified Ast.Parser.Literal as PL
 import qualified Ast.Parser.State as PS
 import qualified Ast.Parser.Type as PT
@@ -93,6 +94,7 @@ parseTerm =
       parseBlock id,
       parseCast,
       parseDefer,
+      parseAssembly,
       M.try parseFunction,
       M.try parseForeignFunction,
       M.try parseDeclaration,
@@ -154,6 +156,7 @@ implicitReturn e@(AT.UnaryOp {}) = AT.Return (SU.getLoc e) $ Just e
 implicitReturn e@(AT.StructAccess {}) = AT.Return (SU.getLoc e) $ Just e
 implicitReturn e@(AT.ArrayAccess {}) = AT.Return (SU.getLoc e) $ Just e
 implicitReturn e@(AT.Cast {}) = AT.Return (SU.getLoc e) $ Just e
+implicitReturn e@(AT.Assembly {}) = AT.Return (SU.getLoc e) $ Just e
 
 parseForeignFunction :: PU.Parser AT.Expr
 parseForeignFunction = do
@@ -271,3 +274,9 @@ parseDefer = do
 
 parseParenExpr :: PU.Parser AT.Expr
 parseParenExpr = M.between (PU.symbol "(") (PU.symbol ")") parseExpr
+
+parseAssembly :: PU.Parser AT.Expr
+parseAssembly = do
+  srcLoc <- PU.parseSrcLoc
+  type' <- PU.symbol "__asm__" *> PT.parseType
+  AT.Assembly srcLoc type' <$> PA.parseAsm parseExpr
