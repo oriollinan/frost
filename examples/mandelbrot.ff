@@ -5,7 +5,7 @@
 %%
 % Standard Library
 %%
-import "./examples/std/io.ff"
+import "std/io.ff"
 
 %%
 % Function to render the Mandelbrot set

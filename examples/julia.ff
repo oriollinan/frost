@@ -5,9 +5,9 @@
 %%
 % Standard Library
 %%
-import "./examples/std/io.ff"
-import "./examples/std/math.ff"
-import "./examples/std/uni.ff"
+import "std/io.ff"
+import "std/math.ff"
+import "std/uni.ff"
 
 %%
 % Function to clear the screen
@@ -57,8 +57,7 @@ render_julia: double double -> int = c_real c_imag {
                 char_index = iter * CHARSET_LENGTH / MAX_ITER
             }
 
-            ptr: *byte = ASCII_CHARSET + char_index
-            printf("%c" ptr.*)
+            printf("%c" ASCII_CHARSET.#char_index)
         }
         printf("\n" 0)
     }

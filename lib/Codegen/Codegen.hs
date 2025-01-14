@@ -88,6 +88,7 @@ data CodegenErrorType
   | UnsupportedStructureAccess AT.Expr
   | ContinueOutsideLoop
   | BreakOutsideLoop
+  | UnsupportedConversion T.Type T.Type
   deriving (Show)
 
 instance Show CodegenError where
@@ -117,6 +118,7 @@ showErrorType err = case err of
   UnsupportedStructureAccess expr -> "Invalid structure access: " ++ show expr
   ContinueOutsideLoop -> "Continue statement outside loop"
   BreakOutsideLoop -> "Break statement outside loop"
+  UnsupportedConversion from to -> "Unsupported conversion from " ++ show from ++ " to " ++ show to
 
 -- | Variable binding typeclass.
 class (Monad m) => VarBinding m where
@@ -578,7 +580,7 @@ generateForeignFunction (AT.ForeignFunction _ name (AT.TFunction ret params var)
   _ <-
     (if var then M.externVarArgs else M.extern)
       funcName
-      (map toLLVM params)
+      (filter (/= T.void) $ map toLLVM params)
       (toLLVM ret)
 
   addGlobalVar name $ AST.ConstantOperand $ C.GlobalReference funcType funcName
@@ -591,19 +593,7 @@ generateForeignFunction expr =
 ensureMatchingType :: (MonadCodegen m) => AT.SrcLoc -> AST.Operand -> T.Type -> m AST.Operand
 ensureMatchingType loc val targetTy
   | TD.typeOf val == targetTy = pure val
-  | otherwise = case (TD.typeOf val, targetTy) of
-      (T.IntegerType fromW, T.IntegerType toW)
-        | fromW < toW -> I.zext val targetTy
-        | fromW > toW -> I.trunc val targetTy
-      (T.FloatingPointType _, T.FloatingPointType _) -> I.fptrunc val targetTy
-      (T.IntegerType _, T.FloatingPointType _) -> I.sitofp val targetTy
-      (T.FloatingPointType _, T.IntegerType _) -> I.fptosi val targetTy
-      (T.PointerType _ _, T.PointerType _ _) -> I.bitcast val targetTy
-      (T.IntegerType _, T.PointerType _ _) -> I.inttoptr val targetTy
-      (T.PointerType _ _, T.IntegerType _) -> I.ptrtoint val targetTy
-      (T.ArrayType _ _, T.PointerType _ _) -> I.bitcast val targetTy
-      (T.ArrayType _ _, T.ArrayType _ _) -> I.bitcast val targetTy
-      _ -> E.throwError $ CodegenError loc $ UnsupportedType AT.TVoid
+  | otherwise = llvmCast loc val (TD.typeOf val) targetTy
 
 -- | Generate LLVM code for declarations.
 generateDeclaration :: (MonadCodegen m) => AT.Expr -> m AST.Operand
@@ -663,14 +653,10 @@ checkArgumentType expectedType expr = do
 
 -- | Generate LLVM code for array access.
 generateArrayAccess :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateArrayAccess (AT.ArrayAccess loc (AT.Var _ name _) indexExpr) = do
-  maybeVar <- getVar name
-  ptr <- case maybeVar of
-    Just arrayPtr -> return arrayPtr
-    Nothing -> E.throwError $ CodegenError loc $ VariableNotFound name
-  index <- generateExpr indexExpr
-  elementPtr <- I.gep ptr [IC.int32 0, index]
-  I.load elementPtr 0
+generateArrayAccess (AT.ArrayAccess _ arrayExpr indexExpr) = do
+  arrayOperand <- generateExpr arrayExpr
+  indexOperand <- generateExpr indexExpr
+  I.gep arrayOperand [indexOperand]
 generateArrayAccess expr =
   E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
@@ -704,40 +690,52 @@ getStructFieldPointer expr _ = E.throwError $ CodegenError (SU.getLoc expr) $ Un
 findStructFieldIndex :: [(String, AT.Type)] -> String -> Integer
 findStructFieldIndex fields' name' = fromIntegral $ M.fromJust $ L.findIndex ((== name') . fst) fields'
 
+llvmCast :: (MonadCodegen m) => AT.SrcLoc -> AST.Operand -> T.Type -> T.Type -> m AST.Operand
+llvmCast loc operand fromType toType = case (fromType, toType) of
+  (T.IntegerType fromBits, T.IntegerType toBits)
+    | fromBits < toBits -> I.zext operand toType
+    | fromBits > toBits -> I.trunc operand toType
+    | otherwise -> pure operand
+  (T.FloatingPointType fromFP, T.FloatingPointType toFP)
+    | isLargerFP fromFP toFP -> I.fpext operand toType
+    | isSmallerFP fromFP toFP -> I.fptrunc operand toType
+    | otherwise -> pure operand
+  (T.IntegerType _, T.FloatingPointType _) -> I.sitofp operand toType
+  (T.FloatingPointType _, T.IntegerType _) -> I.fptosi operand toType
+  (x, y) | isBitcastable x y -> I.bitcast operand toType
+  (T.VectorType n fromEl, T.VectorType m toEl)
+    | n == m && isBitcastable fromEl toEl -> I.bitcast operand toType
+    | n < m -> I.zext operand toType
+    | n > m -> I.trunc operand toType
+  (T.IntegerType _, T.VectorType _ _) -> I.inttoptr operand toType
+  (T.VectorType _ _, T.IntegerType _) -> I.ptrtoint operand toType
+  _ -> E.throwError $ CodegenError loc $ UnsupportedConversion fromType toType
+  where
+    isLargerFP T.FloatFP T.DoubleFP = True
+    isLargerFP T.FloatFP T.X86_FP80FP = True
+    isLargerFP T.DoubleFP T.X86_FP80FP = True
+    isLargerFP _ _ = False
+
+    isSmallerFP T.DoubleFP T.FloatFP = True
+    isSmallerFP T.X86_FP80FP T.DoubleFP = True
+    isSmallerFP T.X86_FP80FP T.FloatFP = True
+    isSmallerFP _ _ = False
+
+    isBitcastable (T.PointerType _ _) (T.PointerType _ _) = True
+    isBitcastable (T.ArrayType _ _) (T.PointerType _ _) = True
+    isBitcastable (T.ArrayType _ _) (T.ArrayType _ _) = True
+    isBitcastable (T.PointerType _ _) (T.IntegerType _) = True
+    isBitcastable (T.IntegerType _) (T.PointerType _ _) = True
+    isBitcastable (T.VectorType n fromEl) (T.VectorType m toEl) = n == m && isBitcastable fromEl toEl
+    isBitcastable _ _ = False
+
 -- | Generate LLVM code for type casts.
 generateCast :: (MonadCodegen m) => AT.Expr -> m AST.Operand
 generateCast (AT.Cast _ typ expr) = do
   operand <- generateExpr expr
-  let fromType = TD.typeOf operand
-      toType = toLLVM typ
-  case (fromType, toType) of
-    (T.IntegerType fromBits, T.IntegerType toBits)
-      | fromBits < toBits -> I.zext operand toType
-      | fromBits > toBits -> I.trunc operand toType
-    (T.FloatingPointType _, T.FloatingPointType _) ->
-      I.fptrunc operand toType
-    (T.IntegerType _, T.FloatingPointType _) ->
-      I.sitofp operand toType
-    (T.FloatingPointType _, T.IntegerType _) ->
-      I.fptosi operand toType
-    (T.PointerType _ _, T.PointerType _ _) ->
-      I.bitcast operand toType
-    (T.IntegerType _, T.PointerType _ _) ->
-      I.inttoptr operand toType
-    (T.PointerType _ _, T.IntegerType _) ->
-      I.ptrtoint operand toType
-    (T.ArrayType _ _, T.PointerType _ _) ->
-      I.bitcast operand toType
-    (T.ArrayType _ _, T.ArrayType _ _) ->
-      I.bitcast operand toType
-    _ ->
-      E.throwError $
-        CodegenError (SU.getLoc expr) $
-          UnsupportedType typ
+  llvmCast (SU.getLoc expr) operand (TD.typeOf operand) (toLLVM typ)
 generateCast expr =
-  E.throwError $
-    CodegenError (SU.getLoc expr) $
-      UnsupportedDefinition expr
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
 -- | Convert an operand to a boolean value.
 toBool :: (MonadCodegen m) => AT.SrcLoc -> AST.Operand -> m AST.Operand

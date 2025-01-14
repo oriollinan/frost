@@ -5,9 +5,9 @@
 %%
 % Standard Library
 %%
-import "./examples/std/io.ff"
-import "./examples/std/string.ff"
-import "./examples/std/uni.ff"
+import "std/io.ff"
+import "std/string.ff"
+import "std/uni.ff"
 
 %%
 % Function to write a string to stdout
@@ -22,9 +22,7 @@ putstr: *byte -> int = string {
     len: int = strlen(string)
 
     from 0 to len + 1 by 1 |i: int| {
-        ptr: *byte = string + i
-
-        out = out + write(STDOUT_FILENO ptr 1)
+        out = out + write(STDOUT_FILENO string.#i 1)
     }
 
     out

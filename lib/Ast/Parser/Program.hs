@@ -13,14 +13,14 @@ parseProgram :: String -> PU.Parser AT.Program
 parseProgram sourceFile = do
   _ <- PU.sc
   S.modify $ PS.insertImport sourceFile
-  source <- preprocess
+  source <- preprocess sourceFile
   M.setInput source
   components <- M.many $ M.choice [M.try parseTypeDefinition, parseExpr]
   return $ AT.Program (concatMap AT.globals components) (concatMap AT.types components) sourceFile
 
-preprocess :: PU.Parser String
-preprocess = do
-  sources <- M.many $ M.choice [PI.parseImport preprocess, (: []) <$> M.anySingle]
+preprocess :: String -> PU.Parser String
+preprocess sourceFile = do
+  sources <- M.many $ M.choice [PI.parseImport sourceFile (preprocess sourceFile), (: []) <$> M.anySingle]
   return $ concat sources
 
 parseTypeDefinition :: PU.Parser AT.Program
