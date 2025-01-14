@@ -893,6 +893,10 @@ generateAssignment (AT.Assignment _ expr valueExpr) = do
           I.store actualPtr 0 value
           pure value
         Nothing -> E.throwError $ CodegenError (SU.getLoc expr) $ VariableNotFound name
+    AT.StructAccess _ structExpr (AT.Var _ fieldName _) -> do
+      fieldPtr <- getStructFieldPointer structExpr fieldName
+      I.store fieldPtr 0 value
+      pure value
     _ -> E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 generateAssignment expr =
   E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
