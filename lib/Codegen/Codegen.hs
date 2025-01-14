@@ -86,6 +86,7 @@ data CodegenErrorType
   | VariableNotFound String
   | UnsupportedFunctionCall String
   | UnsupportedStructureAccess AT.Expr
+  | StructureFieldNotFound String
   | ContinueOutsideLoop
   | BreakOutsideLoop
   | UnsupportedConversion T.Type T.Type
@@ -116,6 +117,7 @@ showErrorType err = case err of
   VariableNotFound name -> "Variable not found: " ++ name
   UnsupportedFunctionCall name -> "Invalid function call: " ++ name
   UnsupportedStructureAccess expr -> "Invalid structure access: " ++ show expr
+  StructureFieldNotFound name -> "Structure field not found: " ++ name
   ContinueOutsideLoop -> "Continue statement outside loop"
   BreakOutsideLoop -> "Break statement outside loop"
   UnsupportedConversion from to -> "Unsupported conversion from " ++ show from ++ " to " ++ show to
@@ -211,7 +213,7 @@ instance ExprGen AT.Expr where
     AT.UnaryOp {} -> generateUnaryOp expr
     AT.Call {} -> generateFunctionCall expr
     AT.ArrayAccess {} -> generateArrayAccess expr
-    AT.StructAccess {} -> generateStructAccess expr
+    AT.StructAccess {} -> do generateStructAccess expr
     AT.Cast {} -> generateCast expr
     AT.For {} -> generateForLoop expr
     AT.While {} -> generateWhileLoop expr
@@ -660,35 +662,32 @@ generateArrayAccess (AT.ArrayAccess _ arrayExpr indexExpr) = do
 generateArrayAccess expr =
   E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 
--- | Generate LLVM code for struct access.
+-- | Generate LLVM code for struct access, recursively traversing all levels.
 generateStructAccess :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateStructAccess (AT.StructAccess loc (AT.StructAccess _ structExpr (AT.Var nestedStructNameLoc nestedStructName _)) (AT.Var innerFieldLoc innerFieldName innerFieldType)) = do
-  case structExpr of
-    AT.Var _ _ (AT.TStruct _ structFields) -> do
-      structPtr <- getStructFieldPointer structExpr nestedStructName
-      let nestedStructType = M.fromJust $ L.find ((== nestedStructName) . fst) structFields
-      nestedStructIndex <- case nestedStructType of
-        (_, AT.TStruct _ innerFields) -> return $ fromIntegral $ M.fromJust $ L.findIndex ((== innerFieldName) . fst) innerFields
-        _ -> E.throwError $ CodegenError nestedStructNameLoc $ UnsupportedStructureAccess (AT.Var innerFieldLoc innerFieldName innerFieldType)
-      innerFieldPtr <- I.gep structPtr [IC.int32 0, IC.int32 nestedStructIndex]
-      I.load innerFieldPtr 0
-    _ -> E.throwError $ CodegenError loc $ UnsupportedStructureAccess structExpr
-generateStructAccess (AT.StructAccess _ structExpr (AT.Var _ fieldName _)) = do
-  fieldPtr <- getStructFieldPointer structExpr fieldName
-  I.load fieldPtr 0
-generateStructAccess expr = E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
+generateStructAccess expr = do
+  (ptr, _) <- getStructFieldPointer expr
+  I.load ptr 0
 
-getStructFieldPointer :: (MonadCodegen m) => AT.Expr -> String -> m AST.Operand
-getStructFieldPointer (AT.Var loc name (AT.TStruct _ fields)) fieldName = do
-  maybeVar <- getVar name
+getStructFieldPointer :: (MonadCodegen m) => AT.Expr -> m (AST.Operand, AT.Type)
+getStructFieldPointer (AT.StructAccess structLoc structExpr (AT.Var _ fieldName _)) = do
+  (parentPtr, parentType) <- getStructFieldPointer structExpr
+  case parentType of
+    AT.TStruct _ structFields -> do
+      fieldIndex <- case L.findIndex ((== fieldName) . fst) structFields of
+        Just index -> return $ fromIntegral index
+        Nothing -> E.throwError $ CodegenError structLoc $ StructureFieldNotFound fieldName
+      fieldPtr <- I.gep parentPtr [IC.int32 0, IC.int32 fieldIndex]
+      let fieldType = snd $ structFields !! fromIntegral fieldIndex
+      return (fieldPtr, fieldType)
+    _ -> E.throwError $ CodegenError structLoc $ UnsupportedStructureAccess structExpr
+getStructFieldPointer (AT.Var structLoc structName structType) = do
+  maybeVar <- getVar structName
   ptr <- case maybeVar of
     Just structPtr -> return structPtr
-    Nothing -> E.throwError $ CodegenError loc $ VariableNotFound name
-  I.gep ptr [IC.int32 0, IC.int32 (findStructFieldIndex fields fieldName)]
-getStructFieldPointer expr _ = E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
-
-findStructFieldIndex :: [(String, AT.Type)] -> String -> Integer
-findStructFieldIndex fields' name' = fromIntegral $ M.fromJust $ L.findIndex ((== name') . fst) fields'
+    Nothing -> E.throwError $ CodegenError structLoc $ VariableNotFound structName
+  return (ptr, structType)
+getStructFieldPointer expr =
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedStructureAccess expr
 
 llvmCast :: (MonadCodegen m) => AT.SrcLoc -> AST.Operand -> T.Type -> T.Type -> m AST.Operand
 llvmCast loc operand fromType toType = case (fromType, toType) of
@@ -893,8 +892,8 @@ generateAssignment (AT.Assignment _ expr valueExpr) = do
           I.store actualPtr 0 value
           pure value
         Nothing -> E.throwError $ CodegenError (SU.getLoc expr) $ VariableNotFound name
-    AT.StructAccess _ structExpr (AT.Var _ fieldName _) -> do
-      fieldPtr <- getStructFieldPointer structExpr fieldName
+    AT.StructAccess {} -> do
+      (fieldPtr, _) <- getStructFieldPointer expr
       I.store fieldPtr 0 value
       pure value
     _ -> E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
