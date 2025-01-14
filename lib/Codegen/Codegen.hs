@@ -580,7 +580,7 @@ generateForeignFunction (AT.ForeignFunction _ name (AT.TFunction ret params var)
   _ <-
     (if var then M.externVarArgs else M.extern)
       funcName
-      (map toLLVM params)
+      (filter (/= T.void) $ map toLLVM params)
       (toLLVM ret)
 
   addGlobalVar name $ AST.ConstantOperand $ C.GlobalReference funcType funcName
