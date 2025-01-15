@@ -1,0 +1,18 @@
+import "std/io.ff"
+
+globalDouble: double = 0,2
+globalInt: int = 76
+globalChar: char = 'a'
+globalBool: bool = true
+structType :: struct {
+    hello -> int
+}
+globalStruct: structType = structType { hello = 123 }
+
+main: never -> never = {
+  printf("double: %f\n" globalDouble)
+  printf("int: %d\n" globalInt)
+  printf("char: %c\n" globalChar)
+  printf("bool: %d\n" globalBool)
+  printf("struct: %d\n" globalStruct.hello)
+}
