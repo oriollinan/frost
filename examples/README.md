@@ -24,6 +24,8 @@ feature of the `frost` programming language.
   generate a Sierpinski triangle.
 - [Sine Wave](sine.ff): This example demonstrates how to generate an animated
   sine wave.
+- [Assembly Sum (aarm64)](sum_aarm64.ff): This example demonstrates how to write
+  a function in assembly and call it from `frost`.
 
 ## Running the Examples
 
