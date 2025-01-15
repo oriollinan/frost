@@ -653,12 +653,11 @@ spec = do
         (PU.normalizeExpr <$> result) `shouldBe` expected
 
     it "parses inline assembly" $ do
-      let input = "__asm__ never { code -> \"nop\" constraints -> \"\" args -> () side_effects -> false align_stack -> false }"
+      let input = "__asm__ { code -> \"nop\" constraints -> \"\" args -> () parameters -> never return_type -> never side_effects -> false align_stack -> false dialect -> ATT }"
       result <- parse input
       let expected =
             Right $
               AT.Assembly
                 PU.normalizeLoc
-                AT.TVoid
-                (AT.AsmExpr "nop" (AT.AsmConstraint "" []) [] False False)
+                (AT.AsmExpr "nop" (AT.AsmConstraint "" []) [] [AT.TVoid] AT.TVoid False False AT.ATT)
       (PU.normalizeExpr <$> result) `shouldBe` expected

@@ -278,5 +278,4 @@ parseParenExpr = M.between (PU.symbol "(") (PU.symbol ")") parseExpr
 parseAssembly :: PU.Parser AT.Expr
 parseAssembly = do
   srcLoc <- PU.parseSrcLoc
-  type' <- PU.symbol "__asm__" *> PT.parseType
-  AT.Assembly srcLoc type' <$> PA.parseAsm parseExpr
+  AT.Assembly srcLoc <$> (PU.symbol "__asm__" *> PA.parseAsm parseExpr PT.parseType)

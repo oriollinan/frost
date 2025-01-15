@@ -59,13 +59,19 @@ data AsmConstraint = AsmConstraint
   }
   deriving (Show, Eq, Ord)
 
+-- | Assembly dialect
+data AsmDialect = Intel | ATT deriving (Show, Eq, Ord)
+
 -- | Assembly expression type
 data AsmExpr = AsmExpr
   { asmCode :: String,
     asmConstraints :: AsmConstraint,
     asmArgs :: [Expr],
+    asmParameters :: [Type],
+    asmReturnType :: Type,
     asmSideEffects :: Bool,
-    asmAlignStack :: Bool
+    asmAlignStack :: Bool,
+    asmDialect :: AsmDialect
   }
   deriving (Show, Eq, Ord)
 
@@ -132,7 +138,6 @@ data Expr
   | Cast SrcLoc Type Expr
   | Assembly
       { asmLoc :: SrcLoc,
-        asmReturnType :: Type,
         asmExpr :: AsmExpr
       }
   deriving (Show, Eq, Ord)
