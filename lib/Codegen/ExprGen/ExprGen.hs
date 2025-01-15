@@ -1,10 +1,9 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module Codegen.ExprGen.ExprGen where
 
 import qualified Ast.Types as AT
--- Phone Home
-
 import qualified Codegen.ExprGen.Assembly as EA
 import qualified Codegen.ExprGen.Cast as EC
 import qualified Codegen.ExprGen.ControlFlow as EF
@@ -20,6 +19,7 @@ class ExprGen a where
   generateExpr :: (CS.MonadCodegen m) => a -> m AST.Operand
 
 instance ExprGen AT.Expr where
+  generateExpr :: (CS.MonadCodegen m) => AT.Expr -> m AST.Operand
   generateExpr expr = case expr of
     AT.Lit {} -> EV.generateLiteral expr
     AT.Var {} -> EV.generateVar expr
