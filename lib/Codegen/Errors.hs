@@ -1,3 +1,5 @@
+{-# LANGUAGE InstanceSigs #-}
+
 module Codegen.Errors where
 
 import qualified Ast.Types as AT
@@ -32,6 +34,7 @@ data CodegenErrorType
   deriving (Show)
 
 instance Show CodegenError where
+  show :: CodegenError -> String
   show (CodegenError loc err) =
     AT.srcFile loc
       ++ ":"
