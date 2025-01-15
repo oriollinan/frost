@@ -121,102 +121,134 @@ generateUnaryOp expr =
 -- | List of supported unary operators.
 unaryOperators :: (CS.MonadCodegen m) => AT.SrcLoc -> [UnaryOp m]
 unaryOperators loc =
-  [ UnaryOp AT.PreInc $ \operand -> do
-      case TD.typeOf operand of
-        T.PointerType _ _ -> do
-          val <- I.load operand 0
-          newVal <- I.add val (AST.ConstantOperand $ C.Int 32 1)
-          I.store operand 0 newVal
-          pure newVal
-        T.IntegerType bits -> do
-          I.add operand (AST.ConstantOperand $ C.Int bits 1)
-        T.FloatingPointType T.FloatFP -> do
-          I.fadd operand (AST.ConstantOperand $ C.Float $ FF.Single 1.0)
-        T.FloatingPointType T.DoubleFP -> do
-          I.fadd operand (AST.ConstantOperand $ C.Float $ FF.Double 1.0)
-        _ -> E.throwError $ CC.CodegenError loc $ CC.UnsupportedUnaryOperator AT.PreInc,
-    UnaryOp AT.PreDec $ \operand -> do
-      case TD.typeOf operand of
-        T.PointerType _ _ -> do
-          val <- I.load operand 0
-          newVal <- I.sub val (AST.ConstantOperand $ C.Int 32 1)
-          I.store operand 0 newVal
-          pure newVal
-        T.IntegerType bits -> do
-          I.sub operand (AST.ConstantOperand $ C.Int bits 1)
-        T.FloatingPointType T.FloatFP -> do
-          I.fsub operand (AST.ConstantOperand $ C.Float $ FF.Single 1.0)
-        T.FloatingPointType T.DoubleFP -> do
-          I.fsub operand (AST.ConstantOperand $ C.Float $ FF.Double 1.0)
-        _ -> E.throwError $ CC.CodegenError loc $ CC.UnsupportedUnaryOperator AT.PreDec,
-    UnaryOp AT.PostInc $ \operand -> do
-      case TD.typeOf operand of
-        T.PointerType _ _ -> do
-          oldVal <- I.load operand 0
-          newVal <- I.add oldVal (AST.ConstantOperand $ C.Int 32 1)
-          I.store operand 0 newVal
-          pure oldVal
-        T.IntegerType bits -> do
-          let oldVal = operand
-          _ <- I.add operand (AST.ConstantOperand $ C.Int bits 1)
-          pure oldVal
-        T.FloatingPointType T.FloatFP -> do
-          let oldVal = operand
-          _ <- I.fadd operand (AST.ConstantOperand $ C.Float $ FF.Single 1.0)
-          pure oldVal
-        T.FloatingPointType T.DoubleFP -> do
-          let oldVal = operand
-          _ <- I.fadd operand (AST.ConstantOperand $ C.Float $ FF.Double 1.0)
-          pure oldVal
-        _ -> E.throwError $ CC.CodegenError loc $ CC.UnsupportedUnaryOperator AT.PostInc,
-    UnaryOp AT.PostDec $ \operand -> do
-      case TD.typeOf operand of
-        T.PointerType _ _ -> do
-          oldVal <- I.load operand 0
-          newVal <- I.sub oldVal (AST.ConstantOperand $ C.Int 32 1)
-          I.store operand 0 newVal
-          pure oldVal
-        T.IntegerType bits -> do
-          let oldVal = operand
-          _ <- I.sub operand (AST.ConstantOperand $ C.Int bits 1)
-          pure oldVal
-        T.FloatingPointType T.FloatFP -> do
-          let oldVal = operand
-          _ <- I.fsub operand (AST.ConstantOperand $ C.Float $ FF.Single 1.0)
-          pure oldVal
-        T.FloatingPointType T.DoubleFP -> do
-          let oldVal = operand
-          _ <- I.fsub operand (AST.ConstantOperand $ C.Float $ FF.Double 1.0)
-          pure oldVal
-        _ -> E.throwError $ CC.CodegenError loc $ CC.UnsupportedUnaryOperator AT.PostDec,
-    UnaryOp AT.Not $ \operand -> do
-      let operandType = TD.typeOf operand
-      case operandType of
-        T.PointerType _ _ -> do
-          I.icmp IP.EQ operand (AST.ConstantOperand $ C.Null operandType)
-        T.IntegerType _ -> I.xor operand (AST.ConstantOperand $ C.Int 32 (-1))
-        T.FloatingPointType T.FloatFP -> do
-          I.fcmp FP.OEQ operand (AST.ConstantOperand $ C.Float $ FF.Single 0.0)
-        T.FloatingPointType T.DoubleFP -> do
-          I.fcmp FP.OEQ operand (AST.ConstantOperand $ C.Float $ FF.Double 0.0)
-        _ -> E.throwError $ CC.CodegenError loc $ CC.UnsupportedUnaryOperator AT.Not,
-    UnaryOp AT.BitNot $ \operand -> do
-      case TD.typeOf operand of
-        T.IntegerType bits ->
-          I.xor operand (AST.ConstantOperand $ C.Int bits (-1))
-        T.FloatingPointType T.FloatFP -> do
-          intValue <- I.bitcast operand (T.IntegerType 32)
-          notted <- I.xor intValue (AST.ConstantOperand $ C.Int 32 (-1))
-          I.bitcast notted (T.FloatingPointType T.FloatFP)
-        T.FloatingPointType T.DoubleFP -> do
-          intValue <- I.bitcast operand (T.IntegerType 64)
-          notted <- I.xor intValue (AST.ConstantOperand $ C.Int 64 (-1))
-          I.bitcast notted (T.FloatingPointType T.DoubleFP)
-        _ -> E.throwError $ CC.CodegenError loc $ CC.UnsupportedUnaryOperator AT.BitNot,
-    UnaryOp AT.Deref $ \operand -> do
-      I.load operand 0,
-    UnaryOp AT.AddrOf $ \operand -> do
-      ptr <- I.alloca (TD.typeOf operand) Nothing 0
-      I.store ptr 0 operand
-      pure ptr
+  [ UnaryOp AT.PreInc $ handlePreInc loc,
+    UnaryOp AT.PreDec $ handlePreDec loc,
+    UnaryOp AT.PostInc $ handlePostInc loc,
+    UnaryOp AT.PostDec $ handlePostDec loc,
+    UnaryOp AT.Not $ handleNot loc,
+    UnaryOp AT.BitNot $ handleBitNot loc,
+    UnaryOp AT.Deref $ handleDeref loc,
+    UnaryOp AT.AddrOf $ handleAddrOf loc
   ]
+
+-- | Handle pre-increment unary operator.
+handlePreInc :: (CS.MonadCodegen m) => AT.SrcLoc -> AST.Operand -> m AST.Operand
+handlePreInc loc operand =
+  case TD.typeOf operand of
+    T.PointerType _ _ -> do
+      val <- I.load operand 0
+      newVal <- I.add val (AST.ConstantOperand $ C.Int 32 1)
+      I.store operand 0 newVal
+      pure newVal
+    T.IntegerType bits ->
+      I.add operand (AST.ConstantOperand $ C.Int bits 1)
+    T.FloatingPointType T.FloatFP ->
+      I.fadd operand (AST.ConstantOperand $ C.Float $ FF.Single 1.0)
+    T.FloatingPointType T.DoubleFP ->
+      I.fadd operand (AST.ConstantOperand $ C.Float $ FF.Double 1.0)
+    _ -> E.throwError $ CC.CodegenError loc $ CC.UnsupportedUnaryOperator AT.PreInc
+
+-- | Handle pre-decrement unary operator.
+handlePreDec :: (CS.MonadCodegen m) => AT.SrcLoc -> AST.Operand -> m AST.Operand
+handlePreDec loc operand =
+  case TD.typeOf operand of
+    T.PointerType _ _ -> do
+      val <- I.load operand 0
+      newVal <- I.sub val (AST.ConstantOperand $ C.Int 32 1)
+      I.store operand 0 newVal
+      pure newVal
+    T.IntegerType bits ->
+      I.sub operand (AST.ConstantOperand $ C.Int bits 1)
+    T.FloatingPointType T.FloatFP ->
+      I.fsub operand (AST.ConstantOperand $ C.Float $ FF.Single 1.0)
+    T.FloatingPointType T.DoubleFP ->
+      I.fsub operand (AST.ConstantOperand $ C.Float $ FF.Double 1.0)
+    _ -> E.throwError $ CC.CodegenError loc $ CC.UnsupportedUnaryOperator AT.PreDec
+
+-- | Handle post-increment unary operator.
+handlePostInc :: (CS.MonadCodegen m) => AT.SrcLoc -> AST.Operand -> m AST.Operand
+handlePostInc loc operand =
+  case TD.typeOf operand of
+    T.PointerType _ _ -> do
+      oldVal <- I.load operand 0
+      newVal <- I.add oldVal (AST.ConstantOperand $ C.Int 32 1)
+      I.store operand 0 newVal
+      pure oldVal
+    T.IntegerType bits -> do
+      let oldVal = operand
+      _ <- I.add operand (AST.ConstantOperand $ C.Int bits 1)
+      pure oldVal
+    T.FloatingPointType T.FloatFP -> do
+      let oldVal = operand
+      _ <- I.fadd operand (AST.ConstantOperand $ C.Float $ FF.Single 1.0)
+      pure oldVal
+    T.FloatingPointType T.DoubleFP -> do
+      let oldVal = operand
+      _ <- I.fadd operand (AST.ConstantOperand $ C.Float $ FF.Double 1.0)
+      pure oldVal
+    _ -> E.throwError $ CC.CodegenError loc $ CC.UnsupportedUnaryOperator AT.PostInc
+
+-- | Handle post-decrement unary operator.
+handlePostDec :: (CS.MonadCodegen m) => AT.SrcLoc -> AST.Operand -> m AST.Operand
+handlePostDec loc operand =
+  case TD.typeOf operand of
+    T.PointerType _ _ -> do
+      oldVal <- I.load operand 0
+      newVal <- I.sub oldVal (AST.ConstantOperand $ C.Int 32 1)
+      I.store operand 0 newVal
+      pure oldVal
+    T.IntegerType bits -> do
+      let oldVal = operand
+      _ <- I.sub operand (AST.ConstantOperand $ C.Int bits 1)
+      pure oldVal
+    T.FloatingPointType T.FloatFP -> do
+      let oldVal = operand
+      _ <- I.fsub operand (AST.ConstantOperand $ C.Float $ FF.Single 1.0)
+      pure oldVal
+    T.FloatingPointType T.DoubleFP -> do
+      let oldVal = operand
+      _ <- I.fsub operand (AST.ConstantOperand $ C.Float $ FF.Double 1.0)
+      pure oldVal
+    _ -> E.throwError $ CC.CodegenError loc $ CC.UnsupportedUnaryOperator AT.PostDec
+
+-- | Handle not unary operator.
+handleNot :: (CS.MonadCodegen m) => AT.SrcLoc -> AST.Operand -> m AST.Operand
+handleNot loc operand =
+  let operandType = TD.typeOf operand
+   in case operandType of
+        T.PointerType _ _ ->
+          I.icmp IP.EQ operand (AST.ConstantOperand $ C.Null operandType)
+        T.IntegerType _ ->
+          I.xor operand (AST.ConstantOperand $ C.Int 32 (-1))
+        T.FloatingPointType T.FloatFP ->
+          I.fcmp FP.OEQ operand (AST.ConstantOperand $ C.Float $ FF.Single 0.0)
+        T.FloatingPointType T.DoubleFP ->
+          I.fcmp FP.OEQ operand (AST.ConstantOperand $ C.Float $ FF.Double 0.0)
+        _ -> E.throwError $ CC.CodegenError loc $ CC.UnsupportedUnaryOperator AT.Not
+
+-- | Handle bit-not unary operator.
+handleBitNot :: (CS.MonadCodegen m) => AT.SrcLoc -> AST.Operand -> m AST.Operand
+handleBitNot loc operand =
+  case TD.typeOf operand of
+    T.IntegerType bits ->
+      I.xor operand (AST.ConstantOperand $ C.Int bits (-1))
+    T.FloatingPointType T.FloatFP -> do
+      intValue <- I.bitcast operand (T.IntegerType 32)
+      notted <- I.xor intValue (AST.ConstantOperand $ C.Int 32 (-1))
+      I.bitcast notted (T.FloatingPointType T.FloatFP)
+    T.FloatingPointType T.DoubleFP -> do
+      intValue <- I.bitcast operand (T.IntegerType 64)
+      notted <- I.xor intValue (AST.ConstantOperand $ C.Int 64 (-1))
+      I.bitcast notted (T.FloatingPointType T.DoubleFP)
+    _ -> E.throwError $ CC.CodegenError loc $ CC.UnsupportedUnaryOperator AT.BitNot
+
+-- | Handle dereference unary operator.
+handleDeref :: (CS.MonadCodegen m) => AT.SrcLoc -> AST.Operand -> m AST.Operand
+handleDeref _ operand = I.load operand 0
+
+-- | Handle address-of unary operator.
+handleAddrOf :: (CS.MonadCodegen m) => AT.SrcLoc -> AST.Operand -> m AST.Operand
+handleAddrOf _ operand = do
+  ptr <- I.alloca (TD.typeOf operand) Nothing 0
+  I.store ptr 0 operand
+  pure ptr
