@@ -34,6 +34,18 @@ library
     Ast.Types
     Codegen.Codegen
     Codegen.Utils
+    Codegen.State
+    Codegen.Errors
+    Codegen.ExprGen.Types
+    Codegen.ExprGen.ExprGen
+    Codegen.ExprGen.Cast
+    Codegen.ExprGen.Operator
+    Codegen.ExprGen.ControlFlow
+    Codegen.ExprGen.Assembly
+    Codegen.ExprGen.DataValue
+    Codegen.ExprGen.Variable
+    Codegen.ExprGen.Function
+    Codegen.ExprGen.Global
     Shared.Utils
 
   build-depends:
