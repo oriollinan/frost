@@ -7,11 +7,11 @@ import qualified Codegen.Codegen as C
 import qualified Control.Monad as M
 import qualified Control.Monad.IO.Class as IO
 import qualified Control.Monad.Trans.Except as E
-import qualified Data.Maybe as DM
 import qualified Data.Text.Lazy as TL
 import qualified LLVM.Pretty as LLVM
 import qualified Options.Applicative as O
 import qualified System.Exit as EX
+import qualified System.FilePath as FP
 import qualified System.IO as S
 import qualified Text.Pretty.Simple as PS
 
@@ -22,7 +22,7 @@ data CompileError
 
 data Options = Options
   { input :: Maybe FilePath,
-    out :: FilePath,
+    out :: Maybe FilePath,
     verbose :: Bool
   }
 
@@ -34,15 +34,16 @@ optionsParser =
           ( O.long "input"
               <> O.short 'i'
               <> O.metavar "FILENAME"
-              <> O.help "Input file to read from (defaults to STDIN)"
+              <> O.help "Input file path"
           )
       )
-    <*> O.strOption
-      ( O.long "out"
-          <> O.short 'o'
-          <> O.metavar "FILENAME"
-          <> O.help "Output file for the generated LLVM IR"
-          <> O.value "demo/generated.ll"
+    <*> O.optional
+      ( O.strOption
+          ( O.long "out"
+              <> O.short 'o'
+              <> O.metavar "FILENAME"
+              <> O.help "Output file path"
+          )
       )
     <*> O.switch
       ( O.long "verbose"
@@ -75,10 +76,6 @@ compile input source verbose = do
 logMsg :: Bool -> String -> IO ()
 logMsg verbose msg = M.when verbose $ S.hPutStrLn S.stderr ("[LOG] " ++ msg)
 
-readInput :: Maybe FilePath -> IO String
-readInput Nothing = getContents
-readInput (Just filePath) = readFile filePath
-
 handleError :: String -> String -> Bool -> IO a
 handleError errType errMsg verbose = do
   S.hPutStrLn S.stderr $ "Error: " ++ errMsg
@@ -88,14 +85,29 @@ handleError errType errMsg verbose = do
 main :: IO ()
 main = do
   Options {input, out, verbose} <- O.execParser optionsInfo
-  source <- readInput input
+
+  (filePath, source) <- case input of
+    Nothing -> do
+      logMsg verbose "Reading from stdin..."
+      source <- S.getContents
+      return ("<stdin>", source)
+    Just fp ->
+      if FP.takeExtension fp /= ".ff"
+        then handleError "file input" "Only .ff files are supported" verbose
+        else do
+          source <- readFile fp
+          return (fp, source)
 
   logMsg verbose "Starting compilation..."
-  result <- E.runExceptT $ compile (DM.fromMaybe "stdin" input) source verbose
 
+  result <- E.runExceptT $ compile filePath source verbose
   case result of
     Left (ParseError err) -> handleError "parsing" err verbose
     Left (CodegenError err) -> handleError "code generation" err verbose
-    Right llvm -> do
-      writeFile out llvm
-      logMsg verbose $ "Compilation successful! Output written to: " ++ out
+    Right llvm -> case out of
+      Just outFile -> do
+        writeFile outFile llvm
+        logMsg verbose $ "Compilation successful! Output written to: " ++ outFile
+      Nothing -> do
+        putStr llvm
+        logMsg verbose "Compilation successful! Output written to stdout"
