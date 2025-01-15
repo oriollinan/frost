@@ -935,16 +935,23 @@ callInlineAssembly asm retType args' = do
 
 -- | Generate LLVM code for assembly expressions.
 generateAssembly :: (MonadCodegen m) => AT.Expr -> m AST.Operand
-generateAssembly (AT.Assembly _ retTy asmExpr) = do
-  let llvmRetTy = toLLVM retTy
-      -- TODO(jabolo): Set parameters dynamically once #188 lands
-      inlineType = T.FunctionType llvmRetTy [] False
+generateAssembly (AT.Assembly _ asmExpr) = do
+  let llvmRetTy = toLLVM $ AT.asmReturnType asmExpr
+      inlineType = T.FunctionType llvmRetTy (map toLLVM $ AT.asmParameters asmExpr) False
 
       (output, inputs) =
         ( AT.outputConstraint $ AT.asmConstraints asmExpr,
           AT.inputConstraints $ AT.asmConstraints asmExpr
         )
-      combinedConstraints = output <> concat inputs
+      combinedConstraints = case (output, inputs) of
+        ("", []) -> ""
+        ("", is) -> L.intercalate "," is
+        (o, []) -> "=" ++ o
+        (o, is) -> "=" ++ o ++ "," ++ L.intercalate "," is
+
+      dialect = case AT.asmDialect asmExpr of
+        AT.Intel -> IA.IntelDialect
+        AT.ATT -> IA.ATTDialect
 
       inlAsm =
         IA.InlineAssembly
@@ -953,8 +960,7 @@ generateAssembly (AT.Assembly _ retTy asmExpr) = do
             IA.constraints = BS.toShort $ B.pack combinedConstraints,
             IA.hasSideEffects = AT.asmSideEffects asmExpr,
             IA.alignStack = AT.asmAlignStack asmExpr,
-            -- TODO(jabolo): Switch dialect based on target
-            IA.dialect = IA.ATTDialect
+            IA.dialect = dialect
           }
 
   asmOperands <-
