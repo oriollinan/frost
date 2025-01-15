@@ -11,6 +11,9 @@ import "std/uni.ff"
 import "std/string.ff"
 import "std/lib.ff"
 
+%%
+% Main function
+%%
 main: never -> int = {
     SIZEOF_DOUBLE: int = 8
     BUFFER_SIZE: int = 1760
