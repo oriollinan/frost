@@ -4,6 +4,7 @@ import qualified Ast.Parser.State as PS
 import qualified Ast.Types as AT
 import qualified Control.Monad.Combinators.Expr as CE
 import qualified Control.Monad.State as S
+import qualified Data.Char as C
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
 import qualified Text.Megaparsec.Char.Lexer as ML
@@ -63,3 +64,74 @@ postfix name f = CE.Postfix (f <$> (parseSrcLoc <* symbol name))
 -- | Helper functions to define operators
 binary :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr -> AT.Expr) -> CE.Operator Parser AT.Expr
 binary name f = CE.InfixL (f <$> (parseSrcLoc <* symbol name))
+
+parseBool :: Parser Bool
+parseBool = True <$ MC.string "true" M.<|> False <$ MC.string "false"
+
+parseStringChar :: Parser Char
+parseStringChar =
+  M.choice
+    [ parseEscapeSequence,
+      M.noneOf ['"', '\\']
+    ]
+
+parseEscapeSequence :: Parser Char
+parseEscapeSequence =
+  MC.char '\\'
+    >> M.choice
+      [ '\a' <$ MC.char 'a',
+        '\b' <$ MC.char 'b',
+        '\f' <$ MC.char 'f',
+        '\n' <$ MC.char 'n',
+        '\r' <$ MC.char 'r',
+        '\t' <$ MC.char 't',
+        '\v' <$ MC.char 'v',
+        '\\' <$ MC.char '\\',
+        '\"' <$ MC.char '"',
+        '\'' <$ MC.char '\'',
+        '\0' <$ MC.char '0',
+        parseHexEscape,
+        parseOctalEscape
+      ]
+
+parseHexEscape :: Parser Char
+parseHexEscape = do
+  _ <- MC.char 'x'
+  digits <- M.count 2 hexDigit
+  return $ C.chr $ read ("0x" ++ digits)
+
+parseOctalEscape :: Parser Char
+parseOctalEscape = do
+  digits <- M.count 3 octalDigit
+  return $ C.chr $ read ("0o" ++ digits)
+
+hexDigit :: Parser Char
+hexDigit = M.oneOf $ ['0' .. '9'] ++ ['a' .. 'f'] ++ ['A' .. 'F']
+
+octalDigit :: Parser Char
+octalDigit = M.oneOf ['0' .. '7']
+
+normalizeLoc :: AT.SrcLoc
+normalizeLoc = AT.SrcLoc "" 0 0
+
+normalizeExpr :: AT.Expr -> AT.Expr
+normalizeExpr (AT.Lit _ lit) = AT.Lit normalizeLoc lit
+normalizeExpr (AT.Var _ name t) = AT.Var normalizeLoc name t
+normalizeExpr (AT.Function _ name t params body) = AT.Function normalizeLoc name t params (normalizeExpr body)
+normalizeExpr (AT.Declaration _ name t initVal) = AT.Declaration normalizeLoc name t (fmap normalizeExpr initVal)
+normalizeExpr (AT.Assignment _ target value) = AT.Assignment normalizeLoc (normalizeExpr target) (normalizeExpr value)
+normalizeExpr (AT.Call _ func args) = AT.Call normalizeLoc (normalizeExpr func) (map normalizeExpr args)
+normalizeExpr (AT.If _ cond thenBranch elseBranch) = AT.If normalizeLoc (normalizeExpr cond) (normalizeExpr thenBranch) (fmap normalizeExpr elseBranch)
+normalizeExpr (AT.Block exprs) = AT.Block (map normalizeExpr exprs)
+normalizeExpr (AT.Return _ value) = AT.Return normalizeLoc (fmap normalizeExpr value)
+normalizeExpr (AT.Op _ op e1 e2) = AT.Op normalizeLoc op (normalizeExpr e1) (normalizeExpr e2)
+normalizeExpr (AT.UnaryOp _ op e) = AT.UnaryOp normalizeLoc op (normalizeExpr e)
+normalizeExpr (AT.For _ i c s b) = AT.For normalizeLoc (normalizeExpr i) (normalizeExpr c) (normalizeExpr s) (normalizeExpr b)
+normalizeExpr (AT.While _ c b) = AT.While normalizeLoc (normalizeExpr c) (normalizeExpr b)
+normalizeExpr (AT.Continue _) = AT.Continue normalizeLoc
+normalizeExpr (AT.Break _) = AT.Break normalizeLoc
+normalizeExpr (AT.StructAccess _ e1 e2) = AT.StructAccess normalizeLoc (normalizeExpr e1) (normalizeExpr e2)
+normalizeExpr (AT.ArrayAccess _ e1 e2) = AT.ArrayAccess normalizeLoc (normalizeExpr e1) (normalizeExpr e2)
+normalizeExpr (AT.Cast _ t e) = AT.Cast normalizeLoc t (normalizeExpr e)
+normalizeExpr (AT.ForeignFunction _ n t) = AT.ForeignFunction normalizeLoc n t
+normalizeExpr (AT.Assembly _ a) = AT.Assembly normalizeLoc a

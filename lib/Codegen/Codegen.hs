@@ -15,20 +15,26 @@ import qualified Control.Monad as CM
 import qualified Control.Monad.Except as E
 import qualified Control.Monad.Fix as F
 import qualified Control.Monad.State as S
+import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Short as BS
 import qualified Data.Foldable as FD
 import qualified Data.List as L
 import qualified Data.Maybe as M
 import qualified LLVM.AST as AST
 import qualified LLVM.AST.AddrSpace as AS
+import qualified LLVM.AST.Attribute as A
+import qualified LLVM.AST.CallingConvention as CC
 import qualified LLVM.AST.Constant as C
 import qualified LLVM.AST.Float as FF
 import qualified LLVM.AST.FloatingPointPredicate as FP
 import qualified LLVM.AST.Global as G
+import qualified LLVM.AST.InlineAssembly as IA
 import qualified LLVM.AST.IntegerPredicate as IP
 import qualified LLVM.AST.Linkage as LK
 import qualified LLVM.AST.Type as T
 import qualified LLVM.AST.Typed as TD
 import qualified LLVM.AST.Visibility as V
+import qualified LLVM.IRBuilder as IRB
 import qualified LLVM.IRBuilder.Constant as IC
 import qualified LLVM.IRBuilder.Instruction as I
 import qualified LLVM.IRBuilder.Module as M
@@ -220,6 +226,7 @@ instance ExprGen AT.Expr where
     AT.Break {} -> generateBreak expr
     AT.Continue {} -> generateContinue expr
     AT.Assignment {} -> generateAssignment expr
+    AT.Assembly {} -> generateAssembly expr
 
 -- | Generate LLVM code for constants.
 generateConstant :: (MonadCodegen m) => AT.Literal -> AT.SrcLoc -> m C.Constant
@@ -900,4 +907,72 @@ generateAssignment (AT.Assignment _ expr valueExpr) = do
       pure value
     _ -> E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
 generateAssignment expr =
+  E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
+
+-- | Low level function to generate LLVM code for inline assembly.
+-- LLVM's IRM module does not provide a function to generate inline assembly
+-- so we have to use the IRBuilder directly.
+callInlineAssembly ::
+  (IRM.MonadIRBuilder m) =>
+  IA.InlineAssembly ->
+  AST.Type ->
+  [(AST.Operand, [A.ParameterAttribute])] ->
+  m AST.Operand
+callInlineAssembly asm retType args' = do
+  let callInstr =
+        AST.Call
+          { AST.tailCallKind = Nothing,
+            AST.callingConvention = CC.C,
+            AST.returnAttributes = [],
+            AST.function = Left asm,
+            AST.arguments = args',
+            AST.functionAttributes = [],
+            AST.metadata = []
+          }
+  case retType of
+    T.VoidType -> do
+      IRB.emitInstrVoid callInstr
+      pure (AST.ConstantOperand (C.Undef T.void))
+    _ -> IRB.emitInstr retType callInstr
+
+-- | Generate LLVM code for assembly expressions.
+generateAssembly :: (MonadCodegen m) => AT.Expr -> m AST.Operand
+generateAssembly (AT.Assembly _ asmExpr) = do
+  let llvmRetTy = toLLVM $ AT.asmReturnType asmExpr
+      inlineType = T.FunctionType llvmRetTy (map toLLVM $ AT.asmParameters asmExpr) False
+
+      (output, inputs) =
+        ( AT.outputConstraint $ AT.asmConstraints asmExpr,
+          AT.inputConstraints $ AT.asmConstraints asmExpr
+        )
+      combinedConstraints = case (output, inputs) of
+        ("", []) -> ""
+        ("", is) -> L.intercalate "," is
+        (o, []) -> "=" ++ o
+        (o, is) -> "=" ++ o ++ "," ++ L.intercalate "," is
+
+      dialect = case AT.asmDialect asmExpr of
+        AT.Intel -> IA.IntelDialect
+        AT.ATT -> IA.ATTDialect
+
+      inlAsm =
+        IA.InlineAssembly
+          { IA.type' = inlineType,
+            IA.assembly = B.pack $ AT.asmCode asmExpr,
+            IA.constraints = BS.toShort $ B.pack combinedConstraints,
+            IA.hasSideEffects = AT.asmSideEffects asmExpr,
+            IA.alignStack = AT.asmAlignStack asmExpr,
+            IA.dialect = dialect
+          }
+
+  asmOperands <-
+    mapM
+      ( \argExpr -> do
+          argOp <- generateExpr argExpr
+          pure (argOp, [])
+      )
+      (AT.asmArgs asmExpr)
+
+  callInlineAssembly inlAsm llvmRetTy asmOperands
+generateAssembly expr =
   E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedDefinition expr
