@@ -96,6 +96,7 @@ data CodegenErrorType
   | ContinueOutsideLoop
   | BreakOutsideLoop
   | UnsupportedConversion T.Type T.Type
+  | UnsupportedGlobalDeclaration AT.Expr
   deriving (Show)
 
 instance Show CodegenError where
@@ -127,6 +128,7 @@ showErrorType err = case err of
   ContinueOutsideLoop -> "Continue statement outside loop"
   BreakOutsideLoop -> "Break statement outside loop"
   UnsupportedConversion from to -> "Unsupported conversion from " ++ show from ++ " to " ++ show to
+  UnsupportedGlobalDeclaration expr -> "Unsupported global declaration: " ++ show expr
 
 -- | Variable binding typeclass.
 class (Monad m) => VarBinding m where
@@ -181,7 +183,22 @@ generateGlobal :: (MonadCodegen m) => AT.Expr -> m ()
 generateGlobal expr = case expr of
   AT.Function {} -> CM.void $ generateFunction expr
   AT.ForeignFunction {} -> CM.void $ generateForeignFunction expr
+  AT.Declaration {} -> CM.void $ generateGlobalDeclaration expr
   _ -> E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedTopLevel expr
+
+generateGlobalDeclaration :: (MonadCodegen m) => AT.Expr -> m ()
+generateGlobalDeclaration (AT.Declaration _ name typ initExpr) = do
+  let varType = toLLVM typ
+  case initExpr of
+    Just (AT.Lit loc lit) -> do
+      initConstant <- generateConstant lit loc
+      var <- M.global (AST.Name $ U.stringToByteString name) varType initConstant
+      addGlobalVar name var
+    Nothing -> do
+      var <- M.global (AST.Name $ U.stringToByteString name) varType (C.Undef varType)
+      addGlobalVar name var
+    Just expr -> E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedGlobalDeclaration expr
+generateGlobalDeclaration expr = E.throwError $ CodegenError (SU.getLoc expr) $ UnsupportedGlobalDeclaration expr
 
 -- Generates a fresh unique name.
 fresh :: (MonadCodegen m) => m AST.Name
