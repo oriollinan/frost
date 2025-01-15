@@ -573,7 +573,9 @@ generateFunction (AT.Function _ name (AT.TFunction ret params var) paramNames bo
     oldAllocatedVars <- S.gets allocatedVars
     preAllocateVars body
     result <- generateExpr body
-    I.ret result
+    case ret of
+      AT.TVoid -> I.retVoid
+      _ -> I.ret result
     S.modify (\s -> s {allocatedVars = oldAllocatedVars})
   where
     mkParam t n = (toLLVM t, M.ParameterName $ U.stringToByteString n)
