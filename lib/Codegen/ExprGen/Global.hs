@@ -1,11 +1,11 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MonoLocalBinds #-}
 
 module Codegen.ExprGen.Global where
 
 import qualified Ast.Types as AT
 import qualified Codegen.Errors as CC
--- Phone Home
-
+import qualified Codegen.ExprGen.ExprGen as EG
 import qualified Codegen.ExprGen.Function as EFU
 import qualified Codegen.ExprGen.Types as ET
 import qualified Codegen.ExprGen.Variable as EV
@@ -19,14 +19,15 @@ import qualified LLVM.IRBuilder.Module as M
 import qualified Shared.Utils as SU
 
 -- | Generate LLVM code for global expressions.
-generateGlobal :: (CS.MonadCodegen m) => AT.Expr -> m ()
+generateGlobal :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m ()
 generateGlobal expr = case expr of
   AT.Function {} -> CM.void $ EFU.generateFunction expr
   AT.ForeignFunction {} -> CM.void $ EFU.generateForeignFunction expr
   AT.Declaration {} -> CM.void $ generateGlobalDeclaration expr
   _ -> E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedTopLevel expr
 
-generateGlobalDeclaration :: (CS.MonadCodegen m) => AT.Expr -> m ()
+-- | Generate LLVM code for global declarations.
+generateGlobalDeclaration :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m ()
 generateGlobalDeclaration (AT.Declaration _ name typ initExpr) = do
   let varType = ET.toLLVM typ
   case initExpr of
