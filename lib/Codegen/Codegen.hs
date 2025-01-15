@@ -528,8 +528,6 @@ generateVar (AT.Var loc name _) = do
       case varTy of
         T.PointerType (T.FunctionType {}) _ ->
           return ptr
-        T.PointerType (T.IntegerType 8) _ ->
-          return ptr
         T.PointerType _ _ ->
           I.load ptr 0
         _ ->
