@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module Codegen.ExprGen.Types where
 
@@ -10,6 +11,7 @@ class ToLLVM a where
   toLLVM :: a -> T.Type
 
 instance ToLLVM AT.Type where
+  toLLVM :: AT.Type -> T.Type
   toLLVM expr = case expr of
     AT.TInt width -> T.IntegerType (fromIntegral width)
     AT.TFloat -> T.FloatingPointType T.FloatFP
