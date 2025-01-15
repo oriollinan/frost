@@ -134,4 +134,4 @@ normalizeExpr (AT.StructAccess _ e1 e2) = AT.StructAccess normalizeLoc (normaliz
 normalizeExpr (AT.ArrayAccess _ e1 e2) = AT.ArrayAccess normalizeLoc (normalizeExpr e1) (normalizeExpr e2)
 normalizeExpr (AT.Cast _ t e) = AT.Cast normalizeLoc t (normalizeExpr e)
 normalizeExpr (AT.ForeignFunction _ n t) = AT.ForeignFunction normalizeLoc n t
-normalizeExpr (AT.Assembly _ t a) = AT.Assembly normalizeLoc t a
+normalizeExpr (AT.Assembly _ a) = AT.Assembly normalizeLoc a

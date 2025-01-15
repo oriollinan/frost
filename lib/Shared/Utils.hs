@@ -24,4 +24,4 @@ getLoc expr = case expr of
   AT.Function loc _ _ _ _ -> loc
   AT.ForeignFunction loc _ _ -> loc
   AT.Block exprs -> getLoc $ head exprs
-  AT.Assembly loc _ _ -> loc
+  AT.Assembly loc _ -> loc
