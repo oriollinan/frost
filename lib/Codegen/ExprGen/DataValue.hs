@@ -28,6 +28,7 @@ generateStructAccess expr = do
   (ptr, _) <- getStructFieldPointer expr
   I.load ptr 0
 
+-- | Get a pointer to a struct field.
 getStructFieldPointer :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m (AST.Operand, AT.Type)
 getStructFieldPointer (AT.StructAccess structLoc structExpr (AT.Var _ fieldName _)) = do
   (parentPtr, parentType) <- getStructFieldPointer structExpr
