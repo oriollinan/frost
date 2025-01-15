@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Codegen.State where
@@ -52,14 +53,21 @@ class (Monad m) => VarBinding m where
   addGlobalVar :: String -> AST.Operand -> m ()
 
 instance (MonadCodegen m, Monad m) => VarBinding m where
+  getVar :: (MonadCodegen m, Monad m) => String -> m (Maybe AST.Operand)
   getVar name = do
     state <- S.get
     return $
       lookup name (allocatedVars state)
         `S.mplus` lookup name (localState state)
         `S.mplus` lookup name (globalState state)
+
+  addVar :: (MonadCodegen m, Monad m) => String -> AST.Operand -> m ()
   addVar name operand = S.modify (\s -> s {localState = (name, operand) : localState s})
+
+  getGlobalVar :: (MonadCodegen m, Monad m) => String -> m (Maybe AST.Operand)
   getGlobalVar name = S.gets (lookup name . globalState)
+
+  addGlobalVar :: (MonadCodegen m, Monad m) => String -> AST.Operand -> m ()
   addGlobalVar name operand = S.modify (\s -> s {globalState = (name, operand) : globalState s})
 
 -- Generates a fresh unique name.
