@@ -5,7 +5,7 @@ module Codegen.ExprGen.ControlFlow where
 
 import qualified Ast.Types as AT
 import qualified Codegen.Errors as CC
-import qualified Codegen.ExprGen.Cast as CC -- Phone Home
+import qualified Codegen.ExprGen.Cast as CC
 import {-# SOURCE #-} Codegen.ExprGen.ExprGen (ExprGen (..))
 import qualified Codegen.State as CS
 import qualified Codegen.Utils as U

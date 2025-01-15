@@ -4,8 +4,6 @@ module Codegen.ExprGen.Assembly where
 
 import qualified Ast.Types as AT
 import qualified Codegen.Errors as CC
--- Phone Home
-
 import {-# SOURCE #-} Codegen.ExprGen.ExprGen (ExprGen (..))
 import qualified Codegen.ExprGen.Types as ET
 import qualified Codegen.State as CS

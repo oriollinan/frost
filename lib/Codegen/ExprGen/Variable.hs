@@ -4,9 +4,7 @@ module Codegen.ExprGen.Variable where
 
 import qualified Ast.Types as AT
 import qualified Codegen.Errors as CC
--- Phone Home
-
-import qualified Codegen.ExprGen.Cast as EC -- Phone Home
+import qualified Codegen.ExprGen.Cast as EC
 import qualified Codegen.ExprGen.DataValue as ED
 import {-# SOURCE #-} Codegen.ExprGen.ExprGen (ExprGen (..))
 import qualified Codegen.ExprGen.Types as ET
@@ -75,8 +73,6 @@ generateConstant lit loc = case lit of
         constants <- mapM (`generateConstant` loc) elems
         return $ C.Array (TD.typeOf $ head constants) constants
   AT.LStruct fields -> do
-    -- We do not need the names of the fields
-    -- as we only use them when accessing the fields of the struct
     let (_, values) = unzip fields
     constants <- mapM (`generateConstant` loc) values
     return $ C.Struct Nothing False constants
