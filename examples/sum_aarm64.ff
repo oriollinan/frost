@@ -1,0 +1,30 @@
+%%
+% Sum two integers using inline assembly (aarm64)
+%%
+import "std/io.ff"
+
+%%
+% Function to sum two integers
+%%
+sum: int int -> int = a b {
+    __asm__ {
+        code -> "mov $1, $0
+        add $0, $0, $2"
+        constraints -> "=r,r,r"
+        args -> (a b)
+        parameters -> int int
+        return_type -> int
+        side_effects -> false
+        align_stack -> false
+        dialect -> ATT
+    }
+}
+
+%%
+% Main function
+%%
+main: never -> int = {
+    printf("sum(1, 2) = %d\n" sum(1 2))
+
+    0
+}
