@@ -26,6 +26,8 @@ feature of the `frost` programming language.
   sine wave.
 - [Assembly Sum (aarm64)](sum_aarm64.ff): This example demonstrates how to write
   a function in assembly and call it from `frost`.
+- [Echo Server](echo.ff): This example demonstrates how to write
+  a server that echos to the client.
 
 ## Running the Examples
 
@@ -75,6 +77,38 @@ displayed in the terminal.
                                         @@. .                                  
                                       @@@@@@@                                  
                                       @@@@@@
+```
+
+### Writing a server in `frost`
+
+1. Use the standard library to write your server
+
+Have a look at [`echo.ff`]("./echo.ff") for the acutal implementation
+
+2. Compile the program
+
+```sh
+$ ./glados -i echo.ff -o echo.ll
+```
+
+3. Run the server
+
+```
+➜  server ✗ lli main.ll
+Listening on port 8001
+Connection accepted
+Message Received: hello world
+```
+
+```
+➜  client ✗ telnet localhost 8001
+Trying ::1...
+telnet: connect to address ::1: Connection refused
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+hello world
+hello world
 ```
 
 ### Embedding `frost` in other languages

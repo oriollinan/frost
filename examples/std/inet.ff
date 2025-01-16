@@ -1,0 +1,11 @@
+htonll: foreign int64 -> int64
+htonl: foreign int -> int
+htons: foreign int16 -> int16
+ntohll: foreign int64 -> int64
+ntohl: foreign int -> int
+ntohs: foreign int16 -> int16
+inet_addr: foreign *byte -> int32
+inet_aton: foreign *byte *byte -> int
+inet_ntoa: foreign int -> *byte
+inet_ntop: foreign int *byte *byte int -> *byte
+inet_pton: foreign int *byte *byte -> int

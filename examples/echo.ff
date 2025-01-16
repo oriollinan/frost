@@ -94,6 +94,7 @@ main: never -> int = {
 
     loop true {
         read_size: int = recv(new_socket buffer BUFFER_SIZE 0)
+
         if read_size is 0 {
             stop
         }
