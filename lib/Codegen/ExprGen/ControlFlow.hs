@@ -52,7 +52,7 @@ generateIf (AT.If _ cond thenExpr elseExpr) = mdo
 generateIf expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
 
--- | Generate LLVM code for for loops.
+-- | Generate LLVM code for from loops.
 generateFromLoop :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
 generateFromLoop (AT.From loc _ endExpr stepExpr declExpr@(AT.Declaration _ varName varType _) bodyExpr) = mdo
   _ <- generateExpr declExpr
