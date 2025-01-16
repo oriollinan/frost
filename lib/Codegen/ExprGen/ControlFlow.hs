@@ -54,8 +54,8 @@ generateIf expr =
 
 -- | Generate LLVM code for for loops.
 generateFromLoop :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
-generateFromLoop (AT.From loc _ endExpr stepExpr varExpr bodyExpr) = mdo
-  _ <- generateExpr varExpr
+generateFromLoop (AT.From loc _ endExpr stepExpr declExpr@(AT.Declaration _ varName varType _) bodyExpr) = mdo
+  _ <- generateExpr declExpr
   I.br condBlock
 
   condBlock <- IRM.block `IRM.named` U.stringToByteString "for.cond"
@@ -89,6 +89,7 @@ generateFromLoop (AT.From loc _ endExpr stepExpr varExpr bodyExpr) = mdo
   exitBlock <- IRM.block `IRM.named` U.stringToByteString "for.exit"
   pure $ AST.ConstantOperand $ C.Null T.i8
   where
+    varExpr = AT.Var loc varName varType
     zeroExpr = AT.Lit loc (AT.LInt 0)
 generateFromLoop expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedForDefinition expr
