@@ -4,7 +4,7 @@ import "std/lib.ff"
 import "std/inet.ff"
 import "std/uni.ff"
 
-PORT: int = 8000
+PORT: int = 8001
 BUFFER_SIZE: int = 1024
 AF_INET: int = 2
 
@@ -83,7 +83,11 @@ main: never -> int = {
             perror("recv")
             stop
         }
-        printf("Message received: %s\n" buffer)
+        printf("Message Received: ")
+
+        from 0 to read_size  by 1 |i: int| {
+            printf("%c" buffer.#i)
+        }
         send(new_socket buffer read_size 0)
     }
 
