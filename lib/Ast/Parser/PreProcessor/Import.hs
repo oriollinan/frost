@@ -1,4 +1,4 @@
-module Ast.Parser.Import where
+module Ast.Parser.PreProcessor.Import where
 
 import qualified Ast.Parser.State as PS
 import qualified Ast.Parser.Utils as PU
@@ -12,7 +12,7 @@ import qualified System.IO.Error as IOE
 import qualified Text.Megaparsec as M
 
 parseImport :: String -> PU.Parser String -> PU.Parser String
-parseImport sourceFile p = do
+parseImport sourceFile parser = do
   import' <- PU.symbol "import" *> M.between (PU.symbol "\"") (PU.symbol "\"") (M.some $ M.anySingleBut '\"')
   state <- S.get
   let visited = PS.lookupImport import' state
@@ -29,7 +29,7 @@ parseImport sourceFile p = do
           source <- IO.liftIO $ IOE.catchIOError (localImport sourceFile import') (\_ -> externalImport import')
           input <- M.getInput
           M.setInput $ source ++ input
-          source' <- p
+          source' <- parser
           S.modify $ PS.setImportDepth depth
           return source'
   where

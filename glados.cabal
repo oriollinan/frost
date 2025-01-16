@@ -24,13 +24,15 @@ library
     Ast.Parser
     Ast.Parser.Asm
     Ast.Parser.Expr
-    Ast.Parser.Import
     Ast.Parser.Literal
     Ast.Parser.Program
     Ast.Parser.State
     Ast.Parser.Type
     Ast.Parser.TypeDefinition
     Ast.Parser.Utils
+    Ast.Parser.PreProcessor
+    Ast.Parser.PreProcessor.Define
+    Ast.Parser.PreProcessor.Import
     Ast.Types
     Codegen.Codegen
     Codegen.Utils
