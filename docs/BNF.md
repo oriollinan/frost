@@ -1,7 +1,7 @@
 # Backus-Naur form (BNF)
 
 ```bnf
-<program> ::= <comment_block>* <import_block>? <function_block>*
+<program> ::= <comment_block>* <import_block>? <variable_declaration>* <function_block>*
 
 <comment_block> ::= "%%" <comment_content> "%%"
 <comment_content> ::= (%any_character% | "\n")*
@@ -37,7 +37,7 @@
 <array_literal> ::= <string_literal> | <literal_array_literal>
 <string_literal> ::= '"' <string_characters> '"'
 <string_characters> ::= (%any_printable_character% - '"')*
-<literal_array_literal> ::= "[" <expression> ("," <expression>)* "]"
+<literal_array_literal> ::= "[" <expression> (" " <expression>)* "]"
 
 <binary_expression> ::= <expression> <binary_operator> <expression>
 <binary_operator> ::= "*" | "/" | "mod"
@@ -63,10 +63,10 @@
 <else_clause> ::= "else" <block>
 <block> ::= "{" <statement>* "}"
 
-<function_call> ::= <identifier> "(" (<expression> ("," <expression>)*)? ")"
+<function_call> ::= <identifier> "(" (<expression> (" " <expression>)*)? ")"
 <return_statement> ::= "ret" <expression> | <expression>
 
-<identifier> ::= [a-zA-Z_][a-zA-Z0-9_]*
+<identifier> ::= [a-zA-Z_$][a-zA-Z0-9_$]*
 
 ```
 
@@ -254,5 +254,7 @@ Comments in **Frost** are enclosed in `%%` markers. They are ignored by the pars
 %%
 % This function calculates the sum of two numbers.
 %%
-
+add: int int -> int = num1 num2 {
+    ret num1 + num2
+}
 ```
