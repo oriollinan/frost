@@ -63,10 +63,11 @@ preAllocateVars (AT.If _ cond thenExpr elseExpr) = do
   preAllocateVars cond
   preAllocateVars thenExpr
   maybe (return ()) preAllocateVars elseExpr
-preAllocateVars (AT.For _ initExpr condExpr stepExpr bodyExpr) = do
-  preAllocateVars initExpr
-  preAllocateVars condExpr
+preAllocateVars (AT.From _ startExpr endExpr stepExpr varExpr bodyExpr) = do
+  preAllocateVars startExpr
+  preAllocateVars endExpr
   preAllocateVars stepExpr
+  preAllocateVars varExpr
   preAllocateVars bodyExpr
 preAllocateVars (AT.While _ condExpr bodyExpr) = do
   preAllocateVars condExpr

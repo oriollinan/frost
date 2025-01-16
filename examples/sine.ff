@@ -21,8 +21,8 @@ draw_sine_wave: double double double -> int = amplitude frequency phase {
     SET_HEIGHT: int = 20
     M_PI: double = 3,14159265359
 
-    from 0 to SET_HEIGHT by 1 |y: int| {
-        from 0 to SET_WIDTH by 1 |x: int| {
+    from 0 to SET_HEIGHT by 1 [y: int] {
+        from 0 to SET_WIDTH by 1 [x: int] {
             sine_value: double = amplitude * sin(frequency * @double(x) / @double(SET_WIDTH) * 2,0 * M_PI + phase)
 
             scaled_y: int = SET_HEIGHT / 2 - @int(sine_value * @double(SET_HEIGHT) / (2,0 * amplitude))

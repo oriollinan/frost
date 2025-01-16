@@ -13,7 +13,7 @@ getLoc expr = case expr of
   AT.Call loc _ _ -> loc
   AT.If loc _ _ _ -> loc
   AT.While loc _ _ -> loc
-  AT.For loc _ _ _ _ -> loc
+  AT.From loc _ _ _ _ _ -> loc
   AT.Return loc _ -> loc
   AT.Break loc -> loc
   AT.Continue loc -> loc

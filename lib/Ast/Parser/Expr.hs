@@ -9,9 +9,9 @@ import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
 import qualified Control.Monad.Combinators.Expr as CE
 import qualified Control.Monad.State as S
+import qualified Data.Maybe as DM
 import qualified Shared.Utils as SU
 import qualified Text.Megaparsec as M
-import qualified Text.Megaparsec.Char.Lexer as ML
 
 parseExpr :: PU.Parser AT.Expr
 parseExpr = CE.makeExprParser (PU.lexeme parseTerm) operationTable
@@ -87,7 +87,7 @@ parseTerm =
   M.choice
     [ parseIf,
       parseWhile,
-      parseFor,
+      parseFrom,
       parseReturn,
       parseBreak,
       parseContinue,
@@ -145,7 +145,7 @@ implicitReturn e@(AT.Call {}) = AT.Return (SU.getLoc e) $ Just e
 implicitReturn (AT.If loc cond then' (Just else')) = AT.If loc cond (implicitReturn then') $ Just $ implicitReturn else'
 implicitReturn (AT.If loc cond then' Nothing) = AT.If loc cond (implicitReturn then') Nothing
 implicitReturn e@(AT.While {}) = e
-implicitReturn e@(AT.For {}) = e
+implicitReturn e@(AT.From {}) = e
 implicitReturn (AT.Block []) = AT.Block []
 implicitReturn (AT.Block es) = AT.Block $ init es ++ [implicitReturn $ last es]
 implicitReturn e@(AT.Return _ _) = e
@@ -198,26 +198,24 @@ parseWhile = do
   body <- parseBlock id
   return $ AT.While {AT.whileLoc = srcLoc, AT.whileCond = cond, AT.whileBody = body}
 
--- TODO: handle dynamic ranges
-parseFor :: PU.Parser AT.Expr
-parseFor = do
+parseFrom :: PU.Parser AT.Expr
+parseFrom = do
   srcLoc <- PU.parseSrcLoc
-  from <- PU.symbol "from" *> PU.lexeme parseExpr
-  to <- PU.symbol "to" *> PU.lexeme parseExpr
-  by <- M.optional $ PU.symbol "by" *> PU.lexeme ML.decimal
-  (name, type') <- M.between (PU.symbol "|") (PU.symbol "|") $ do
-    name <- PU.identifier
-    type' <- PU.symbol ":" *> PT.parseType
-    return (name, type')
-  let init' = AT.Declaration srcLoc name type' (Just from)
+  start <- PU.symbol "from" *> PU.lexeme parseExpr
+  end <- PU.symbol "to" *> PU.lexeme parseExpr
+  step <- M.optional $ M.try $ PU.symbol "by" *> PU.lexeme parseExpr
+  (name, type') <-
+    M.between (PU.symbol "[") (PU.symbol "]") $ do
+      name <- PU.identifier
+      type' <- PU.symbol ":" *> PT.parseType
+      return (name, type')
+  let decl = AT.Declaration srcLoc name type' $ Just start
   let var = AT.Var srcLoc name type'
+  let one = AT.Lit srcLoc (AT.LInt 1)
+  let stepExpr = AT.Assignment srcLoc var $ AT.Op srcLoc AT.Add var $ DM.fromMaybe one step
   S.modify (PS.insertVar name type')
   body <- parseBlock id
-  let step = case by of
-        Just n -> AT.Assignment srcLoc var (AT.Op srcLoc AT.Add var (AT.Lit srcLoc (AT.LInt n)))
-        _ -> AT.UnaryOp srcLoc AT.PostInc var
-  let cond = (if maybe True (>= 0) by then AT.Op srcLoc AT.Lt var to else AT.Op srcLoc AT.Gt var to)
-  return $ AT.For {AT.forLoc = srcLoc, AT.forInit = init', AT.forCond = cond, AT.forStep = step, AT.forBody = body}
+  return $ AT.From srcLoc start end stepExpr decl body
 
 parseBlock :: (AT.Expr -> AT.Expr) -> PU.Parser AT.Expr
 parseBlock f = do

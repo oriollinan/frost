@@ -120,12 +120,13 @@ data Expr
         whileCond :: Expr,
         whileBody :: Expr
       }
-  | For
-      { forLoc :: SrcLoc,
-        forInit :: Expr,
-        forCond :: Expr,
-        forStep :: Expr,
-        forBody :: Expr
+  | From
+      { fromLoc :: SrcLoc,
+        fromStart :: Expr,
+        fromEnd :: Expr,
+        fromStep :: Expr,
+        fromVar :: Expr,
+        fromBody :: Expr
       }
   | Block [Expr]
   | Return SrcLoc (Maybe Expr)

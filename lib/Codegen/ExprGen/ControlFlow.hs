@@ -52,16 +52,26 @@ generateIf (AT.If _ cond thenExpr elseExpr) = mdo
 generateIf expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
 
--- | Generate LLVM code for for loops.
-generateForLoop :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
-generateForLoop (AT.For loc initExpr condExpr stepExpr bodyExpr) = mdo
-  _ <- generateExpr initExpr
+-- | Generate LLVM code for from loops.
+generateFromLoop :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
+generateFromLoop (AT.From loc _ endExpr stepExpr declExpr@(AT.Declaration _ varName varType _) bodyExpr) = mdo
+  _ <- generateExpr declExpr
   I.br condBlock
 
   condBlock <- IRM.block `IRM.named` U.stringToByteString "for.cond"
-  condVal <- generateExpr condExpr
+  condVal <- generateExpr $ AT.Op loc AT.Gt endExpr zeroExpr
   boolCondVal <- CC.toBool loc condVal
-  I.condBr boolCondVal bodyBlock exitBlock
+  I.condBr boolCondVal forwardBlock backwardBlock
+
+  forwardBlock <- IRM.block `IRM.named` U.stringToByteString "for.cond.forward"
+  forwardVal <- generateExpr $ AT.Op loc AT.Lt varExpr endExpr
+  boolForwardVal <- CC.toBool loc forwardVal
+  I.condBr boolForwardVal bodyBlock exitBlock
+
+  backwardBlock <- IRM.block `IRM.named` U.stringToByteString "for.cond.backward"
+  backwardVal <- generateExpr $ AT.Op loc AT.Gt varExpr endExpr
+  boolBackwardVal <- CC.toBool loc backwardVal
+  I.condBr boolBackwardVal bodyBlock exitBlock
 
   bodyBlock <- IRM.block `IRM.named` U.stringToByteString "for.body"
   oldLoopState <- S.gets CS.loopState
@@ -78,7 +88,10 @@ generateForLoop (AT.For loc initExpr condExpr stepExpr bodyExpr) = mdo
 
   exitBlock <- IRM.block `IRM.named` U.stringToByteString "for.exit"
   pure $ AST.ConstantOperand $ C.Null T.i8
-generateForLoop expr =
+  where
+    varExpr = AT.Var loc varName varType
+    zeroExpr = AT.Lit loc (AT.LInt 0)
+generateFromLoop expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedForDefinition expr
 
 -- | Generate LLVM code for while loops.
