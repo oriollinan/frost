@@ -86,7 +86,7 @@ parseTerm =
   M.choice
     [ parseIf,
       parseWhile,
-      parseFor,
+      parseFrom,
       parseReturn,
       parseBreak,
       parseContinue,
@@ -197,16 +197,17 @@ parseWhile = do
   body <- parseBlock id
   return $ AT.While {AT.whileLoc = srcLoc, AT.whileCond = cond, AT.whileBody = body}
 
-parseFor :: PU.Parser AT.Expr
-parseFor = do
+parseFrom :: PU.Parser AT.Expr
+parseFrom = do
   srcLoc <- PU.parseSrcLoc
   start <- PU.symbol "from" *> PU.lexeme parseExpr
   end <- PU.symbol "to" *> PU.lexeme parseExpr
   step <- M.optional $ M.try $ PU.symbol "by" *> PU.lexeme parseExpr
-  (name, type') <- M.between (PU.symbol "|") (PU.symbol "|") $ do
-    name <- PU.identifier
-    type' <- PU.symbol ":" *> PT.parseType
-    return (name, type')
+  (name, type') <-
+    M.between (PU.symbol "[") (PU.symbol "]") $ do
+      name <- PU.identifier
+      type' <- PU.symbol ":" *> PT.parseType
+      return (name, type')
   let var = AT.Declaration srcLoc name type' $ Just start
   S.modify (PS.insertVar name type')
   body <- parseBlock id
