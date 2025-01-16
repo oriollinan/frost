@@ -12,7 +12,7 @@
 <function_signature> ::= <identifier> ":" <type>* "->" <type>
 
 <type_definition> ::= <identifier> "::" <type>
-<type> ::= "int" | "double" | "float" | "char" | "byte" | "never" | "bool" | "*"<type> | "struct" "{" <struct_field>* "}" | <user_defined_type>
+<type> ::= "int" | "double" | "float" | "char" | "byte" | "never" | "bool" | "*"<type> | "struct" "{" <struct_field>* "}" | <type>* "->" <type> | <user_defined_type>
 
 <struct_field> ::= <identifier> "->" <type>
 <user_defined_type> ::= <identifier>
@@ -29,15 +29,19 @@
                | <struct_access>
                | <assignment>
 
-<literal> ::= <int_literal> | <float_literal> | <array_literal> | <byte_literal> | <bool_literal> | "null"
+<literal> ::= <int_literal> | <float_literal> | <array_literal> | <byte_literal> | <bool_literal> | <struct_literal>
 <int_literal> ::= [0-9]+
-<float_literal> ::= [0-9]+ "." [0-9]+
+<float_literal> ::= [0-9]+ "," [0-9]+
 <byte_literal> ::= "'%any_printable_character%'"
 <bool_literal> ::= "true" | "false"
 <array_literal> ::= <string_literal> | <literal_array_literal>
 <string_literal> ::= '"' <string_characters> '"'
+<struct_literal> :: = <identifier> "{" <field_list> "}"
+<field_list> ::= <field> (" " <field>)*
+<field> ::= <identifier> "=" <literal>
 <string_characters> ::= (%any_printable_character% - '"')*
 <literal_array_literal> ::= "[" <expression> (" " <expression>)* "]"
+
 
 <binary_expression> ::= <expression> <binary_operator> <expression>
 <binary_operator> ::= "*" | "/" | "mod"
@@ -200,11 +204,11 @@ Literals represent fixed values in Frost, such as numbers, strings, and booleans
 
 ```ff
 42          % Integer
-3.14        % Float
+3,14        % Float
 'A'         % Byte
 true        % Boolean
 "hello"     % String
-[1, 2, 3]   % Array
+[1 2 3]   % Array
 ```
 
 ### Control Flow
