@@ -1,14 +1,19 @@
+%%
+% Generate an echo server.
+%%
+
+%%
+% Standard Library
+%%
 import "std/io.ff"
 import "std/socket.ff"
 import "std/lib.ff"
 import "std/inet.ff"
 import "std/uni.ff"
 
-PORT: int = 8001
-BUFFER_SIZE: int = 1024
-AF_INET: int = 2
-
-
+in_addr :: struct {
+    s_addr -> int
+}
 
 sockaddr_in :: struct {
     sin_family -> int16
@@ -17,6 +22,19 @@ sockaddr_in :: struct {
     sin_zero -> *int8
 }
 
+sockaddr :: struct {
+    sa_len -> byte
+    sa_family -> byte
+    sa_data -> [14]byte
+}
+
+PORT: int = 8001
+BUFFER_SIZE: int = 1024
+AF_INET: int = 2
+
+%%
+% Main function
+%%
 main: never -> int = {
 
     SIZEOF_ADDR: int = 16
@@ -83,7 +101,7 @@ main: never -> int = {
             perror("recv")
             stop
         }
-        printf("Message Received: ")
+        printf("Message Received: %s" buffer)
 
         from 0 to read_size  by 1 |i: int| {
             printf("%c" buffer.#i)
