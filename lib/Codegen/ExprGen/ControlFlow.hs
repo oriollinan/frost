@@ -12,7 +12,6 @@ import qualified Codegen.Utils as U
 import qualified Control.Monad as CM
 import qualified Control.Monad.Except as E
 import qualified Control.Monad.State as S
-import qualified Data.Maybe as DM
 import qualified LLVM.AST as AST
 import qualified LLVM.AST.Constant as C
 import qualified LLVM.AST.IntegerPredicate as IP
@@ -62,14 +61,14 @@ generateFromLoop (AT.From loc _ endExpr stepExpr varExpr bodyExpr) = mdo
   condBlock <- IRM.block `IRM.named` U.stringToByteString "for.cond"
   condVal <- generateExpr $ AT.Op loc AT.Gt endExpr zeroExpr
   boolCondVal <- CC.toBool loc condVal
-  I.condBr boolCondVal forwardBlock backwaradBlock
+  I.condBr boolCondVal forwardBlock backwardBlock
 
   forwardBlock <- IRM.block `IRM.named` U.stringToByteString "for.cond.forward"
   forwardVal <- generateExpr $ AT.Op loc AT.Lt varExpr endExpr
   boolForwardVal <- CC.toBool loc forwardVal
   I.condBr boolForwardVal bodyBlock exitBlock
 
-  backwaradBlock <- IRM.block `IRM.named` U.stringToByteString "for.cond.backward"
+  backwardBlock <- IRM.block `IRM.named` U.stringToByteString "for.cond.backward"
   backwardVal <- generateExpr $ AT.Op loc AT.Gt varExpr endExpr
   boolBackwardVal <- CC.toBool loc backwardVal
   I.condBr boolBackwardVal bodyBlock exitBlock
@@ -84,15 +83,13 @@ generateFromLoop (AT.From loc _ endExpr stepExpr varExpr bodyExpr) = mdo
   I.br stepBlock
 
   stepBlock <- IRM.block `IRM.named` U.stringToByteString "for.step"
-  _ <- generateExpr stepAssignmentExpr
+  _ <- generateExpr stepExpr
   I.br condBlock
 
   exitBlock <- IRM.block `IRM.named` U.stringToByteString "for.exit"
   pure $ AST.ConstantOperand $ C.Null T.i8
   where
     zeroExpr = AT.Lit loc (AT.LInt 0)
-    oneExpr = AT.Lit loc (AT.LInt 1)
-    stepAssignmentExpr = AT.Assignment loc varExpr $ AT.Op loc AT.Add varExpr $ DM.fromMaybe oneExpr stepExpr
 generateFromLoop expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedForDefinition expr
 

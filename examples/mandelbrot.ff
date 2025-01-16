@@ -26,8 +26,8 @@ render_mandelbrot: never -> int = {
     IMAG_MIN: double = -1,5
     IMAG_MAX: double = 1,5
 
-    from 0 to SET_HEIGHT by 1 |y: int| {
-        from 0 to SET_WIDTH by 1 |x: int| {
+    from 0 to SET_HEIGHT by 1 [y: int] {
+        from 0 to SET_WIDTH by 1 [x: int] {
             real: double = REAL_MIN + (REAL_MAX - REAL_MIN) * @double(x) / @double(SET_WIDTH - 1)
             imag: double = IMAG_MIN + (IMAG_MAX - IMAG_MIN) * @double(y) / @double(SET_HEIGHT - 1)
 

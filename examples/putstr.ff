@@ -21,7 +21,7 @@ putstr: *byte -> int = string {
     out: int = 0
     len: int = strlen(string)
 
-    from 0 to len + 1 by 1 |i: int| {
+    from 0 to len + 1 by 1 [i: int] {
         out = out + write(STDOUT_FILENO string.#i 1)
     }
 

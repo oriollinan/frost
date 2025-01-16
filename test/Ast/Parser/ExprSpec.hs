@@ -240,13 +240,20 @@ spec = do
       let env = PS.parserState
       result <- parseWithCustom env input
       let startValue = AT.Lit PU.normalizeLoc $ AT.LInt 0
+      let var = AT.Var PU.normalizeLoc "i" $ AT.TInt 32
       let expected =
             Right $
               AT.From
                 PU.normalizeLoc
                 startValue
                 (AT.Lit PU.normalizeLoc $ AT.LInt 10)
-                (Just $ AT.Lit PU.normalizeLoc $ AT.LInt 2)
+                ( AT.Assignment PU.normalizeLoc var $
+                    AT.Op
+                      PU.normalizeLoc
+                      AT.Add
+                      var
+                      (AT.Lit PU.normalizeLoc $ AT.LInt 2)
+                )
                 (AT.Declaration PU.normalizeLoc "i" (AT.TInt 32) $ Just startValue)
                 ( AT.Block
                     [ AT.Assignment
@@ -260,7 +267,8 @@ spec = do
 
     it "parses a for loop with a dynamic range" $ do
       let input = "from 0 to 10 by x [i: int] { i = 0 }"
-      let var = AT.Var PU.normalizeLoc "x" (AT.TInt 32)
+      let varI = AT.Var PU.normalizeLoc "i" (AT.TInt 32)
+      let varX = AT.Var PU.normalizeLoc "x" (AT.TInt 32)
       let env = PS.insertVar "x" (AT.TInt 32) PS.parserState
       result <- parseWithCustom env input
       let startValue = AT.Lit PU.normalizeLoc $ AT.LInt 0
@@ -270,7 +278,13 @@ spec = do
                 PU.normalizeLoc
                 startValue
                 (AT.Lit PU.normalizeLoc $ AT.LInt 10)
-                (Just var)
+                ( AT.Assignment PU.normalizeLoc varI $
+                    AT.Op
+                      PU.normalizeLoc
+                      AT.Add
+                      varI
+                      varX
+                )
                 (AT.Declaration PU.normalizeLoc "i" (AT.TInt 32) $ Just startValue)
                 ( AT.Block
                     [ AT.Assignment

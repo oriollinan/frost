@@ -9,6 +9,7 @@ import qualified Ast.Parser.Utils as PU
 import qualified Ast.Types as AT
 import qualified Control.Monad.Combinators.Expr as CE
 import qualified Control.Monad.State as S
+import qualified Data.Maybe as DM
 import qualified Shared.Utils as SU
 import qualified Text.Megaparsec as M
 
@@ -208,10 +209,13 @@ parseFrom = do
       name <- PU.identifier
       type' <- PU.symbol ":" *> PT.parseType
       return (name, type')
-  let var = AT.Declaration srcLoc name type' $ Just start
+  let decl = AT.Declaration srcLoc name type' $ Just start
+  let var = AT.Var srcLoc name type'
+  let one = AT.Lit srcLoc (AT.LInt 1)
+  let stepExpr = AT.Assignment srcLoc var $ AT.Op srcLoc AT.Add var $ DM.fromMaybe one step
   S.modify (PS.insertVar name type')
   body <- parseBlock id
-  return $ AT.From srcLoc start end step var body
+  return $ AT.From srcLoc start end stepExpr decl body
 
 parseBlock :: (AT.Expr -> AT.Expr) -> PU.Parser AT.Expr
 parseBlock f = do

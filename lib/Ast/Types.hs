@@ -124,7 +124,7 @@ data Expr
       { fromLoc :: SrcLoc,
         fromStart :: Expr,
         fromEnd :: Expr,
-        fromStep :: Maybe Expr,
+        fromStep :: Expr,
         fromVar :: Expr,
         fromBody :: Expr
       }
