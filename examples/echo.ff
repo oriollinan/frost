@@ -16,7 +16,8 @@ in_addr :: struct {
 }
 
 sockaddr_in :: struct {
-    sin_family -> int16
+    sin_len -> byte
+    sin_family -> byte
     sin_port -> int16
     sin_addr -> in_addr
     sin_zero -> *int8
@@ -93,7 +94,8 @@ main: never -> int = {
 
     loop true {
         read_size: int = recv(new_socket buffer BUFFER_SIZE 0)
-        if read_size == 0 {
+
+        if read_size is 0 {
             stop
         }
 
@@ -103,9 +105,6 @@ main: never -> int = {
         }
         printf("Message Received: %s" buffer)
 
-        from 0 to read_size  by 1 |i: int| {
-            printf("%c" buffer.#i)
-        }
         send(new_socket buffer read_size 0)
     }
 
