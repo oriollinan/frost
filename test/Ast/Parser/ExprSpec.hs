@@ -239,41 +239,23 @@ spec = do
       let input = "from 0 to 10 by 2 |i: int| { i = 0 }"
       let env = PS.parserState
       result <- parseWithCustom env input
+      let startValue = AT.Lit PU.normalizeLoc $ AT.LInt 0
       let expected =
             Right $
-              AT.For
-                { AT.forLoc = PU.normalizeLoc,
-                  AT.forInit =
-                    AT.Declaration
-                      PU.normalizeLoc
-                      "i"
-                      (AT.TInt 32)
-                      (Just (AT.Lit PU.normalizeLoc (AT.LInt 0))),
-                  AT.forCond =
-                    AT.Op
-                      PU.normalizeLoc
-                      AT.Lt
-                      (AT.Var PU.normalizeLoc "i" (AT.TInt 32))
-                      (AT.Lit PU.normalizeLoc (AT.LInt 10)),
-                  AT.forStep =
-                    AT.Assignment
-                      PU.normalizeLoc
-                      (AT.Var PU.normalizeLoc "i" (AT.TInt 32))
-                      ( AT.Op
-                          PU.normalizeLoc
-                          AT.Add
-                          (AT.Var PU.normalizeLoc "i" (AT.TInt 32))
-                          (AT.Lit PU.normalizeLoc (AT.LInt 2))
-                      ),
-                  AT.forBody =
-                    AT.Block
-                      [ AT.Assignment
-                          PU.normalizeLoc
-                          (AT.Var PU.normalizeLoc "i" (AT.TInt 32))
-                          ( AT.Lit PU.normalizeLoc (AT.LInt 0)
-                          )
-                      ]
-                }
+              AT.From
+                PU.normalizeLoc
+                startValue
+                (AT.Lit PU.normalizeLoc $ AT.LInt 10)
+                (Just $ AT.Lit PU.normalizeLoc $ AT.LInt 2)
+                (AT.Declaration PU.normalizeLoc "i" (AT.TInt 32) $ Just startValue)
+                ( AT.Block
+                    [ AT.Assignment
+                        PU.normalizeLoc
+                        (AT.Var PU.normalizeLoc "i" (AT.TInt 32))
+                        ( AT.Lit PU.normalizeLoc (AT.LInt 0)
+                        )
+                    ]
+                )
       (PU.normalizeExpr <$> result) `shouldBe` expected
 
     -- it "parses a for loop with a dynamic range" $ do

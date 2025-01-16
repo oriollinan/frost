@@ -35,7 +35,7 @@ instance ExprGen AT.Expr where
     AT.ArrayAccess {} -> ED.generateArrayAccess expr
     AT.StructAccess {} -> ED.generateStructAccess expr
     AT.Cast {} -> EC.generateCast expr
-    AT.For {} -> EF.generateForLoop expr
+    AT.From {} -> EF.generateFromLoop expr
     AT.While {} -> EF.generateWhileLoop expr
     AT.Break {} -> EF.generateBreak expr
     AT.Continue {} -> EF.generateContinue expr
