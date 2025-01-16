@@ -121,15 +121,12 @@ generateVar (AT.Var loc name type') = do
     Just ptr -> do
       let varTy = TD.typeOf ptr
           expectedType = ET.toLLVM type'
-      -- If the variable type matches the expected type, return the pointer directly.
       if varTy == expectedType
         then return ptr
         else case varTy of
           T.PointerType (T.FunctionType {}) _ -> return ptr
           T.PointerType _ _ -> I.load ptr 0
           _ -> return ptr
-
--- Handle unsupported expressions with an error.
 generateVar expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
 
