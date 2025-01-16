@@ -39,6 +39,14 @@ generateFunction (AT.Function _ name (AT.TFunction ret params var) paramNames bo
       _ -> I.ret result
     S.modify (\s -> s {CS.allocatedVars = oldAllocatedVars})
   where
+    mkParam (AT.TFunction retType paramTypes isVar) n =
+      ( T.ptr $
+          T.FunctionType
+            (ET.toLLVM retType)
+            (map ET.toLLVM paramTypes)
+            isVar,
+        M.ParameterName $ U.stringToByteString n
+      )
     mkParam t n = (ET.toLLVM t, M.ParameterName $ U.stringToByteString n)
 generateFunction expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
