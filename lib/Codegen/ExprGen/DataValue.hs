@@ -18,7 +18,8 @@ generateArrayAccess :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.
 generateArrayAccess (AT.ArrayAccess _ arrayExpr indexExpr) = do
   arrayOperand <- generateExpr arrayExpr
   indexOperand <- generateExpr indexExpr
-  I.gep arrayOperand [indexOperand]
+  ptr <- I.gep arrayOperand [indexOperand]
+  I.load ptr 0
 generateArrayAccess expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
 
