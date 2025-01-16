@@ -1,0 +1,10 @@
+{
+    "title": "FrostLang HandBook",
+    "description": "Developer Cheat Sheet for the FrostLang Programming Language",
+    "plugins": [
+        "code",
+        "search",
+        "hints",
+        "copy-code-button"
+    ]
+}
