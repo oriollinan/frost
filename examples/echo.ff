@@ -1,0 +1,91 @@
+import "std/io.ff"
+import "std/socket.ff"
+import "std/lib.ff"
+import "std/inet.ff"
+import "std/uni.ff"
+
+PORT: int = 8000
+BUFFER_SIZE: int = 1024
+AF_INET: int = 2
+
+
+
+sockaddr_in :: struct {
+    sin_family -> int16
+    sin_port -> int16
+    sin_addr -> in_addr
+    sin_zero -> *int8
+}
+
+main: never -> int = {
+
+    SIZEOF_ADDR: int = 16
+
+    INADDR_ANY: int = 0
+    SOCK_STREAM: int = 1
+
+    server_fd: int = 0
+    new_socket: int = 0
+
+    address: sockaddr_in
+
+    buffer: *byte = malloc(BUFFER_SIZE)
+    defer free(buffer)
+
+    if not buffer {
+        perror("malloc")
+        ret 1
+    }
+
+    server_fd = socket(AF_INET SOCK_STREAM 0)
+    if server_fd < 0 {
+        perror("socket")
+        ret 1
+    }
+
+    address.sin_family = @int16(AF_INET)
+    address.sin_port = @int16(htons(PORT))
+    address.sin_addr.s_addr = INADDR_ANY
+
+    if bind(server_fd address.& SIZEOF_ADDR) < 0 {
+        perror("bind")
+        ret 1
+    }
+
+    if listen(server_fd 3) < 0 {
+        perror("listen")
+        ret 1
+    }
+
+    printf("Listening on port %d\n" PORT)
+
+    new_socket = accept(server_fd address.& SIZEOF_ADDR.&)
+    defer {
+        if new_socket > 0 {
+            close(new_socket)
+        }
+    }
+
+    if new_socket < 0 {
+        perror("accept")
+        ret 1
+    }
+
+    printf("Connection accepted\n")
+
+    loop true {
+        read_size: int = recv(new_socket buffer BUFFER_SIZE 0)
+        if read_size == 0 {
+            stop
+        }
+
+        if read_size < 0 {
+            perror("recv")
+            stop
+        }
+        printf("Message received: %s\n" buffer)
+        send(new_socket buffer read_size 0)
+    }
+
+    0
+}
