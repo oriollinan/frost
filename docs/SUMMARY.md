@@ -14,3 +14,4 @@
   - [Binary Operators](user-manual/syntax/binary-operators.md)
   - [Unary Operators](user-manual/syntax/unary-operators.md)
   - [Inline Assembly](user-manual/syntax/inline-assembly.md)
+  - [Backus-Naur form](user-manual/syntax/backus-naur-form.md)
