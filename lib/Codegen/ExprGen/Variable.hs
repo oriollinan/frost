@@ -113,20 +113,20 @@ createGlobalString str = do
 
 -- | Generate LLVM code for variable references.
 generateVar :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
-generateVar (AT.Var loc name _) = do
+generateVar (AT.Var loc name type') = do
   maybeVar <- CS.getVar name
   case maybeVar of
     Nothing ->
       E.throwError $ CC.CodegenError loc $ CC.VariableNotFound name
     Just ptr -> do
       let varTy = TD.typeOf ptr
-      case varTy of
-        T.PointerType (T.FunctionType {}) _ ->
-          return ptr
-        T.PointerType _ _ ->
-          I.load ptr 0
-        _ ->
-          return ptr
+          expectedType = ET.toLLVM type'
+      if varTy == expectedType
+        then return ptr
+        else case varTy of
+          T.PointerType (T.FunctionType {}) _ -> return ptr
+          T.PointerType _ _ -> I.load ptr 0
+          _ -> return ptr
 generateVar expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
 
