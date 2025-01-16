@@ -305,16 +305,6 @@ eq: bool = 1 is 1
 neq: bool = not (1 is 2)
 ```
 
-### Standard Library
-
-The standard library provides essential modules:
-
-- `std/io.ff`: Input/output operations
-- `std/math.ff`: Mathematical functions
-- `std/string.ff`: String manipulation
-- `std/lib.ff`: Core utilities
-- `std/uni.ff`: POSIX system calls
-
 ## Best Practices
 
 - Use meaningful variable names
