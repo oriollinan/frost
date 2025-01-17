@@ -1,0 +1,23 @@
+SDL_INIT_VIDEO: int = 32
+SDL_WINDOWPOS_CENTERED: int = 805240832
+SDL_WINDOW_SHOWN: int = 4
+SDL_WINDOW_OPENGL: int = 2
+
+SIZEOF_SDL_EVENT: int = 56
+OFFSETOF_SDL_EVENT: int = 0
+
+SDL_QUIT: int = 256
+
+SDL_Init: foreign int -> int
+SDL_CreateWindow: foreign *byte int int int int int -> *byte
+SDL_Quit: foreign never -> never
+SDL_PollEvent: foreign *byte -> int
+SDL_DestroyWindow: foreign *byte -> never
+SDL_GL_CreateContext: foreign *byte -> *byte
+SDL_GL_DeleteContext: foreign *byte -> never
+SDL_GetTicks: foreign never -> int
+SDL_GL_SwapWindow: foreign *byte -> never
+SDL_Delay: foreign int -> never
+SDL_GL_MakeCurrent: foreign *byte *byte -> int
+SDL_GL_SetAttribute: foreign int int -> int
+SDL_GetError: foreign never -> *byte
