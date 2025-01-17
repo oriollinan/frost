@@ -12,6 +12,7 @@ data SrcLoc = SrcLoc
 data Literal
   = LInt Integer
   | LFloat Double
+  | LDouble Double
   | LChar Char
   | LBool Bool
   | LArray [Literal]

@@ -61,6 +61,7 @@ generateConstant lit loc = case lit of
   AT.LBool b -> return $ C.Int 1 (if b then 1 else 0)
   AT.LNull -> return $ C.Null T.i8
   AT.LFloat f -> pure $ C.Float (FF.Double (realToFrac f))
+  AT.LDouble f -> pure $ C.Float (FF.Double (realToFrac f))
   AT.LArray elems -> do
     let (headElem, _) = M.fromJust $ L.uncons elems
     case headElem of
