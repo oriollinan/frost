@@ -23,14 +23,25 @@ age: int = 20
 
 <!-- deno-fmt-ignore -->
 {% hint style='info' %}
-One quirk of Frost is the use of commas (`,`) instead of periods for floating-point
-numbers.
+Floats in Frost have some quirks.
+
+One quirk of Frost is the use of commas (`,`) instead of periods for
+floating-point numbers.
+
+Another one, is that floating-point numbers are treated as `double` unless
+explicitly marked as `float`. This can be done either by appending an `f` to the
+number or by using the `cast` expression:
+
+```frost
+temperature: float = 23,5f
+```
+
 {% endhint %}
 
 32-bit floating-point numbers following IEEE 754:
 
 ```frost
-temperature: float = 23,5
+pi: float = @float(3,14159265359)
 ```
 
 **Properties**
@@ -40,6 +51,17 @@ temperature: float = 23,5
 - Range: ±3.4E±38
 
 ### Double (Double-precision)
+
+<!-- deno-fmt-ignore -->
+{% hint style='info' %}
+Similar to `float`, `double` have a suffix `d` to differentiate them from
+`float`
+
+```frost
+temperature: double = 23,5d
+```
+
+{% endhint %}
 
 64-bit floating-point numbers for higher precision calculations:
 
