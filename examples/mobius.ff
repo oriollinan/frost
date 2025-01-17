@@ -1,11 +1,9 @@
 %%
-% MacOS:
-%   ./glados -i examples/graphical.ff -o mobius.ll
-%   clang mobius.ll -o mobius -I/opt/homebrew/include -L/opt/homebrew/lib -lsdl2 -framework OpenGL
-%  ./mobius
-%
-% Linux:
-% TODO(jabolo): Test this on Linux
+% SDL2 + OpenGL example of a 3D Möbius Strip
+%%
+
+%%
+% Standard Library
 %%
 import "std/io.ff"
 import "std/lib.ff"
@@ -17,6 +15,11 @@ WIDTH: int = 800
 HEIGHT: int = 600
 PI: double = 3,14159265359
 
+%%
+% Function to draw a 3D Möbius Strip
+%
+% A Möbius Strip is a surface with only one side and only one boundary.
+%%
 draw_mobius_strip: double -> never = time {
     u_steps: int = 100
     v_steps: int = 50
@@ -52,14 +55,17 @@ draw_mobius_strip: double -> never = time {
                 g: double = 0,5 + 0,5 * sin(e)
                 b: double = 0,7
 
-                glColor3f(r g b)
-                glVertex3f(x y z)
+                glColor3d(r g b)
+                glVertex3d(x y z)
             }
         }
         glEnd()
     }
 }
 
+%%
+% Function to initialize OpenGL
+%%
 init_open_gl: never -> never = {
     SCREEN_RATIO: double = @double(WIDTH) / @double(HEIGHT)
 
@@ -71,9 +77,13 @@ init_open_gl: never -> never = {
     gluPerspective(45,0 SCREEN_RATIO 0,1 100,0)
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
-    glClearColor(0,2 0,3 0,3 1,0)
+
+    glClearColor(@float(0,2) @float(0,3) @float(0,3) @float(1,0))
 }
 
+%%
+% Main function
+%%
 main: never -> int = {
     if SDL_Init(SDL_INIT_VIDEO) < 0 {
         ret 1
@@ -135,8 +145,8 @@ main: never -> int = {
         glLoadIdentity()
 
         gluLookAt(0,0 0,0 5,0 0,0 0,0 0,0 0,0 1,0 0,0)
-        glRotatef(angle_y 0,0 1,0 0,0)
-        glRotatef(angle_x 1,0 0,0 0,0)
+        glRotated(angle_y 0,0 1,0 0,0)
+        glRotated(angle_x 1,0 0,0 0,0)
 
         draw_mobius_strip(time)
 
