@@ -1,0 +1,159 @@
+%%
+% SDL2 + OpenGL example of a 3D Möbius Strip
+%%
+
+%%
+% Standard Library
+%%
+import "std/io.ff"
+import "std/lib.ff"
+import "std/sdl2.ff"
+import "std/math.ff"
+import "std/opengl.ff"
+
+WIDTH: int = 800
+HEIGHT: int = 600
+PI: double = 3,14159265359
+
+%%
+% Function to draw a 3D Möbius Strip
+%
+% A Möbius Strip is a surface with only one side and only one boundary.
+%%
+draw_mobius_strip: double -> never = time {
+    u_steps: int = 100
+    v_steps: int = 50
+    u: double = 0,0
+    v: double = 0,0
+
+    from 0 to u_steps by 1 [i: int] {
+
+        glBegin(GL_TRIANGLE_STRIP)
+        from 0 to v_steps + 1 by 1 [j: int] {
+            a: double = @double(j) / @double(v_steps) - 0,5
+            u = @double(i) / @double(u_steps) * 2,0 * PI
+            v = a * 2,0
+
+            from 0 to 2 by 1 [k: int] {
+                current_u: double = @double(i + 1) / @double(u_steps) * 2,0 * PI
+                if k is 0 {
+                    current_u = @double(i) / @double(u_steps) * 2,0 * PI
+                }
+
+                b: double = v / 2,0
+                c: double = current_u / 2,0
+                d: double = 1,0 + b * cos(c)
+
+                x: double = d * cos(current_u)
+                y: double = d * sin(current_u)
+                z: double = b * sin(c)
+
+                f: double = @double(i) / @double(u_steps)
+                e: double = time + f * 2,0 * PI
+
+                r: double = 0,5 + 0,5 * cos(e)
+                g: double = 0,5 + 0,5 * sin(e)
+                b: double = 0,7
+
+                glColor3d(r g b)
+                glVertex3d(x y z)
+            }
+        }
+        glEnd()
+    }
+}
+
+%%
+% Function to initialize OpenGL
+%%
+init_open_gl: never -> never = {
+    SCREEN_RATIO: double = @double(WIDTH) / @double(HEIGHT)
+
+    glEnable(GL_DEPTH_TEST)
+    glShadeModel(GL_SMOOTH)
+    glViewport(0 0 WIDTH HEIGHT)
+    glMatrixMode(GL_PROJECTION)
+    glLoadIdentity()
+    gluPerspective(45,0 SCREEN_RATIO 0,1 100,0)
+    glMatrixMode(GL_MODELVIEW)
+    glLoadIdentity()
+
+    glClearColor(@float(0,2) @float(0,3) @float(0,3) @float(1,0))
+}
+
+%%
+% Main function
+%%
+main: never -> int = {
+    if SDL_Init(SDL_INIT_VIDEO) < 0 {
+        ret 1
+    }
+
+    window_mask: int = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN
+    window: *byte = SDL_CreateWindow("3D Mobius Strip" SDL_WINDOWPOS_CENTERED SDL_WINDOWPOS_CENTERED WIDTH HEIGHT window_mask)
+    defer {
+        printf("Destroying window\n")
+        SDL_DestroyWindow(window)
+        SDL_Quit()
+    }
+
+    if not window {
+        SDL_Quit()
+        ret 1
+    }
+
+    context: *byte = SDL_GL_CreateContext(window)
+    defer {
+        printf("Destroying context\n")
+        SDL_GL_DeleteContext(context)
+    }
+
+    if not context {
+        SDL_DestroyWindow(window)
+        SDL_Quit()
+        ret 1
+    }
+
+    init_open_gl()
+
+    running: bool = true
+    event: *byte = malloc(SIZEOF_SDL_EVENT)
+    defer free(event)
+
+    if not event {
+        ret 1
+    }
+
+    angle_x: double = 0,0
+    angle_y: double = 0,0
+    start_time: int = SDL_GetTicks()
+
+    type: *int = @*int(event + OFFSETOF_SDL_EVENT)
+
+    loop running {
+        loop SDL_PollEvent(event) {
+            if type.* is SDL_QUIT {
+                running = false
+            }
+        }
+
+        current_time: int = SDL_GetTicks()
+        time: double = @double(current_time - start_time) / 1000,0
+        
+        mask: int = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT
+        glClear(mask)
+        glLoadIdentity()
+
+        gluLookAt(0,0 0,0 5,0 0,0 0,0 0,0 0,0 1,0 0,0)
+        glRotated(angle_y 0,0 1,0 0,0)
+        glRotated(angle_x 1,0 0,0 0,0)
+
+        draw_mobius_strip(time)
+
+        angle_y = angle_y + 0,05
+        angle_x = angle_x + 0,03
+        SDL_GL_SwapWindow(window)
+    }
+
+    0
+}

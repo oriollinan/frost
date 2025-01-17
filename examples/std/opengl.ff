@@ -1,0 +1,29 @@
+GL_NO_ERROR: int = 0
+GL_TRIANGLE_STRIP: int = 5
+GL_QUADS: int = 7
+GL_SMOOTH: int = 7425
+GL_PROJECTION: int = 5889
+GL_MODELVIEW: int = 5888
+GL_DEPTH_TEST: int = 2929
+GL_DEPTH_BUFFER_BIT: int = 256
+GL_COLOR_BUFFER_BIT: int = 16384
+
+glBegin: foreign int -> never
+glEnd: foreign never -> never
+glColor3f: foreign float float float -> never
+glColor3d: foreign double double double -> never
+glVertex3f: foreign float float float -> never
+glVertex3d: foreign double double double -> never
+glEnable: foreign int -> never
+glShadeModel: foreign int -> never
+glViewport: foreign int int int int -> never
+glMatrixMode: foreign int -> never
+glLoadIdentity: foreign never -> never
+gluPerspective: foreign double double double double -> never
+glClearColor: foreign float float float float -> never
+glClear: foreign int -> never
+gluLookAt: foreign double double double double double double double double double -> never
+glRotatef: foreign float float float float -> never
+glRotated: foreign double double double double -> never
+glGetError: foreign never -> int
+gluErrorString: foreign int -> *byte
