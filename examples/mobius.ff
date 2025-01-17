@@ -78,7 +78,7 @@ init_open_gl: never -> never = {
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
 
-    glClearColor(@float(0,2) @float(0,3) @float(0,3) @float(1,0))
+    glClearColor(0,2f 0,3f 0,3f 1,0f)
 }
 
 %%
