@@ -75,9 +75,27 @@ modules:
 - **socket.ff**: Socket operations
 - **string.ff**: String manipulation
 - **uni.ff**: POSIX system calls
+- **opengl.ff**: OpenGL bindings
+- **sdl2.ff**: SDL2 bindings
 
 All of these are available at
-[`https//frost-lang.deno.dev/std/`](https//frost-lang.deno.dev/std/).
+[`https://frost-lang.deno.dev/std/`](https://frost-lang.deno.dev/std/).
+
+We also host all examples under the root route of the server. You can access
+them at [`https://frost-lang.deno.dev/`](https://frost-lang.deno.dev/).
+
+For example, if you want to render a `3d` ASCII donut, you can import the
+`donut.ff` example and run it out of the box:
+
+```frost
+import "https://frost-lang.deno.dev/donut.ff"
+```
+
+And then JIT-compile and run it:
+
+```bash
+frostc -i donut.ff | lli
+```
 
 ### Variables and Types
 
