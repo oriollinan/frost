@@ -10,17 +10,20 @@ GL_DEPTH_BUFFER_BIT: int = 256
 
 glBegin: foreign int -> never
 glEnd: foreign never -> never
-glColor3f: foreign double double double -> never
-glVertex3f: foreign double double double -> never
+glColor3f: foreign float float float -> never
+glColor3d: foreign double double double -> never
+glVertex3f: foreign float float float -> never
+glVertex3d: foreign double double double -> never
 glEnable: foreign int -> never
 glShadeModel: foreign int -> never
 glViewport: foreign int int int int -> never
 glMatrixMode: foreign int -> never
 glLoadIdentity: foreign never -> never
 gluPerspective: foreign double double double double -> never
-glClearColor: foreign double double double double -> never
+glClearColor: foreign float float float float -> never
 glClear: foreign int -> never
 gluLookAt: foreign double double double double double double double double double -> never
-glRotatef: foreign double double double double -> never
+glRotatef: foreign float float float float -> never
+glRotated: foreign double double double double -> never
 glGetError: foreign never -> int
 gluErrorString: foreign int -> *byte
