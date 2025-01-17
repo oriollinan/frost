@@ -1,12 +1,10 @@
-SDL_INIT_VIDEO: int = 32
-SDL_WINDOWPOS_CENTERED: int = 805240832
-SDL_WINDOW_SHOWN: int = 4
 SDL_WINDOW_OPENGL: int = 2
-
+SDL_WINDOW_SHOWN: int = 4
 SIZEOF_SDL_EVENT: int = 56
 OFFSETOF_SDL_EVENT: int = 0
-
+SDL_INIT_VIDEO: int = 32
 SDL_QUIT: int = 256
+SDL_WINDOWPOS_CENTERED: int = 805240832
 
 SDL_Init: foreign int -> int
 SDL_CreateWindow: foreign *byte int int int int int -> *byte

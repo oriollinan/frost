@@ -1,12 +1,12 @@
 GL_NO_ERROR: int = 0
 GL_TRIANGLE_STRIP: int = 5
 GL_QUADS: int = 7
-GL_DEPTH_TEST: int = 2929
 GL_SMOOTH: int = 7425
 GL_PROJECTION: int = 5889
 GL_MODELVIEW: int = 5888
-GL_COLOR_BUFFER_BIT: int = 16384
+GL_DEPTH_TEST: int = 2929
 GL_DEPTH_BUFFER_BIT: int = 256
+GL_COLOR_BUFFER_BIT: int = 16384
 
 glBegin: foreign int -> never
 glEnd: foreign never -> never
