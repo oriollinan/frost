@@ -37,15 +37,33 @@ spec = do
 
   describe "parseFloat" $ do
     it "parses positive floats" $ do
-      let input = "123,45"
+      let input = "123,45f"
       result <- parse input
       let expected = Right (AT.LFloat 123.45)
       result `shouldBe` expected
 
     it "parses negative floats" $ do
-      let input = "-67,89"
+      let input = "-67,89f"
       result <- parse input
       let expected = Right (AT.LFloat (-67.89))
+      result `shouldBe` expected
+
+    it "parses positive double" $ do
+      let input = "67,89d"
+      result <- parse input
+      let expected = Right (AT.LDouble 67.89)
+      result `shouldBe` expected
+
+    it "parses negative double" $ do
+      let input = "-67,89d"
+      result <- parse input
+      let expected = Right (AT.LDouble (-67.89))
+      result `shouldBe` expected
+
+    it "parses a double" $ do
+      let input = "67,89"
+      result <- parse input
+      let expected = Right (AT.LDouble 67.89)
       result `shouldBe` expected
 
     it "fails on non-float input" $ do

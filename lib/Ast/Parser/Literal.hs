@@ -28,9 +28,9 @@ parseInt = AT.LInt <$> ML.signed (pure ()) ML.decimal
 -- | Parses a floating-point literal.
 -- Returns a `Literal` of type `LFloat`.
 parseFloat :: PU.Parser AT.Literal
-parseFloat =
-  AT.LFloat
-    <$> ML.signed
+parseFloat = do
+  decimal <-
+    ML.signed
       (pure ())
       ( do
           wholePart <- ML.decimal :: (PU.Parser Integer)
@@ -39,6 +39,10 @@ parseFloat =
           let value = fromIntegral wholePart + fractional
           return value
       )
+  type' <- M.optional $ M.choice [AT.LDouble <$ MC.char 'd', AT.LFloat <$ MC.char 'f']
+  case type' of
+    Just t -> return $ t decimal
+    _ -> return $ AT.LDouble decimal
 
 -- | Parses a boolean literal (`true` or `false`).
 -- Returns a `Literal` of type `LBool`.
