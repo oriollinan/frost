@@ -63,6 +63,18 @@ import "./modules/utils.ff" % Relative import
 import "https://frost-lang.deno.dev/std/io.ff" % HTTP import
 ```
 
+If the remote server needs authentication, credentials are accepted as an
+environment variable when running the compiler. This will be set as the
+`Authorization` header in the request, with a `Bearer` token:
+
+```bash
+FROST_PRIVATE_REGISTRY_AUTH="ey..." frostc -i source.ff
+```
+
+Frost supports up to `25` levels of nested imports. This limit is arbitrary and
+can be increased if needed. The compiler supports both kinds of imports, and
+they can be mixed in the same file.
+
 ### Standard Library
 
 Frost has a somewhat limited Standard Library, but it provides essential
@@ -77,6 +89,21 @@ modules:
 - **uni.ff**: POSIX system calls
 - **opengl.ff**: OpenGL bindings
 - **sdl2.ff**: SDL2 bindings
+
+<!-- deno-fmt-ignore -->
+{% hint style='info' %}
+Standard `C` libraries are linked by default when using `llc`/`clang`/`lli` or 
+equivalent. In order to use `OpenGL` and`SDL2` bindings, the corresponding libraries
+must be installed on the system.
+
+For example, to compile a program using `SDL2`, you need to link the library
+with `clang` or similar:
+
+```bash
+frostc -i source.ff | clang -lSDL2 -x ir - -o output
+```
+
+{% endhint %}
 
 All of these are available at
 [`https://frost-lang.deno.dev/std/`](https://frost-lang.deno.dev/std/).
@@ -321,6 +348,43 @@ neg: bool = not true
 % Comparison
 eq: bool = 1 is 1
 neq: bool = not (1 is 2)
+```
+
+## Preprocessor Directives
+
+Another powerful feature of Frost is the preprocessor. It allows for conditional
+compilation, macro definitions, and file inclusion.
+
+For instance, you can define a macro for a specific platform in a module:
+
+```frost
+sockaddr_in :: struct {
+?defined(OS_LINUX)
+    sin_len -> byte
+    sin_family -> byte
+?else
+    sin_family -> int16
+?end
+    sin_port -> int16
+    sin_addr -> in_addr
+    sin_zero -> *int8
+}
+```
+
+And then define the platform in the main file, and import the code resulting in
+the correct struct definition:
+
+```frost
+?set(OS_LINUX)
+import "custom/socket.ff"
+
+main: never -> int = {
+    sockaddr: sockaddr_in
+
+    sockaddr.len = 16
+    sockaddr.sin_family = 2
+    % ...
+}
 ```
 
 ## Best Practices
