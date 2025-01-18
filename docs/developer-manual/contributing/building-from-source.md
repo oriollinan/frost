@@ -1,10 +1,10 @@
-## Building Frost from Source
+# Building Frost from Source
 
 This guide will walk you through the process of building the Frost compiler from
 source. Building from source allows you to work with the latest development
 version and contribute to the project.
 
-### Prerequisites
+## Prerequisites
 
 Before you begin, ensure you have the following tools installed:
 
@@ -14,7 +14,7 @@ Before you begin, ensure you have the following tools installed:
 4. **LLVM 19+**: The LLVM compiler infrastructure, version 19 or newer
 5. **Make**: The GNU Make build automation tool
 
-### Step-by-Step Instructions
+## Step-by-Step Instructions
 
 1. **Clone the Repository**
 
@@ -64,14 +64,14 @@ Before you begin, ensure you have the following tools installed:
 
    This should display the version information for the Frost compiler.
 
-### Troubleshooting
+## Troubleshooting
 
 - If you encounter LLVM-related errors, make sure you have LLVM 19 or newer
   installed and that it's in your system PATH.
 - For any Haskell package dependency issues, try running `cabal update` before
   attempting the build process again.
 
-### Contributing
+## Contributing
 
 After successfully building Frost from source, you're ready to start
 contributing to the project. Be sure to read our contribution guidelines and
@@ -88,3 +88,49 @@ git submodule update --init --recursive
 By building Frost from source, you're not only getting the latest features but
 also positioning yourself to contribute to the language's development. Happy
 coding!
+
+### Pre-Commit Hooks
+
+This repository uses pre-commit hooks to ensure code quality. To install the
+hooks, run the following command:
+
+```bash
+pre-commit install
+```
+
+Hooks for code formatting and linting will run automatically when you commit
+changes. These hooks are `ormolu` and `hlint`. Please make sure to fix any
+errors before committing. You can also run the hooks manually using:
+
+```bash
+pre-commit run --all-files
+```
+
+### Devcontainer
+
+This project includes a `devcontainer` configuration for Visual Studio Code. To
+use the devcontainer, you need to have
+[Docker](https://docs.docker.com/get-docker/),
+[Visual Studio Code](https://code.visualstudio.com/) and the
+[Remote - Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+extension installed.
+
+To open the project in the devcontainer, open the command palette
+(`Ctrl+Shift+P`) and run the command `Remote-Containers: Reopen in Container`.
+All the necessary tools and dependencies will be installed in the container.
+
+### Development Workflow
+
+When working on the Frost compiler, you can use the following commands to build
+the project:
+
+```bash
+cabal build
+```
+
+To run the project, run the following command, replacing `examples/hello.ff`
+with the path to your Frost source file:
+
+```bash
+cabal run frostc -- -i examples/hello.ff
+```

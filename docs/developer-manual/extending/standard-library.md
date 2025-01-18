@@ -1,4 +1,4 @@
-### Standard Library
+## Standard Library
 
 Frost's Standard Library is primarily a wrapper around C header libraries,
 providing access to essential functions through foreign function declarations.

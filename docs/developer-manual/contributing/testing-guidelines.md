@@ -1,3 +1,5 @@
+# Testing Guidelines
+
 Frost uses Hspec with Hspec Discover for its testing framework. This approach
 provides a structured and expressive way to write and organize tests for the
 Frost compiler.
