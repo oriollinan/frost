@@ -35,8 +35,6 @@ generateDeclaration (AT.Declaration loc name typ mInitExpr) = do
       case mInitExpr of
         Just initExpr -> do
           initValue <- generateExpr initExpr
-          -- TODO: This makes us lose precision in some cases,
-          -- e.g. when initializing a float with an integer
           initValue' <- EC.ensureMatchingType loc initValue (ET.toLLVM typ)
           I.store ptr 0 initValue'
           I.load ptr 0
