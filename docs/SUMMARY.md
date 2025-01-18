@@ -18,42 +18,43 @@
 
 ## Developer Manual
 
-- [About This Manual](introduction/about.md)
-- [Project Overview](introduction/overview.md)
+- [About This Manual](developer-manual/about.md)
+- [Project Overview](developer-manual/overview.md)
 
 ### Architecture
 
-- [Compiler Structure](architecture/compiler-structure.md)
-- [LLVM Integration](architecture/llvm-integration.md)
+- [Compiler Structure](developer-manual/architecture/compiler-structure.md)
+- [LLVM Integration](developer-manual/architecture/llvm-integration.md)
 
 ### Compilation Process
 
-- [Building the AST](compilation-process/building-ast.md)
-- [Code Generation](compilation-process/code-generation.md)
+- [Building the AST](developer-manual/compilation-process/building-ast.md)
+- [Code Generation](developer-manual/compilation-process/code-generation.md)
 
 ### Extending the Language
 
-- [Adding New Keywords](extending/new-keywords.md)
-- [Implementing New Types](extending/new-types.md)
-- [Creating Custom Operators](extending/custom-operators.md)
-- [Extending the Standard Library](extending/standard-library.md)
+- [Adding New Keywords](developer-manual/extending/new-keywords.md)
+- [Implementing New Types](developer-manual/extending/new-types.md)
+- [Creating Custom Operators](developer-manual/extending/custom-operators.md)
+- [Extending the Standard Library](developer-manual/extending/standard-library.md)
 
 ### Security Features
 
-- [Type Safety](security/type-safety.md)
-- [Memory Management](security/memory-management.md)
+- [Type Safety](developer-manual/security/type-safety.md)
+- [Memory Management](developer-manual/security/memory-management.md)
 
 ### Inspiration and Design Choices
 
-- [Influences from Other Languages](inspiration/language-influences.md)
-- [Design Philosophy](inspiration/design-philosophy.md)
+- [Influences from Other Languages](developer-manual/inspiration/language-influences.md)
+- [Design Philosophy](developer-manual/inspiration/design-philosophy.md)
 
 ### Advanced Topics
 
-- [Optimizing LLVM IR Output](advanced/llvm-ir-optimization.md)
-- [Cross-platform Considerations](advanced/cross-platform.md)
+- [Optimizing LLVM IR Output](developer-manual/advanced/llvm-ir-optimization.md)
+- [Cross-platform Considerations](developer-manual/advanced/cross-platform.md)
 
 ### Contributing
 
-- [Coding Standards](contributing/coding-standards.md)
-- [Testing Guidelines](contributing/testing-guidelines.md)
+- [Building from Source](developer-manual/contributing/building-from-source.md)
+- [Coding Standards](developer-manual/contributing/coding-standards.md)
+- [Testing Guidelines](developer-manual/contributing/testing-guidelines.md)
