@@ -57,6 +57,3 @@ structures, and how to interact with the system.
 ## License
 
 Frost is licensed under the MIT License. See [LICENSE](LICENSE) for details.
-
-```
-```
