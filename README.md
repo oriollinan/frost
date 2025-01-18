@@ -9,6 +9,11 @@ with the convenience of contemporary programming practices.
 
 ## Example
 
+> [!TIP]
+> For examples and sample code, check the [examples](examples) directory. These
+> demonstrate the key features of the language, including basic syntax, data
+> structures, and how to interact with the system.
+
 Here's a simple "Hello, world!" program written in Frost:
 
 ```frost
@@ -47,12 +52,6 @@ To begin with Frost, ensure that [Haskell](https://www.haskell.org/) and
 download the latest release from the [releases page](README.md) or opt to build
 Frost from source. For comprehensive installation guidance, please consult the
 [Documentation](https://frost-lang.gitbook.io/frost/user-manual/getting-started).
-
-## Examples
-
-For examples and sample code, check the [examples](examples) directory. These
-demonstrate the key features of the language, including basic syntax, data
-structures, and how to interact with the system.
 
 ## License
 
