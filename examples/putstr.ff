@@ -5,9 +5,9 @@
 %%
 % Standard Library
 %%
-import "std/io.ff"
-import "std/string.ff"
-import "std/uni.ff"
+import "https://frost-lang.deno.dev/std/io.ff"
+import "https://frost-lang.deno.dev/std/string.ff"
+import "https://frost-lang.deno.dev/std/uni.ff"
 
 %%
 % Function to write a string to stdout

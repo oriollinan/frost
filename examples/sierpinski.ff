@@ -5,7 +5,7 @@
 %%
 % Standard Library
 %%
-import "std/io.ff"
+import "https://frost-lang.deno.dev/std/io.ff"
 
 %%
 % Draw the Sierpinski Triangle

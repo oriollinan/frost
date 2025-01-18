@@ -5,11 +5,11 @@
 %%
 % Standard Library
 %%
-import "std/io.ff"
-import "std/lib.ff"
-import "std/sdl2.ff"
-import "std/math.ff"
-import "std/opengl.ff"
+import "https://frost-lang.deno.dev/std/io.ff"
+import "https://frost-lang.deno.dev/std/lib.ff"
+import "https://frost-lang.deno.dev/std/sdl2.ff"
+import "https://frost-lang.deno.dev/std/math.ff"
+import "https://frost-lang.deno.dev/std/opengl.ff"
 
 WIDTH: int = 800
 HEIGHT: int = 600

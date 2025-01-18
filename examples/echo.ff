@@ -5,11 +5,11 @@
 %%
 % Standard Library
 %%
-import "std/io.ff"
-import "std/socket.ff"
-import "std/lib.ff"
-import "std/inet.ff"
-import "std/uni.ff"
+import "https://frost-lang.deno.dev/std/io.ff"
+import "https://frost-lang.deno.dev/std/socket.ff"
+import "https://frost-lang.deno.dev/std/lib.ff"
+import "https://frost-lang.deno.dev/std/inet.ff"
+import "https://frost-lang.deno.dev/std/uni.ff"
 
 in_addr :: struct {
     s_addr -> int
