@@ -5,7 +5,7 @@ module Codegen.ExprGen.Function where
 
 import qualified Ast.Types as AT
 import qualified Codegen.Errors as CC
-import {-# SOURCE #-} Codegen.ExprGen.ExprGen (ExprGen (..))
+import {-# SOURCE #-} qualified Codegen.ExprGen.ExprGen as EG
 import qualified Codegen.ExprGen.Types as ET
 import qualified Codegen.State as CS
 import qualified Codegen.Utils as U
@@ -22,7 +22,7 @@ import qualified LLVM.IRBuilder.Module as M
 import qualified Shared.Utils as SU
 
 -- | Generate LLVM code for function definitions.
-generateFunction :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
+generateFunction :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m AST.Operand
 generateFunction (AT.Function _ name (AT.TFunction ret params var) paramNames body) = do
   let funcName = AST.Name $ U.stringToByteString name
       paramTypes = zipWith mkParam params paramNames
@@ -33,7 +33,7 @@ generateFunction (AT.Function _ name (AT.TFunction ret params var) paramNames bo
     S.zipWithM_ CS.addVar paramNames ops
     oldAllocatedVars <- S.gets CS.allocatedVars
     preAllocateVars body
-    result <- generateExpr body
+    result <- EG.generateExpr body
     case ret of
       AT.TVoid -> I.retVoid
       _ -> I.ret result
@@ -52,7 +52,7 @@ generateFunction expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
 
 -- | Pre-allocate variables before generating code.
-preAllocateVars :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m ()
+preAllocateVars :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m ()
 preAllocateVars (AT.Assignment _ (AT.Var _ name typ) _) = do
   let llvmType = ET.toLLVM typ
   existingVar <- CS.getVar name
@@ -87,7 +87,7 @@ preAllocateVars (AT.Function _ _ _ _ bodyExpr) = preAllocateVars bodyExpr
 preAllocateVars _ = pure ()
 
 -- | Generate LLVM code for foreign function definitions.
-generateForeignFunction :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
+generateForeignFunction :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m AST.Operand
 generateForeignFunction (AT.ForeignFunction _ name (AT.TFunction ret params var)) = do
   let funcType = T.ptr $ T.FunctionType (ET.toLLVM ret) (map ET.toLLVM params) var
       funcName = AST.Name $ U.stringToByteString name
@@ -105,12 +105,12 @@ generateForeignFunction expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
 
 -- | Generate LLVM code for function calls.
-generateFunctionCall :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
+generateFunctionCall :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m AST.Operand
 generateFunctionCall (AT.Call loc (AT.Var _ funcName _) args) = do
   maybeFunc <- CS.getVar funcName
   case maybeFunc of
     Just funcOperand -> do
-      argOperands <- mapM generateExpr args
+      argOperands <- mapM EG.generateExpr args
       I.call funcOperand (map (,[]) argOperands)
     Nothing ->
       E.throwError $ CC.CodegenError loc $ CC.UnsupportedFunctionCall funcName

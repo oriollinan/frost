@@ -4,7 +4,7 @@ module Codegen.ExprGen.Assembly where
 
 import qualified Ast.Types as AT
 import qualified Codegen.Errors as CC
-import {-# SOURCE #-} Codegen.ExprGen.ExprGen (ExprGen (..))
+import {-# SOURCE #-} qualified Codegen.ExprGen.ExprGen as EG
 import qualified Codegen.ExprGen.Types as ET
 import qualified Codegen.State as CS
 import qualified Control.Monad.Except as E
@@ -48,7 +48,7 @@ callInlineAssembly asm retType args' = do
     _ -> IRB.emitInstr retType callInstr
 
 -- | Generate LLVM code for assembly expressions.
-generateAssembly :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
+generateAssembly :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m AST.Operand
 generateAssembly (AT.Assembly _ asmExpr) = do
   let llvmRetTy = ET.toLLVM $ AT.asmReturnType asmExpr
       inlineType = T.FunctionType llvmRetTy (map ET.toLLVM $ AT.asmParameters asmExpr) False
@@ -80,7 +80,7 @@ generateAssembly (AT.Assembly _ asmExpr) = do
   asmOperands <-
     mapM
       ( \argExpr -> do
-          argOp <- generateExpr argExpr
+          argOp <- EG.generateExpr argExpr
           pure (argOp, [])
       )
       (AT.asmArgs asmExpr)
