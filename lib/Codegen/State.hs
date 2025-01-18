@@ -70,7 +70,7 @@ instance (MonadCodegen m, Monad m) => VarBinding m where
   addGlobalVar :: (MonadCodegen m, Monad m) => String -> AST.Operand -> m ()
   addGlobalVar name operand = S.modify (\s -> s {globalState = (name, operand) : globalState s})
 
--- Generates a fresh unique name.
+-- | Generates a fresh unique name.
 fresh :: (MonadCodegen m) => m AST.Name
 fresh = do
   state <- S.get
@@ -79,7 +79,7 @@ fresh = do
   let fullName = "_" ++ show uniqueName
   return $ AST.Name (CU.stringToByteString fullName)
 
--- Generates a fresh unique name with the given prefix.
+-- | Generates a fresh unique name with the given prefix.
 freshName :: (MonadCodegen m) => String -> m AST.Name
 freshName prefix = do
   state <- S.get
