@@ -64,6 +64,18 @@ Before you begin, ensure you have the following tools installed:
 
    This should display the version information for the Frost compiler.
 
+## Documentation
+
+We maintain Haddock documentation for the Frost compiler. It is currently hosted
+on GitHub Pages and can be accessed at
+[https://jabolol.github.io/glados/](https://jabolol.github.io/glados/).
+
+To generate the documentation locally, run the following command:
+
+```bash
+cabal haddock
+```
+
 ## Troubleshooting
 
 - If you encounter LLVM-related errors, make sure you have LLVM 19 or newer
