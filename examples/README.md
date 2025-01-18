@@ -86,7 +86,7 @@ displayed in the terminal.
 
 1. Use the standard library to write your server
 
-Have a look at [`echo.ff`]("./echo.ff") for the acutal implementation
+Have a look at [`echo.ff`](echo.ff) for the acutal implementation
 
 2. Compile the program
 
@@ -97,7 +97,7 @@ $ ./glados -i echo.ff -o echo.ll
 3. Run the server
 
 ```sh
-(server) $ lli main.ll
+(server) $ lli echo.ll
 Listening on port 8001
 Connection accepted
 Message Received: Hello world!
