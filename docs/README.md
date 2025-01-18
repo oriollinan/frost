@@ -7,21 +7,25 @@ remaining accessible and easy to learn. Whether you're building system tools or
 performance-critical applications, Frost provides the low-level control you need
 with the convenience of contemporary programming practices.
 
-## Design Philosophy
+## Features
 
-At its core, Frost embodies three fundamental principles:
+- **Static Typing**: Frost is `statically` typed, catching errors at compile
+  time rather than runtime.
+- **Modern Syntax**: Frost's syntax is clean and expressive, making it easy to
+  read and write.
+- **LLVM Backend**: Frost compiles to `LLVM` IR, providing high performance and
+  compatibility with a wide range of platforms and toolchains.
+- **QOL Features**: Frost includes modern conveniences like `defer` for resource
+  management and interoperability with anything that speaks `C`.
 
-**Beauty in Simplicity** Every aspect of Frost's syntax has been meticulously
-crafted to create visual harmony. We believe that code should be a pleasure to
-read and write, with a natural flow that makes programs feel like well-written
-prose.
+## Example
 
-**Clarity Without Compromise** While many systems languages sacrifice
-readability for performance, Frost proves that both can coexist. The syntax is
-designed to be immediately clear to readers, using mathematical notation and
-consistent patterns that make code self-documenting.
+```frost
+import "https://frost-lang.deno.dev/std/io.ff"
 
-**Power with Purpose** Each feature in Frost exists for a specific reason,
-carefully balanced between functionality and aesthetic appeal. From memory
-management to quality of life improvements, every capability is implemented with
-both power and elegance in mind.
+main: never -> int = {
+    printf("Hello, world!\n")
+
+    0
+}
+```
