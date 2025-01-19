@@ -65,19 +65,14 @@ integerBinaryOperators =
     BinaryOp AT.BitShl I.shl,
     BinaryOp AT.BitShr I.ashr,
     BinaryOp AT.And I.and,
-    BinaryOp AT.Or I.or
+    BinaryOp AT.Or I.or,
+    BinaryOp AT.Lt $ I.icmp IP.SLT,
+    BinaryOp AT.Gt $ I.icmp IP.SGT,
+    BinaryOp AT.Lte $ I.icmp IP.SLE,
+    BinaryOp AT.Gte $ I.icmp IP.SGE,
+    BinaryOp AT.Eq $ I.icmp IP.EQ,
+    BinaryOp AT.Ne $ I.icmp IP.NE
   ]
-    ++ map mkComparisonOp comparisonOps
-  where
-    mkComparisonOp (op, pre) = BinaryOp op (I.icmp pre)
-    comparisonOps =
-      [ (AT.Lt, IP.SLT),
-        (AT.Gt, IP.SGT),
-        (AT.Lte, IP.SLE),
-        (AT.Gte, IP.SGE),
-        (AT.Eq, IP.EQ),
-        (AT.Ne, IP.NE)
-      ]
 
 -- | List of supported floating-point binary operators.
 floatingPointBinaryOperators :: (CS.MonadCodegen m) => [BinaryOp m]
@@ -86,19 +81,14 @@ floatingPointBinaryOperators =
     BinaryOp AT.Sub I.fsub,
     BinaryOp AT.Mul I.fmul,
     BinaryOp AT.Div I.fdiv,
-    BinaryOp AT.Mod I.frem
+    BinaryOp AT.Mod I.frem,
+    BinaryOp AT.Lt $ I.fcmp FP.OLT,
+    BinaryOp AT.Gt $ I.fcmp FP.OGT,
+    BinaryOp AT.Lte $ I.fcmp FP.OLE,
+    BinaryOp AT.Gte $ I.fcmp FP.OGE,
+    BinaryOp AT.Eq $ I.fcmp FP.OEQ,
+    BinaryOp AT.Ne $ I.fcmp FP.ONE
   ]
-    ++ map mkComparisonOp comparisonOps
-  where
-    mkComparisonOp (op, pre) = BinaryOp op (I.fcmp pre)
-    comparisonOps =
-      [ (AT.Lt, FP.OLT),
-        (AT.Gt, FP.OGT),
-        (AT.Lte, FP.OLE),
-        (AT.Gte, FP.OGE),
-        (AT.Eq, FP.OEQ),
-        (AT.Ne, FP.ONE)
-      ]
 
 -- | Unary operation data type.
 data UnaryOp m = UnaryOp
