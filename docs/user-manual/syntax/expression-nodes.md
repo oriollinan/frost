@@ -199,9 +199,7 @@ c >= d      % Greater than or equal
 e < f       % Less than
 g > h       % Greater than
 i and j     % Logical AND
-k && l      % Logical AND
-m or n      % Logical OR
-o || p      % Logical OR
+k or l      % Logical OR
 ```
 
 ## Structure Access (StructAccess)
