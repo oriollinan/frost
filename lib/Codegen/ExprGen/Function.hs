@@ -4,7 +4,7 @@
 module Codegen.ExprGen.Function where
 
 import qualified Ast.Types as AT
-import qualified Codegen.Errors as CC
+import qualified Codegen.Errors as CE
 import {-# SOURCE #-} Codegen.ExprGen.ExprGen (ExprGen (..))
 import qualified Codegen.ExprGen.Types as ET
 import qualified Codegen.State as CS
@@ -49,7 +49,7 @@ generateFunction (AT.Function _ name (AT.TFunction ret params var) paramNames bo
       )
     mkParam t n = (ET.toLLVM t, M.ParameterName $ U.stringToByteString n)
 generateFunction expr =
-  E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
+  E.throwError $ CE.CodegenError (SU.getLoc expr) $ CE.UnsupportedDefinition expr
 
 -- | Pre-allocate variables before generating code.
 preAllocateVars :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m ()
@@ -102,7 +102,7 @@ generateForeignFunction (AT.ForeignFunction _ name (AT.TFunction ret params var)
 
   pure $ AST.ConstantOperand $ C.GlobalReference funcType funcName
 generateForeignFunction expr =
-  E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
+  E.throwError $ CE.CodegenError (SU.getLoc expr) $ CE.UnsupportedDefinition expr
 
 -- | Generate LLVM code for function calls.
 generateFunctionCall :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
@@ -113,6 +113,6 @@ generateFunctionCall (AT.Call loc (AT.Var _ funcName _) args) = do
       argOperands <- mapM generateExpr args
       I.call funcOperand (map (,[]) argOperands)
     Nothing ->
-      E.throwError $ CC.CodegenError loc $ CC.UnsupportedFunctionCall funcName
+      E.throwError $ CE.CodegenError loc $ CE.UnsupportedFunctionCall funcName
 generateFunctionCall expr =
-  E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
+  E.throwError $ CE.CodegenError (SU.getLoc expr) $ CE.UnsupportedDefinition expr
