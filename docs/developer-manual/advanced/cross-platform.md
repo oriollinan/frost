@@ -64,7 +64,7 @@ While Frost aims for platform independence, be aware of:
 Use Frost's conditional compilation features to handle platform-specific code:
 
 ```frost
-?defined(OS_LINUX)
+?defined(__APPLE__)
     % Linux-specific code
 ?else
     % Code for other platforms
