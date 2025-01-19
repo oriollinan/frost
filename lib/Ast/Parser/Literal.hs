@@ -8,15 +8,20 @@ import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as MC
 import qualified Text.Megaparsec.Char.Lexer as ML
 
+-- | Symbol for the boolean `true` literal.
 trueSymbol :: String
 trueSymbol = "true"
 
+-- | Symbol for the boolean `false` literal.
 falseSymbol :: String
 falseSymbol = "false"
 
+-- | Symbol for the `null` literal.
 nullSymbol :: String
 nullSymbol = "null"
 
+-- | Parses a literal, which can be an array, character, float, integer, boolean, `null`, or a structure.
+-- Returns the parsed `AT.Literal`.
 parseLiteral :: PU.Parser AT.Literal
 parseLiteral = PU.triedChoice [parseArray, parseChar, parseFloat, parseInt, parseBool, parseNull, parseStruct]
 
@@ -77,6 +82,9 @@ parseArray =
 parseNull :: PU.Parser AT.Literal
 parseNull = AT.LNull <$ PU.symbol nullSymbol
 
+-- | Parses a structure literal, which includes a name and fields.
+-- Fields are key-value pairs where the key is a field name and the value is a literal.
+-- Returns a `Literal` of type `LStruct`.
 parseStruct :: PU.Parser AT.Literal
 parseStruct = do
   name <- PU.lexeme PU.identifier
