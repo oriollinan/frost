@@ -936,12 +936,13 @@ spec = do
               (AT.Block [])
       PE.implicitReturn input `shouldBe` input
 
-    it "does not wrap a for loop" $ do
+    it "does not wrap a from loop" $ do
       let input =
-            AT.For
+            AT.From
               PU.normalizeLoc
               (AT.Declaration PU.normalizeLoc "i" (AT.TInt 32) (Just $ AT.Lit PU.normalizeLoc (AT.LInt 0)))
               (AT.Op PU.normalizeLoc AT.Lt (AT.Var PU.normalizeLoc "i" (AT.TInt 32)) (AT.Lit PU.normalizeLoc (AT.LInt 10)))
+              (AT.Var PU.normalizeLoc "i" (AT.TInt 32))
               (AT.Assignment PU.normalizeLoc (AT.Var PU.normalizeLoc "i" (AT.TInt 32)) (AT.Op PU.normalizeLoc AT.Add (AT.Var PU.normalizeLoc "i" (AT.TInt 32)) (AT.Lit PU.normalizeLoc (AT.LInt 1))))
               (AT.Block [])
       PE.implicitReturn input `shouldBe` input
@@ -1004,7 +1005,7 @@ spec = do
     it "sets the import depth in the parser state" $ do
       let newDepth = 5
       let updatedState = PS.setImportDepth newDepth PS.parserState
-      PS.recursionDepth (PS.importState updatedState) `shouldBe` newDepth
+      PS.getImportDepth updatedState `shouldBe` newDepth
 
     it "retrieves the import depth from the parser state" $ do
       let initialDepth = 3
