@@ -38,22 +38,12 @@ llvmCast loc operand fromType toType = case (fromType, toType) of
   (T.IntegerType _, T.FloatingPointType _) -> I.sitofp operand toType
   (T.FloatingPointType _, T.IntegerType _) -> I.fptosi operand toType
   (x, y) | isBitcastable x y -> I.bitcast operand toType
-  --   (T.VectorType n fromEl, T.VectorType m toEl)
-  --     | n == m && isBitcastable fromEl toEl -> I.bitcast operand toType
-  --     | n < m -> I.zext operand toType
-  --     | n > m -> I.trunc operand toType
-  --   (T.IntegerType _, T.VectorType _ _) -> I.inttoptr operand toType
-  --   (T.VectorType _ _, T.IntegerType _) -> I.ptrtoint operand toType
   _ -> E.throwError $ CC.CodegenError loc $ CC.UnsupportedConversion fromType toType
   where
     isLargerFP T.FloatFP T.DoubleFP = True
-    -- isLargerFP T.FloatFP T.X86_FP80FP = True
-    -- isLargerFP T.DoubleFP T.X86_FP80FP = True
     isLargerFP _ _ = False
 
     isSmallerFP T.DoubleFP T.FloatFP = True
-    -- isSmallerFP T.X86_FP80FP T.DoubleFP = True
-    -- isSmallerFP T.X86_FP80FP T.FloatFP = True
     isSmallerFP _ _ = False
 
     isBitcastable (T.PointerType _ _) (T.PointerType _ _) = True
@@ -61,7 +51,6 @@ llvmCast loc operand fromType toType = case (fromType, toType) of
     isBitcastable (T.ArrayType _ _) (T.ArrayType _ _) = True
     isBitcastable (T.PointerType _ _) (T.IntegerType _) = True
     isBitcastable (T.IntegerType _) (T.PointerType _ _) = True
-    -- isBitcastable (T.VectorType n fromEl) (T.VectorType m toEl) = n == m && isBitcastable fromEl toEl
     isBitcastable _ _ = False
 
 -- | Convert an operand to match a desired LLVM type if needed.
