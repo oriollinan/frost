@@ -58,9 +58,7 @@ operationTable =
       parseArrayAccess,
       parseStructAccess
     ],
-    [ PU.binary "&&" (`AT.Op` AT.And),
-      PU.binary "and" (`AT.Op` AT.And),
-      PU.binary "||" (`AT.Op` AT.Or),
+    [ PU.binary "and" (`AT.Op` AT.And),
       PU.binary "or" (`AT.Op` AT.Or)
     ]
   ]
