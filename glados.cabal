@@ -96,13 +96,13 @@ test-suite glados-test
     Codegen.ExprGen.CastSpec
     Codegen.ExprGen.ControlFlowSpec
     Codegen.ExprGen.DataValueSpec
-    Codegen.ExprGen.StateSpec
     Codegen.ExprGen.OperatorSpec
     Codegen.ExprGen.AssemblySpec
     Codegen.ExprGen.VariableSpec
     Codegen.ErrorsSpec
     Codegen.StateSpec
     Codegen.UtilsSpec
+    Shared.UtilsSpec
 
   hs-source-dirs: test
   main-is: Spec.hs
