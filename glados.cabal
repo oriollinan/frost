@@ -25,29 +25,29 @@ library
     Ast.Parser.Asm
     Ast.Parser.Expr
     Ast.Parser.Literal
+    Ast.Parser.PreProcessor
+    Ast.Parser.PreProcessor.Define
+    Ast.Parser.PreProcessor.Import
     Ast.Parser.Program
     Ast.Parser.State
     Ast.Parser.Type
     Ast.Parser.TypeDefinition
     Ast.Parser.Utils
-    Ast.Parser.PreProcessor
-    Ast.Parser.PreProcessor.Define
-    Ast.Parser.PreProcessor.Import
     Ast.Types
     Codegen.Codegen
-    Codegen.Utils
-    Codegen.State
     Codegen.Errors
-    Codegen.ExprGen.Types
-    Codegen.ExprGen.ExprGen
-    Codegen.ExprGen.Cast
-    Codegen.ExprGen.Operator
-    Codegen.ExprGen.ControlFlow
     Codegen.ExprGen.Assembly
+    Codegen.ExprGen.Cast
+    Codegen.ExprGen.ControlFlow
     Codegen.ExprGen.DataValue
-    Codegen.ExprGen.Variable
+    Codegen.ExprGen.ExprGen
     Codegen.ExprGen.Function
     Codegen.ExprGen.Global
+    Codegen.ExprGen.Operator
+    Codegen.ExprGen.Types
+    Codegen.ExprGen.Variable
+    Codegen.State
+    Codegen.Utils
     Shared.Utils
 
   build-depends:
@@ -91,15 +91,15 @@ test-suite glados-test
     Ast.Parser.TypeDefinitionSpec
     Ast.Parser.TypeSpec
     Codegen.CodegenSpec
-    Codegen.ExprGen.FunctionSpec
-    Codegen.ExprGen.GlobalSpec
+    Codegen.ErrorsSpec
+    Codegen.ExprGen.AssemblySpec
     Codegen.ExprGen.CastSpec
     Codegen.ExprGen.ControlFlowSpec
     Codegen.ExprGen.DataValueSpec
+    Codegen.ExprGen.FunctionSpec
+    Codegen.ExprGen.GlobalSpec
     Codegen.ExprGen.OperatorSpec
-    Codegen.ExprGen.AssemblySpec
     Codegen.ExprGen.VariableSpec
-    Codegen.ErrorsSpec
     Codegen.StateSpec
     Codegen.UtilsSpec
     Shared.UtilsSpec
@@ -109,10 +109,10 @@ test-suite glados-test
   build-depends:
     QuickCheck,
     base ^>=4.17.2.1,
+    bytestring >=0.11.2 && <0.12,
     glados,
     hspec,
     hspec-discover,
     llvm-hs-pure >=9.0.0 && <9.1,
     megaparsec >=9.7.0,
     mtl >=2.2.2 && <2.3,
-    bytestring >=0.11.2 && <0.12,
