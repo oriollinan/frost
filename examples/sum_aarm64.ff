@@ -1,7 +1,7 @@
 %%
 % Sum two integers using inline assembly (aarm64)
 %%
-import "std/io.ff"
+import "https://frost-lang.deno.dev/std/io.ff"
 
 %%
 % Function to sum two integers

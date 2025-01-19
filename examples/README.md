@@ -3,7 +3,9 @@
 This directory contains examples of how to use the `frost` programming language.
 In order to run the examples, you must have the `frost` compiler installed on
 your system. You can find instructions on how to install the `frost` compiler in
-the [README.md](../README.md) file in the root of this repository.
+the
+[Getting Started](https://frost-lang.gitbook.io/frost/user-manual/getting-started)
+section of the user manual.
 
 Each file in this directory is a standalone example that demonstrates a specific
 feature of the `frost` programming language.
@@ -26,14 +28,15 @@ feature of the `frost` programming language.
   sine wave.
 - [Assembly Sum (aarm64)](sum_aarm64.ff): This example demonstrates how to write
   a function in assembly and call it from `frost`.
-- [Echo Server](echo.ff): This example demonstrates how to write
-  a server that echos to the client.
+- [Echo Server](echo.ff): This example demonstrates how to write a server that
+  echos to the client.
 
 ## Running the Examples
 
 To run an example, you can use the `frost` compiler to compile the example file
-to LLVM IR, and the use `lli` to run the LLVM IR. For example, to run the
-Mandelbrot set example, you can run the following commands:
+to LLVM IR, and the use [`lli`](https://llvm.org/docs/CommandGuide/lli.html) to
+run the LLVM IR. For example, to run the Mandelbrot set example, you can run the
+following commands:
 
 ```sh
 $ ./glados -i mandelbrot.ff -o mandelbrot.ll
@@ -79,11 +82,11 @@ displayed in the terminal.
                                       @@@@@@
 ```
 
-### Writing a server in `frost`
+### Writing a TCP echo server in `frost`
 
 1. Use the standard library to write your server
 
-Have a look at [`echo.ff`]("./echo.ff") for the acutal implementation
+Have a look at [`echo.ff`](echo.ff) for the acutal implementation
 
 2. Compile the program
 
@@ -93,22 +96,20 @@ $ ./glados -i echo.ff -o echo.ll
 
 3. Run the server
 
-```
-➜  server ✗ lli main.ll
+```sh
+(server) $ lli echo.ll
 Listening on port 8001
 Connection accepted
-Message Received: hello world
+Message Received: Hello world!
 ```
 
-```
-➜  client ✗ telnet localhost 8001
-Trying ::1...
-telnet: connect to address ::1: Connection refused
-Trying 127.0.0.1...
-Connected to localhost.
-Escape character is '^]'.
-hello world
-hello world
+4. Connect to the server using `nc` or `telnet`
+
+```sh
+(client) $ nc -v localhost 8001
+Connection to 127.0.0.1 port 8001 [tcp/vcom-tunnel] succeeded!
+Hello world!
+Hello world!
 ```
 
 ### Embedding `frost` in other languages
@@ -192,7 +193,9 @@ $ llc -filetype=obj sum.ll -o sum.o
 $ clang -shared -o libsum.so sum.o
 ```
 
-3. Create a TypeScript program that loads the `sum` function at runtime:
+3. Use a language that supports `dlopen` and `dlsym` to load the `sum` function
+   at runtime. For example, you can use [Deno](https://deno.com/) to write a
+   TypeScript program that loads the `sum` function at runtime:
 
 ```ts
 const handle = Deno.dlopen("libsum.so", {
@@ -209,7 +212,7 @@ console.log(`The sum of 10 and 20 is ${sum(10, 20)}`);
 handle.close();
 ```
 
-4. Run the TypeScript program:
+4. Run the program:
 
 ```sh
 $ deno run --allow-all sum.ts

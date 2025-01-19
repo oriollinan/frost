@@ -129,19 +129,13 @@ result: int = not (x < y)
 **AND**
 
 ```frost
-% Python style
+% Logical AND
 result: int = x and y
-
-% C-style
-result: int = x && y
 ```
 
 **OR**
 
 ```frost
-% Python style
-result: int = x or y 
-
-% C-style
-result: int = x || y
+% Logical OR
+result: int = x or y
 ```

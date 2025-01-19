@@ -59,7 +59,7 @@ args -> (x y z)  % Maps variables to $0, $1, $2
 
 ```frost
 parameters -> int int    % Input parameter types
-return_type -> int      % Return type
+return_type -> int       % Return type
 ```
 
 ## Safety and Optimization
@@ -88,15 +88,16 @@ dialect -> Intel  % Intel syntax
 
 1. **Minimal Usage**
 
-```frost
-% Prefer high-level Frost when possible
-% Use assembly only for:
-% - Hardware access
-% - Performance-critical sections
-% - Platform-specific instructions
-```
+Prefer high-level Frost when possible. Use assembly only for:
+
+- Hardware access
+- Performance-critical sections
+- Platform-specific instructions
 
 2. **Documentation**
+
+Document inline assembly blocks for clarity. Add a header with function name and
+purpose:
 
 ```frost
 %%
@@ -120,8 +121,9 @@ sum: int int -> int = a b {
 
 3. **Error Handling**
 
+Always verify assembly execution and handle errors:
+
 ```frost
-% Always verify assembly execution
 result: bool = critical_asm_operation()
 
 if not result {

@@ -9,7 +9,7 @@ journey with Frost programming. Currently available for `Linux` (x86_64) and
 
 **Download and Install**
 
-1. Navigate to the releases page
+1. Navigate to the [releases page](https://github.com/Jabolol/glados/releases/)
 2. Download the latest version for your operating system
 3. Extract the archive to your preferred location
 4. Add the `frostc` binary to your system's PATH
@@ -80,7 +80,9 @@ main: int -> int = argc {
 }
 ```
 
-Save it as `hello.ff` and use `lli` to JIT-compile and run the program:
+Save it as `hello.ff` and use
+[`lli`](https://llvm.org/docs/CommandGuide/lli.html) to JIT-compile and run the
+program:
 
 ```bash
 ./frostc -i hello.ff -o hello.ll | lli

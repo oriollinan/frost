@@ -36,7 +36,7 @@ result: int = ptr.*
 value: int = 42
 
 % Get address of value
-ptr = value.&
+ptr: *int = value.&
 ```
 
 ## Increment/Decrement
@@ -82,19 +82,19 @@ x--
 ```frost
 x = 42
 
-% Pre-increment, still 42 before use
-++x
+% Pre-increment: Increment x before its value is used
+result = ++x  % result is 43, x is now 43
 
-% Post-increment, 44 in use
-x++
+% Post-increment: Increment x after its value is used
+result = x++  % result is 43, x is now 44
 ```
 
-```
+```frost
 x = 42
 
-% Pre-increment, 42 in use
---x
+% Pre-decrement: Decrement x before its value is used
+result = --x  % result is 41, x is now 41
 
-% Post-increment, 40 in use
-x--
+% Post-decrement: Decrement x after its value is used
+result = x--  % result is 41, x is now 40
 ```

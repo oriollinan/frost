@@ -4,7 +4,7 @@ module Codegen.ExprGen.DataValue where
 
 import qualified Ast.Types as AT
 import qualified Codegen.Errors as CC
-import {-# SOURCE #-} Codegen.ExprGen.ExprGen (ExprGen (..))
+import {-# SOURCE #-} qualified Codegen.ExprGen.ExprGen as EG
 import qualified Codegen.State as CS
 import qualified Control.Monad.Except as E
 import qualified Data.List as L
@@ -14,23 +14,23 @@ import qualified LLVM.IRBuilder.Instruction as I
 import qualified Shared.Utils as SU
 
 -- | Generate LLVM code for array access.
-generateArrayAccess :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
+generateArrayAccess :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m AST.Operand
 generateArrayAccess (AT.ArrayAccess _ arrayExpr indexExpr) = do
-  arrayOperand <- generateExpr arrayExpr
-  indexOperand <- generateExpr indexExpr
+  arrayOperand <- EG.generateExpr arrayExpr
+  indexOperand <- EG.generateExpr indexExpr
   ptr <- I.gep arrayOperand [indexOperand]
   I.load ptr 0
 generateArrayAccess expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
 
 -- | Generate LLVM code for struct access, recursively traversing all levels.
-generateStructAccess :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
+generateStructAccess :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m AST.Operand
 generateStructAccess expr = do
   (ptr, _) <- getStructFieldPointer expr
   I.load ptr 0
 
 -- | Get a pointer to a struct field.
-getStructFieldPointer :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m (AST.Operand, AT.Type)
+getStructFieldPointer :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m (AST.Operand, AT.Type)
 getStructFieldPointer (AT.StructAccess structLoc structExpr (AT.Var _ fieldName _)) = do
   (parentPtr, parentType) <- getStructFieldPointer structExpr
   case parentType of

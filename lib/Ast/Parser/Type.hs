@@ -14,6 +14,8 @@ import qualified Text.Megaparsec.Char.Lexer as ML
 parseType :: PU.Parser AT.Type
 parseType = M.choice [M.try functionType, parseTermType]
 
+-- | Parses a terminal type, which can be a base type, custom integer size, mutable type, array, pointer, or custom type.
+-- Returns the parsed `AT.Type`.
 parseTermType :: PU.Parser AT.Type
 parseTermType =
   M.choice
@@ -86,6 +88,8 @@ functionType = do
   where
     functionParser = M.between (PU.symbol "(") (PU.symbol ")") functionType
 
+-- | Parses a custom user-defined type by its name.
+-- If the type is not found in the environment, an `UnknownType` error is raised.
 customType :: PU.Parser AT.Type
 customType = do
   name <- PU.identifier

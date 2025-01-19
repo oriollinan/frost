@@ -4,7 +4,7 @@ module Codegen.ExprGen.Cast where
 
 import qualified Ast.Types as AT
 import qualified Codegen.Errors as CC
-import {-# SOURCE #-} Codegen.ExprGen.ExprGen (ExprGen (..))
+import {-# SOURCE #-} qualified Codegen.ExprGen.ExprGen as EG
 import qualified Codegen.ExprGen.Types as ET
 import qualified Codegen.State as CS
 import qualified Control.Monad.Except as E
@@ -17,9 +17,9 @@ import qualified LLVM.IRBuilder.Instruction as I
 import qualified Shared.Utils as SU
 
 -- | Generate LLVM code for type casts.
-generateCast :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
+generateCast :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m AST.Operand
 generateCast (AT.Cast _ typ expr) = do
-  operand <- generateExpr expr
+  operand <- EG.generateExpr expr
   llvmCast (SU.getLoc expr) operand (TD.typeOf operand) (ET.toLLVM typ)
 generateCast expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr

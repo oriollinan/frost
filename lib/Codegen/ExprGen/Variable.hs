@@ -6,7 +6,7 @@ import qualified Ast.Types as AT
 import qualified Codegen.Errors as CC
 import qualified Codegen.ExprGen.Cast as EC
 import qualified Codegen.ExprGen.DataValue as ED
-import {-# SOURCE #-} Codegen.ExprGen.ExprGen (ExprGen (..))
+import {-# SOURCE #-} qualified Codegen.ExprGen.ExprGen as EG
 import qualified Codegen.ExprGen.Types as ET
 import qualified Codegen.State as CS
 import qualified Control.Monad.Except as E
@@ -27,16 +27,14 @@ import qualified LLVM.IRBuilder.Module as M
 import qualified Shared.Utils as SU
 
 -- | Generate LLVM code for declarations.
-generateDeclaration :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
+generateDeclaration :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m AST.Operand
 generateDeclaration (AT.Declaration loc name typ mInitExpr) = do
   maybeVar <- CS.getVar name
   case maybeVar of
     Just ptr -> do
       case mInitExpr of
         Just initExpr -> do
-          initValue <- generateExpr initExpr
-          -- TODO: This makes us lose precision in some cases,
-          -- e.g. when initializing a float with an integer
+          initValue <- EG.generateExpr initExpr
           initValue' <- EC.ensureMatchingType loc initValue (ET.toLLVM typ)
           I.store ptr 0 initValue'
           I.load ptr 0
@@ -46,7 +44,7 @@ generateDeclaration expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
 
 -- | Generate LLVM code for literals.
-generateLiteral :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
+generateLiteral :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m AST.Operand
 generateLiteral (AT.Lit loc lit) = do
   constant <- generateConstant lit loc
   pure $ AST.ConstantOperand constant
@@ -54,7 +52,7 @@ generateLiteral expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
 
 -- | Generate LLVM code for constants.
-generateConstant :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Literal -> AT.SrcLoc -> m C.Constant
+generateConstant :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Literal -> AT.SrcLoc -> m C.Constant
 generateConstant lit loc = case lit of
   AT.LInt n -> return $ C.Int 32 (fromIntegral n)
   AT.LChar c -> return $ C.Int 8 (fromIntegral $ fromEnum c)
@@ -79,7 +77,7 @@ generateConstant lit loc = case lit of
     return $ C.Struct Nothing False constants
 
 -- | Generate LLVM code for global variables.
-createGlobalString :: (CS.MonadCodegen m, ExprGen AT.Expr) => String -> m AST.Operand
+createGlobalString :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => String -> m AST.Operand
 createGlobalString str = do
   let strConst =
         C.Array
@@ -113,7 +111,7 @@ createGlobalString str = do
         [C.Int 64 0, C.Int 64 0]
 
 -- | Generate LLVM code for variable references.
-generateVar :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
+generateVar :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m AST.Operand
 generateVar (AT.Var loc name type') = do
   maybeVar <- CS.getVar name
   case maybeVar of
@@ -132,9 +130,9 @@ generateVar expr =
   E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.UnsupportedDefinition expr
 
 -- | Generate LLVM code for assignments.
-generateAssignment :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
+generateAssignment :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m AST.Operand
 generateAssignment (AT.Assignment _ expr valueExpr) = do
-  value <- generateExpr valueExpr
+  value <- EG.generateExpr valueExpr
   case expr of
     AT.Var _ name _ -> do
       maybeVar <- CS.getVar name
@@ -148,7 +146,7 @@ generateAssignment (AT.Assignment _ expr valueExpr) = do
       ptr <- case maybeVar of
         Just arrayPtr -> return arrayPtr
         Nothing -> E.throwError $ CC.CodegenError (SU.getLoc expr) $ CC.VariableNotFound name
-      index <- generateExpr indexExpr
+      index <- EG.generateExpr indexExpr
       elementPtr <- I.gep ptr [IC.int32 0, index]
       I.store elementPtr 0 value
       pure value

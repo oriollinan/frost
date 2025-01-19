@@ -640,3 +640,373 @@ spec = do
                 PU.normalizeLoc
                 (AT.AsmExpr "nop" (AT.AsmConstraint "" []) [] [AT.TVoid] AT.TVoid False False AT.ATT)
       (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a dereference operator" $ do
+      let input = "x.*"
+      let varType = AT.TPointer (AT.TInt 32)
+      let env = PS.insertVar "x" varType PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.UnaryOp PU.normalizeLoc AT.Deref (AT.Var PU.normalizeLoc "x" varType)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses an address-of operator" $ do
+      let input = "x.&"
+      let varType = AT.TPointer (AT.TInt 32)
+      let env = PS.insertVar "x" varType PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.UnaryOp PU.normalizeLoc AT.AddrOf (AT.Var PU.normalizeLoc "x" varType)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a post-increment operator" $ do
+      let input = "x++"
+      let varType = AT.TInt 32
+      let env = PS.insertVar "x" varType PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.UnaryOp PU.normalizeLoc AT.PostInc (AT.Var PU.normalizeLoc "x" varType)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a post-decrement operator" $ do
+      let input = "x--"
+      let varType = AT.TInt 32
+      let env = PS.insertVar "x" varType PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.UnaryOp PU.normalizeLoc AT.PostDec (AT.Var PU.normalizeLoc "x" varType)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a logical NOT operator" $ do
+      let input = "!x"
+      let varType = AT.TBoolean
+      let env = PS.insertVar "x" varType PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.UnaryOp PU.normalizeLoc AT.Not (AT.Var PU.normalizeLoc "x" varType)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a bitwise NOT operator" $ do
+      let input = "~x"
+      let varType = AT.TInt 32
+      let env = PS.insertVar "x" varType PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.UnaryOp PU.normalizeLoc AT.BitNot (AT.Var PU.normalizeLoc "x" varType)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a pre-increment operator" $ do
+      let input = "++x"
+      let varType = AT.TInt 32
+      let env = PS.insertVar "x" varType PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.UnaryOp PU.normalizeLoc AT.PreInc (AT.Var PU.normalizeLoc "x" varType)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a pre-decrement operator" $ do
+      let input = "--x"
+      let varType = AT.TInt 32
+      let env = PS.insertVar "x" varType PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.UnaryOp PU.normalizeLoc AT.PreDec (AT.Var PU.normalizeLoc "x" varType)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+    it "parses an addition operator" $ do
+      let input = "x + y"
+      let env = PS.insertVar "x" (AT.TInt 32) $ PS.insertVar "y" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.Add (AT.Var PU.normalizeLoc "x" $ AT.TInt 32) (AT.Var PU.normalizeLoc "y" $ AT.TInt 32)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a bitwise AND operator" $ do
+      let input = "x & y"
+      let env = PS.insertVar "x" (AT.TInt 32) $ PS.insertVar "y" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.BitAnd (AT.Var PU.normalizeLoc "x" $ AT.TInt 32) (AT.Var PU.normalizeLoc "y" $ AT.TInt 32)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a bitwise OR operator" $ do
+      let input = "x | y"
+      let env = PS.insertVar "x" (AT.TInt 32) $ PS.insertVar "y" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.BitOr (AT.Var PU.normalizeLoc "x" $ AT.TInt 32) (AT.Var PU.normalizeLoc "y" $ AT.TInt 32)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a bitwise XOR operator" $ do
+      let input = "x ^ y"
+      let env = PS.insertVar "x" (AT.TInt 32) $ PS.insertVar "y" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.BitXor (AT.Var PU.normalizeLoc "x" $ AT.TInt 32) (AT.Var PU.normalizeLoc "y" $ AT.TInt 32)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a bitwise left shift operator" $ do
+      let input = "x << y"
+      let env = PS.insertVar "x" (AT.TInt 32) $ PS.insertVar "y" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.BitShl (AT.Var PU.normalizeLoc "x" $ AT.TInt 32) (AT.Var PU.normalizeLoc "y" $ AT.TInt 32)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a bitwise right shift operator" $ do
+      let input = "x >> y"
+      let env = PS.insertVar "x" (AT.TInt 32) $ PS.insertVar "y" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.BitShr (AT.Var PU.normalizeLoc "x" $ AT.TInt 32) (AT.Var PU.normalizeLoc "y" $ AT.TInt 32)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a less than or equal comparison" $ do
+      let input = "x <= y"
+      let env = PS.insertVar "x" (AT.TInt 32) $ PS.insertVar "y" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.Lte (AT.Var PU.normalizeLoc "x" $ AT.TInt 32) (AT.Var PU.normalizeLoc "y" $ AT.TInt 32)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses an equality operator (==)" $ do
+      let input = "x == y"
+      let env = PS.insertVar "x" (AT.TInt 32) $ PS.insertVar "y" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.Eq (AT.Var PU.normalizeLoc "x" $ AT.TInt 32) (AT.Var PU.normalizeLoc "y" $ AT.TInt 32)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a not equal operator (!=)" $ do
+      let input = "x != y"
+      let env = PS.insertVar "x" (AT.TInt 32) $ PS.insertVar "y" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.Ne (AT.Var PU.normalizeLoc "x" $ AT.TInt 32) (AT.Var PU.normalizeLoc "y" $ AT.TInt 32)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a greater than or equal operator (>=)" $ do
+      let input = "x >= y"
+      let env = PS.insertVar "x" (AT.TInt 32) $ PS.insertVar "y" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.Gte (AT.Var PU.normalizeLoc "x" $ AT.TInt 32) (AT.Var PU.normalizeLoc "y" $ AT.TInt 32)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a less than operator (<)" $ do
+      let input = "x < y"
+      let env = PS.insertVar "x" (AT.TInt 32) $ PS.insertVar "y" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.Lt (AT.Var PU.normalizeLoc "x" $ AT.TInt 32) (AT.Var PU.normalizeLoc "y" $ AT.TInt 32)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a greater than operator (>)" $ do
+      let input = "x > y"
+      let env = PS.insertVar "x" (AT.TInt 32) $ PS.insertVar "y" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.Gt (AT.Var PU.normalizeLoc "x" $ AT.TInt 32) (AT.Var PU.normalizeLoc "y" $ AT.TInt 32)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+    it "parses a division operator (/)" $ do
+      let input = "x / y"
+      let env = PS.insertVar "x" (AT.TInt 32) $ PS.insertVar "y" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.Div (AT.Var PU.normalizeLoc "x" $ AT.TInt 32) (AT.Var PU.normalizeLoc "y" $ AT.TInt 32)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a modulus operator (mod)" $ do
+      let input = "x mod y"
+      let env = PS.insertVar "x" (AT.TInt 32) $ PS.insertVar "y" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.Mod (AT.Var PU.normalizeLoc "x" $ AT.TInt 32) (AT.Var PU.normalizeLoc "y" $ AT.TInt 32)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a subtraction operator (-)" $ do
+      let input = "x - y"
+      let env = PS.insertVar "x" (AT.TInt 32) $ PS.insertVar "y" (AT.TInt 32) PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.Sub (AT.Var PU.normalizeLoc "x" $ AT.TInt 32) (AT.Var PU.normalizeLoc "y" $ AT.TInt 32)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+    it "parses a logical AND operator (and)" $ do
+      let input = "x and y"
+      let env = PS.insertVar "x" AT.TBoolean $ PS.insertVar "y" AT.TBoolean PS.parserState
+      result <- parseWithCustom env input
+      let expected = Right $ AT.Op PU.normalizeLoc AT.And (AT.Var PU.normalizeLoc "x" AT.TBoolean) (AT.Var PU.normalizeLoc "y" AT.TBoolean)
+      (PU.normalizeExpr <$> result) `shouldBe` expected
+
+  describe "implicitReturn" $ do
+    it "wraps a literal in a return" $ do
+      let input = AT.Lit PU.normalizeLoc (AT.LInt 123)
+      let expected = AT.Return PU.normalizeLoc (Just input)
+      PE.implicitReturn input `shouldBe` expected
+
+    it "wraps a variable in a return" $ do
+      let input = AT.Var PU.normalizeLoc "x" (AT.TInt 32)
+      let expected = AT.Return PU.normalizeLoc (Just input)
+      PE.implicitReturn input `shouldBe` expected
+
+    it "wraps a function in a return" $ do
+      let input =
+            AT.Function
+              PU.normalizeLoc
+              "main"
+              (AT.TFunction (AT.TInt 32) [AT.TVoid] False)
+              []
+              (AT.Block [])
+      let expected = AT.Return PU.normalizeLoc (Just input)
+      PE.implicitReturn input `shouldBe` expected
+
+    it "wraps a foreign function in a return" $ do
+      let input =
+            AT.ForeignFunction
+              PU.normalizeLoc
+              "print"
+              (AT.TFunction AT.TVoid [AT.TInt 32] False)
+      let expected = AT.Return PU.normalizeLoc (Just input)
+      PE.implicitReturn input `shouldBe` expected
+
+    it "wraps a declaration in a return" $ do
+      let input =
+            AT.Declaration
+              PU.normalizeLoc
+              "x"
+              (AT.TInt 32)
+              (Just $ AT.Lit PU.normalizeLoc (AT.LInt 42))
+      let expected = AT.Return PU.normalizeLoc (Just input)
+      PE.implicitReturn input `shouldBe` expected
+
+    it "wraps an assignment in a return" $ do
+      let input =
+            AT.Assignment
+              PU.normalizeLoc
+              (AT.Var PU.normalizeLoc "x" (AT.TInt 32))
+              (AT.Lit PU.normalizeLoc (AT.LInt 42))
+      let expected = AT.Return PU.normalizeLoc (Just input)
+      PE.implicitReturn input `shouldBe` expected
+
+    it "wraps a function call in a return" $ do
+      let input =
+            AT.Call
+              PU.normalizeLoc
+              (AT.Var PU.normalizeLoc "foo" (AT.TFunction (AT.TInt 32) [AT.TInt 32] False))
+              [AT.Lit PU.normalizeLoc (AT.LInt 123)]
+      let expected = AT.Return PU.normalizeLoc (Just input)
+      PE.implicitReturn input `shouldBe` expected
+
+    it "wraps a binary operation in a return" $ do
+      let input =
+            AT.Op
+              PU.normalizeLoc
+              AT.Add
+              (AT.Lit PU.normalizeLoc (AT.LInt 1))
+              (AT.Lit PU.normalizeLoc (AT.LInt 2))
+      let expected = AT.Return PU.normalizeLoc (Just input)
+      PE.implicitReturn input `shouldBe` expected
+
+    it "wraps a unary operation in a return" $ do
+      let input =
+            AT.UnaryOp
+              PU.normalizeLoc
+              AT.Not
+              (AT.Lit PU.normalizeLoc (AT.LInt 1))
+      let expected = AT.Return PU.normalizeLoc (Just input)
+      PE.implicitReturn input `shouldBe` expected
+
+    it "wraps a struct access in a return" $ do
+      let input =
+            AT.StructAccess
+              PU.normalizeLoc
+              (AT.Var PU.normalizeLoc "myStruct" (AT.TStruct "Custom" []))
+              (AT.Var PU.normalizeLoc "myField" AT.TUnknown)
+      let expected = AT.Return PU.normalizeLoc (Just input)
+      PE.implicitReturn input `shouldBe` expected
+
+    it "wraps an array access in a return" $ do
+      let input =
+            AT.ArrayAccess
+              PU.normalizeLoc
+              (AT.Var PU.normalizeLoc "myArray" (AT.TArray (AT.TInt 32) Nothing))
+              (AT.Lit PU.normalizeLoc (AT.LInt 1))
+      let expected = AT.Return PU.normalizeLoc (Just input)
+      PE.implicitReturn input `shouldBe` expected
+
+    it "wraps a type cast in a return" $ do
+      let input =
+            AT.Cast
+              PU.normalizeLoc
+              (AT.TInt 32)
+              (AT.Lit PU.normalizeLoc (AT.LChar 'a'))
+      let expected = AT.Return PU.normalizeLoc (Just input)
+      PE.implicitReturn input `shouldBe` expected
+
+    it "wraps an assembly expression in a return" $ do
+      let input =
+            AT.Assembly
+              PU.normalizeLoc
+              (AT.AsmExpr "nop" (AT.AsmConstraint "" []) [] [AT.TVoid] AT.TVoid False False AT.ATT)
+      let expected = AT.Return PU.normalizeLoc (Just input)
+      PE.implicitReturn input `shouldBe` expected
+
+    it "does not wrap a while loop" $ do
+      let input =
+            AT.While
+              PU.normalizeLoc
+              (AT.Var PU.normalizeLoc "x" (AT.TInt 32))
+              (AT.Block [])
+      PE.implicitReturn input `shouldBe` input
+
+    it "does not wrap a for loop" $ do
+      let input =
+            AT.For
+              PU.normalizeLoc
+              (AT.Declaration PU.normalizeLoc "i" (AT.TInt 32) (Just $ AT.Lit PU.normalizeLoc (AT.LInt 0)))
+              (AT.Op PU.normalizeLoc AT.Lt (AT.Var PU.normalizeLoc "i" (AT.TInt 32)) (AT.Lit PU.normalizeLoc (AT.LInt 10)))
+              (AT.Assignment PU.normalizeLoc (AT.Var PU.normalizeLoc "i" (AT.TInt 32)) (AT.Op PU.normalizeLoc AT.Add (AT.Var PU.normalizeLoc "i" (AT.TInt 32)) (AT.Lit PU.normalizeLoc (AT.LInt 1))))
+              (AT.Block [])
+      PE.implicitReturn input `shouldBe` input
+
+    it "does not wrap a return statement" $ do
+      let input = AT.Return PU.normalizeLoc (Just $ AT.Lit PU.normalizeLoc (AT.LInt 123))
+      PE.implicitReturn input `shouldBe` input
+
+    it "does not wrap a break statement" $ do
+      let input = AT.Break PU.normalizeLoc
+      PE.implicitReturn input `shouldBe` input
+
+    it "does not wrap a continue statement" $ do
+      let input = AT.Continue PU.normalizeLoc
+      PE.implicitReturn input `shouldBe` input
+
+    it "applies implicit return to the last expression in a block" $ do
+      let input =
+            AT.Block
+              [ AT.Assignment PU.normalizeLoc (AT.Var PU.normalizeLoc "x" (AT.TInt 32)) (AT.Lit PU.normalizeLoc (AT.LInt 42)),
+                AT.Lit PU.normalizeLoc (AT.LInt 123)
+              ]
+      let expected =
+            AT.Block
+              [ AT.Assignment PU.normalizeLoc (AT.Var PU.normalizeLoc "x" (AT.TInt 32)) (AT.Lit PU.normalizeLoc (AT.LInt 42)),
+                AT.Return PU.normalizeLoc (Just $ AT.Lit PU.normalizeLoc (AT.LInt 123))
+              ]
+      PE.implicitReturn input `shouldBe` expected
+
+    it "applies implicit return to the then branch of an if expression without an else branch" $ do
+      let input =
+            AT.If
+              PU.normalizeLoc
+              (AT.Var PU.normalizeLoc "cond" AT.TBoolean)
+              (AT.Block [AT.Lit PU.normalizeLoc (AT.LInt 123)])
+              Nothing
+      let expected =
+            AT.If
+              PU.normalizeLoc
+              (AT.Var PU.normalizeLoc "cond" AT.TBoolean)
+              (AT.Block [AT.Return PU.normalizeLoc (Just $ AT.Lit PU.normalizeLoc (AT.LInt 123))])
+              Nothing
+      PE.implicitReturn input `shouldBe` expected
+
+    it "returns an empty block unchanged" $ do
+      let input = AT.Block []
+      let expected = AT.Block []
+      PE.implicitReturn input `shouldBe` expected
+
+  describe "ParserState import-related functions" $ do
+    it "looks up an existing import in the parser state" $ do
+      let inputImport = "MyModule"
+      let stateWithImport = PS.insertImport inputImport PS.parserState
+      PS.lookupImport inputImport stateWithImport `shouldBe` True
+
+    it "does not find a non-existent import in the parser state" $ do
+      let inputImport = "NonExistentModule"
+      PS.lookupImport inputImport PS.parserState `shouldBe` False
+
+    it "sets the import depth in the parser state" $ do
+      let newDepth = 5
+      let updatedState = PS.setImportDepth newDepth PS.parserState
+      PS.recursionDepth (PS.importState updatedState) `shouldBe` newDepth
+
+    it "retrieves the import depth from the parser state" $ do
+      let initialDepth = 3
+      let stateWithDepth = PS.setImportDepth initialDepth PS.parserState
+      PS.getImportDepth stateWithDepth `shouldBe` initialDepth

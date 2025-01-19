@@ -1,4 +1,4 @@
-import "std/io.ff"
+import "https://frost-lang.deno.dev/std/io.ff"
 
 globalDouble: double = 0,2
 globalInt: int = 76

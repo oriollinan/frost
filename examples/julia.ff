@@ -5,9 +5,9 @@
 %%
 % Standard Library
 %%
-import "std/io.ff"
-import "std/math.ff"
-import "std/uni.ff"
+import "https://frost-lang.deno.dev/std/io.ff"
+import "https://frost-lang.deno.dev/std/math.ff"
+import "https://frost-lang.deno.dev/std/uni.ff"
 
 %%
 % Function to clear the screen

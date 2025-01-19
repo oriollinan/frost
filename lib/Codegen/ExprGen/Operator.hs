@@ -4,7 +4,7 @@ module Codegen.ExprGen.Operator where
 
 import qualified Ast.Types as AT
 import qualified Codegen.Errors as CC
-import {-# SOURCE #-} Codegen.ExprGen.ExprGen (ExprGen (..))
+import {-# SOURCE #-} qualified Codegen.ExprGen.ExprGen as EG
 import qualified Codegen.State as CS
 import qualified Control.Monad.Except as E
 import qualified Data.List as L
@@ -19,10 +19,10 @@ import qualified LLVM.IRBuilder.Instruction as I
 import qualified Shared.Utils as SU
 
 -- | Generate LLVM code for binary operations.
-generateBinaryOp :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
+generateBinaryOp :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m AST.Operand
 generateBinaryOp (AT.Op loc op e1 e2) = do
-  v1 <- generateExpr e1
-  v2 <- generateExpr e2
+  v1 <- EG.generateExpr e1
+  v2 <- EG.generateExpr e2
   let ty1 = TD.typeOf v1
       ty2 = TD.typeOf v2
   case (ty1, ty2) of
@@ -97,9 +97,9 @@ data UnaryOp m = UnaryOp
   }
 
 -- | Generate LLVM code for unary operations.
-generateUnaryOp :: (CS.MonadCodegen m, ExprGen AT.Expr) => AT.Expr -> m AST.Operand
+generateUnaryOp :: (CS.MonadCodegen m, EG.ExprGen AT.Expr) => AT.Expr -> m AST.Operand
 generateUnaryOp (AT.UnaryOp loc op expr) = do
-  operand <- generateExpr expr
+  operand <- EG.generateExpr expr
   case findOperator op of
     Just f -> f operand
     Nothing -> E.throwError $ CC.CodegenError loc $ CC.UnsupportedUnaryOperator op

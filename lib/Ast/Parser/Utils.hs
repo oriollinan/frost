@@ -13,6 +13,7 @@ import qualified Text.Megaparsec.Pos as MP
 -- | A type alias for the parser, based on `Parsec` with `Void` error type and `String` input.
 type Parser = M.ParsecT ParseErrorCustom String (S.StateT PS.ParserState IO)
 
+-- | Custom error types for the parser.
 data ParseErrorCustom
   = UnknownType String
   | InvalidFunctionType String AT.Type
@@ -55,9 +56,11 @@ parseSrcLoc = do
   (MP.SourcePos {MP.sourceName = _sourceName, MP.sourceLine = _sourceLine, MP.sourceColumn = _sourceColumn}) <- M.getSourcePos
   return $ AT.SrcLoc {AT.srcFile = _sourceName, AT.srcLine = MP.unPos _sourceLine, AT.srcCol = MP.unPos _sourceColumn}
 
+-- | Creates a prefix operator parser.
 prefix :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr) -> CE.Operator Parser AT.Expr
 prefix name f = CE.Prefix (f <$> (parseSrcLoc <* symbol name))
 
+-- | Creates a postfix operator parser.
 postfix :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr) -> CE.Operator Parser AT.Expr
 postfix name f = CE.Postfix (f <$> (parseSrcLoc <* symbol name))
 
@@ -65,9 +68,12 @@ postfix name f = CE.Postfix (f <$> (parseSrcLoc <* symbol name))
 binary :: String -> (AT.SrcLoc -> AT.Expr -> AT.Expr -> AT.Expr) -> CE.Operator Parser AT.Expr
 binary name f = CE.InfixL (f <$> (parseSrcLoc <* symbol name))
 
+-- | Parses a boolean value (`true` or `false`).
+-- Returns a `Bool`.
 parseBool :: Parser Bool
 parseBool = True <$ MC.string "true" M.<|> False <$ MC.string "false"
 
+-- | Parses a character in a string literal, supporting escape sequences.
 parseStringChar :: Parser Char
 parseStringChar =
   M.choice
@@ -75,6 +81,7 @@ parseStringChar =
       M.noneOf ['"', '\\']
     ]
 
+-- | Parses an escape sequence in a string literal (e.g., `\n`, `\t`, `\xFF`).
 parseEscapeSequence :: Parser Char
 parseEscapeSequence =
   MC.char '\\'
@@ -94,26 +101,33 @@ parseEscapeSequence =
         parseOctalEscape
       ]
 
+-- | Parses a hexadecimal escape sequence (e.g., `\xFF`).
 parseHexEscape :: Parser Char
 parseHexEscape = do
   _ <- MC.char 'x'
   digits <- M.count 2 hexDigit
   return $ C.chr $ read ("0x" ++ digits)
 
+-- | Parses an octal escape sequence (e.g., `\077`).
 parseOctalEscape :: Parser Char
 parseOctalEscape = do
   digits <- M.count 3 octalDigit
   return $ C.chr $ read ("0o" ++ digits)
 
+-- | Parses a hexadecimal digit (`0-9`, `a-f`, `A-F`).
 hexDigit :: Parser Char
 hexDigit = M.oneOf $ ['0' .. '9'] ++ ['a' .. 'f'] ++ ['A' .. 'F']
 
+-- | Parses an octal digit (`0-7`).
 octalDigit :: Parser Char
 octalDigit = M.oneOf ['0' .. '7']
 
+-- | A default `SrcLoc` for normalization.
 normalizeLoc :: AT.SrcLoc
 normalizeLoc = AT.SrcLoc "" 0 0
 
+-- | Normalizes expressions by resetting their source locations.
+-- Ensures consistent formatting and comparison of expressions.
 normalizeExpr :: AT.Expr -> AT.Expr
 normalizeExpr (AT.Lit _ lit) = AT.Lit normalizeLoc lit
 normalizeExpr (AT.Var _ name t) = AT.Var normalizeLoc name t
