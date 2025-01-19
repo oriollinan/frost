@@ -15,131 +15,130 @@ import qualified LLVM.AST.Typed as TD
 import qualified Test.Hspec as H
 
 spec :: H.Spec
-spec = H.describe "Codegen" $ do
-  H.context "when testing individual codegen functions" $ do
-    let wrapInFunction expr =
-          AT.Function
-            { AT.funcLoc = sampleLoc,
-              AT.funcName = "test",
-              AT.funcType = AT.TFunction AT.TVoid [] False,
-              AT.funcParams = [],
-              AT.funcBody =
-                expr
-            }
-    H.describe "generateCast" $ do
-      H.it "should generate a cast (Integer -> Integer)" $ do
-        let funcExpr =
-              wrapInFunction $
-                AT.Block
-                  [ AT.Cast sampleLoc (AT.TInt 64) (AT.Lit sampleLoc (AT.LInt 0)),
-                    AT.Cast sampleLoc (AT.TInt 8) (AT.Lit sampleLoc (AT.LInt 0)),
-                    AT.Cast sampleLoc (AT.TInt 32) (AT.Lit sampleLoc (AT.LInt 0))
-                  ]
-        let blocks = generateTestBlocks funcExpr
-        let instrs = getInstructions blocks
+spec = H.describe "ExprGen.Cast" $ do
+  let wrapInFunction expr =
+        AT.Function
+          { AT.funcLoc = sampleLoc,
+            AT.funcName = "test",
+            AT.funcType = AT.TFunction AT.TVoid [] False,
+            AT.funcParams = [],
+            AT.funcBody =
+              expr
+          }
+  H.describe "generateCast" $ do
+    H.it "should generate a cast (Integer -> Integer)" $ do
+      let funcExpr =
+            wrapInFunction $
+              AT.Block
+                [ AT.Cast sampleLoc (AT.TInt 64) (AT.Lit sampleLoc (AT.LInt 0)),
+                  AT.Cast sampleLoc (AT.TInt 8) (AT.Lit sampleLoc (AT.LInt 0)),
+                  AT.Cast sampleLoc (AT.TInt 32) (AT.Lit sampleLoc (AT.LInt 0))
+                ]
+      let blocks = generateTestBlocks funcExpr
+      let instrs = getInstructions blocks
 
-        length blocks `H.shouldBe` 1
-        case L.find isZextInstr instrs of
-          Just (AST.UnName _ AST.:= AST.ZExt {AST.operand0 = o, AST.type' = t}) -> do
-            t `H.shouldBe` T.IntegerType 64
-            o `H.shouldBe` AST.ConstantOperand (C.Int 32 0)
-          _ -> H.expectationFailure "Expected a Zext instruction"
+      length blocks `H.shouldBe` 1
+      case L.find isZextInstr instrs of
+        Just (AST.UnName _ AST.:= AST.ZExt {AST.operand0 = o, AST.type' = t}) -> do
+          t `H.shouldBe` T.IntegerType 64
+          o `H.shouldBe` AST.ConstantOperand (C.Int 32 0)
+        _ -> H.expectationFailure "Expected a Zext instruction"
 
-        case L.find isTruncInstr instrs of
-          Just (AST.UnName _ AST.:= AST.Trunc {AST.operand0 = o, AST.type' = t}) -> do
-            t `H.shouldBe` T.IntegerType 8
-            o `H.shouldBe` AST.ConstantOperand (C.Int 32 0)
-          _ -> H.expectationFailure "Expected a Trunc instruction"
+      case L.find isTruncInstr instrs of
+        Just (AST.UnName _ AST.:= AST.Trunc {AST.operand0 = o, AST.type' = t}) -> do
+          t `H.shouldBe` T.IntegerType 8
+          o `H.shouldBe` AST.ConstantOperand (C.Int 32 0)
+        _ -> H.expectationFailure "Expected a Trunc instruction"
 
-      H.it "should generate a cast (Float -> Float)" $ do
-        let funcExpr =
-              wrapInFunction $
-                AT.Block
-                  [ AT.Cast sampleLoc AT.TDouble (AT.Lit sampleLoc (AT.LFloat 0)),
-                    AT.Cast sampleLoc AT.TFloat (AT.Lit sampleLoc (AT.LDouble 0)),
-                    AT.Cast sampleLoc AT.TFloat (AT.Lit sampleLoc (AT.LFloat 0))
-                  ]
+    H.it "should generate a cast (Float -> Float)" $ do
+      let funcExpr =
+            wrapInFunction $
+              AT.Block
+                [ AT.Cast sampleLoc AT.TDouble (AT.Lit sampleLoc (AT.LFloat 0)),
+                  AT.Cast sampleLoc AT.TFloat (AT.Lit sampleLoc (AT.LDouble 0)),
+                  AT.Cast sampleLoc AT.TFloat (AT.Lit sampleLoc (AT.LFloat 0))
+                ]
 
-        let blocks = generateTestBlocks funcExpr
-        let instrs = getInstructions blocks
+      let blocks = generateTestBlocks funcExpr
+      let instrs = getInstructions blocks
 
-        length blocks `H.shouldBe` 1
-        case L.find isFPExtInstr instrs of
-          Just (AST.UnName _ AST.:= AST.FPExt {AST.operand0 = o, AST.type' = t}) -> do
-            t `H.shouldBe` AST.FloatingPointType T.DoubleFP
-            o `H.shouldBe` AST.ConstantOperand (C.Float (FF.Single 0))
-          _ -> H.expectationFailure "Expected a FPExt instruction"
+      length blocks `H.shouldBe` 1
+      case L.find isFPExtInstr instrs of
+        Just (AST.UnName _ AST.:= AST.FPExt {AST.operand0 = o, AST.type' = t}) -> do
+          t `H.shouldBe` AST.FloatingPointType T.DoubleFP
+          o `H.shouldBe` AST.ConstantOperand (C.Float (FF.Single 0))
+        _ -> H.expectationFailure "Expected a FPExt instruction"
 
-        case L.find isFPTruncInstr instrs of
-          Just (AST.UnName _ AST.:= AST.FPTrunc {AST.operand0 = o, AST.type' = t}) -> do
-            t `H.shouldBe` AST.FloatingPointType T.FloatFP
-            o `H.shouldBe` AST.ConstantOperand (C.Float (FF.Double 0))
-          _ -> H.expectationFailure "Expected a FPTrunc instruction"
+      case L.find isFPTruncInstr instrs of
+        Just (AST.UnName _ AST.:= AST.FPTrunc {AST.operand0 = o, AST.type' = t}) -> do
+          t `H.shouldBe` AST.FloatingPointType T.FloatFP
+          o `H.shouldBe` AST.ConstantOperand (C.Float (FF.Double 0))
+        _ -> H.expectationFailure "Expected a FPTrunc instruction"
 
-      H.it "should generate a cast (Integer <-> Float)" $ do
-        let funcExpr =
-              wrapInFunction $
-                AT.Block
-                  [ AT.Cast sampleLoc AT.TFloat (AT.Lit sampleLoc (AT.LInt 0)),
-                    AT.Cast sampleLoc (AT.TInt 32) (AT.Lit sampleLoc (AT.LFloat 0))
-                  ]
-        let blocks = generateTestBlocks funcExpr
-        let instrs = getInstructions blocks
+    H.it "should generate a cast (Integer <-> Float)" $ do
+      let funcExpr =
+            wrapInFunction $
+              AT.Block
+                [ AT.Cast sampleLoc AT.TFloat (AT.Lit sampleLoc (AT.LInt 0)),
+                  AT.Cast sampleLoc (AT.TInt 32) (AT.Lit sampleLoc (AT.LFloat 0))
+                ]
+      let blocks = generateTestBlocks funcExpr
+      let instrs = getInstructions blocks
 
-        length blocks `H.shouldBe` 1
-        case L.find isSIToFPInstr instrs of
-          Just (AST.UnName _ AST.:= AST.SIToFP {AST.operand0 = o, AST.type' = t}) -> do
-            t `H.shouldBe` AST.FloatingPointType T.FloatFP
-            o `H.shouldBe` AST.ConstantOperand (C.Int 32 0)
-          _ -> H.expectationFailure "Expected a SIToFP instruction"
+      length blocks `H.shouldBe` 1
+      case L.find isSIToFPInstr instrs of
+        Just (AST.UnName _ AST.:= AST.SIToFP {AST.operand0 = o, AST.type' = t}) -> do
+          t `H.shouldBe` AST.FloatingPointType T.FloatFP
+          o `H.shouldBe` AST.ConstantOperand (C.Int 32 0)
+        _ -> H.expectationFailure "Expected a SIToFP instruction"
 
-        case L.find isFPToSIInstr instrs of
-          Just (AST.UnName _ AST.:= AST.FPToSI {AST.operand0 = o, AST.type' = t}) -> do
-            t `H.shouldBe` T.IntegerType 32
-            o `H.shouldBe` AST.ConstantOperand (C.Float (FF.Single 0))
-          _ -> H.expectationFailure "Expected a FPToSI instruction"
+      case L.find isFPToSIInstr instrs of
+        Just (AST.UnName _ AST.:= AST.FPToSI {AST.operand0 = o, AST.type' = t}) -> do
+          t `H.shouldBe` T.IntegerType 32
+          o `H.shouldBe` AST.ConstantOperand (C.Float (FF.Single 0))
+        _ -> H.expectationFailure "Expected a FPToSI instruction"
 
-      H.it "should generate a cast (Bitcast)" $ do
-        let funcExpr =
-              wrapInFunction $
-                AT.Block
-                  [ AT.Declaration sampleLoc "ptrToInt" (AT.TPointer (AT.TInt 32)) (Just (AT.Lit sampleLoc (AT.LInt 0))),
-                    AT.Declaration sampleLoc "int" (AT.TInt 32) (Just (AT.Lit sampleLoc (AT.LInt 0))),
-                    AT.Cast sampleLoc (AT.TPointer AT.TFloat) (AT.Var sampleLoc "ptrToInt" (AT.TPointer (AT.TInt 32))),
-                    AT.Cast sampleLoc (AT.TPointer (AT.TInt 32)) (AT.Var sampleLoc "int" (AT.TInt 32)),
-                    AT.Cast sampleLoc (AT.TInt 32) (AT.Var sampleLoc "ptrToInt" (AT.TPointer (AT.TInt 32)))
-                  ]
-        let blocks = generateTestBlocks funcExpr
-        let instrs = getInstructions blocks
+    H.it "should generate a cast (Bitcast)" $ do
+      let funcExpr =
+            wrapInFunction $
+              AT.Block
+                [ AT.Declaration sampleLoc "ptrToInt" (AT.TPointer (AT.TInt 32)) (Just (AT.Lit sampleLoc (AT.LInt 0))),
+                  AT.Declaration sampleLoc "int" (AT.TInt 32) (Just (AT.Lit sampleLoc (AT.LInt 0))),
+                  AT.Cast sampleLoc (AT.TPointer AT.TFloat) (AT.Var sampleLoc "ptrToInt" (AT.TPointer (AT.TInt 32))),
+                  AT.Cast sampleLoc (AT.TPointer (AT.TInt 32)) (AT.Var sampleLoc "int" (AT.TInt 32)),
+                  AT.Cast sampleLoc (AT.TInt 32) (AT.Var sampleLoc "ptrToInt" (AT.TPointer (AT.TInt 32)))
+                ]
+      let blocks = generateTestBlocks funcExpr
+      let instrs = getInstructions blocks
 
-        length blocks `H.shouldBe` 1
-        case L.find isBitCastInstr instrs of
-          Just (AST.UnName _ AST.:= AST.BitCast {AST.operand0 = o, AST.type' = t}) -> do
-            t `H.shouldBe` AST.PointerType (AST.IntegerType 32) (AS.AddrSpace 0)
-            o `H.shouldBe` AST.ConstantOperand (C.Int 32 0)
-          _ -> H.expectationFailure "Expected a BitCast instruction"
+      length blocks `H.shouldBe` 1
+      case L.find isBitCastInstr instrs of
+        Just (AST.UnName _ AST.:= AST.BitCast {AST.operand0 = o, AST.type' = t}) -> do
+          t `H.shouldBe` AST.PointerType (AST.IntegerType 32) (AS.AddrSpace 0)
+          o `H.shouldBe` AST.ConstantOperand (C.Int 32 0)
+        _ -> H.expectationFailure "Expected a BitCast instruction"
 
-        case drop 1 (filter isBitCastInstr instrs) of
-          (AST.UnName _ AST.:= AST.BitCast {AST.operand0 = o, AST.type' = t} : _) -> do
-            t `H.shouldBe` AST.PointerType (AST.FloatingPointType T.FloatFP) (AS.AddrSpace 0)
-            TD.typeOf o `H.shouldBe` AST.PointerType (AST.IntegerType 32) (AS.AddrSpace 0)
-          _ -> H.expectationFailure "Expected a second BitCast instruction"
+      case drop 1 (filter isBitCastInstr instrs) of
+        (AST.UnName _ AST.:= AST.BitCast {AST.operand0 = o, AST.type' = t} : _) -> do
+          t `H.shouldBe` AST.PointerType (AST.FloatingPointType T.FloatFP) (AS.AddrSpace 0)
+          TD.typeOf o `H.shouldBe` AST.PointerType (AST.IntegerType 32) (AS.AddrSpace 0)
+        _ -> H.expectationFailure "Expected a second BitCast instruction"
 
-        case drop 2 (filter isBitCastInstr instrs) of
-          (AST.UnName _ AST.:= AST.BitCast {AST.operand0 = o, AST.type' = t} : _) -> do
-            t `H.shouldBe` AST.PointerType (AST.IntegerType 32) (AS.AddrSpace 0)
-            TD.typeOf o `H.shouldBe` AST.IntegerType 32
-          _ -> H.expectationFailure "Expected a third BitCast instruction"
+      case drop 2 (filter isBitCastInstr instrs) of
+        (AST.UnName _ AST.:= AST.BitCast {AST.operand0 = o, AST.type' = t} : _) -> do
+          t `H.shouldBe` AST.PointerType (AST.IntegerType 32) (AS.AddrSpace 0)
+          TD.typeOf o `H.shouldBe` AST.IntegerType 32
+        _ -> H.expectationFailure "Expected a third BitCast instruction"
 
-      H.it "should throw an error if a cast is not possible" $ do
-        let funcExpr =
-              wrapInFunction $
-                AT.Block
-                  [ AT.Declaration sampleLoc "int" (AT.TInt 1) (Just (AT.Lit sampleLoc (AT.LInt 0))),
-                    AT.Cast sampleLoc AT.TVoid (AT.Var sampleLoc "int" (AT.TInt 1))
-                  ]
-        let expectedError = CE.CodegenError sampleLoc (CE.UnsupportedConversion (T.IntegerType 1) T.void)
-        testError expectedError funcExpr
+    H.it "should throw an error if a cast is not possible" $ do
+      let funcExpr =
+            wrapInFunction $
+              AT.Block
+                [ AT.Declaration sampleLoc "int" (AT.TInt 1) (Just (AT.Lit sampleLoc (AT.LInt 0))),
+                  AT.Cast sampleLoc AT.TVoid (AT.Var sampleLoc "int" (AT.TInt 1))
+                ]
+      let expectedError = CE.CodegenError sampleLoc (CE.UnsupportedConversion (T.IntegerType 1) T.void)
+      testError expectedError funcExpr
   where
     sampleLoc = AT.SrcLoc "test.c" 1 1
 

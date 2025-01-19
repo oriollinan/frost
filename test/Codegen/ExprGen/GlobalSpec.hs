@@ -11,7 +11,7 @@ import qualified LLVM.AST.Type as T
 import qualified Test.Hspec as H
 
 spec :: H.Spec
-spec = H.describe "Codegen" $ do
+spec = H.describe "ExprGen.Global" $ do
   H.describe "generateGlobal" $ do
     H.it "should generate global function" $ do
       let funcExpr =
