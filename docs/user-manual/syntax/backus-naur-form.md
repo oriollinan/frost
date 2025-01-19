@@ -48,7 +48,7 @@
                     | "+" | "-"
                     | "&" | "|" | "^" | "<<" | ">>"
                     | "==" | "is" | "!=" | "<=" | ">=" | "<" | ">"
-                    | "&&" | "and" | "||" | "or"
+                    | "and" | "or"
 
 <unary_expression> ::= <prefix_operator> <expression> | <expression> <postfix_operator>
 <prefix_operator> ::= "!" | "not" | "~" | "++" | "--"
