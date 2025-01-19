@@ -98,6 +98,11 @@ test-suite glados-test
     Codegen.ExprGen.DataValueSpec
     Codegen.ExprGen.StateSpec
     Codegen.ExprGen.OperatorSpec
+    Codegen.ExprGen.AssemblySpec
+    Codegen.ExprGen.VariableSpec
+    Codegen.ErrorsSpec
+    Codegen.StateSpec
+    Codegen.UtilsSpec
 
   hs-source-dirs: test
   main-is: Spec.hs
@@ -110,3 +115,4 @@ test-suite glados-test
     llvm-hs-pure >=9.0.0 && <9.1,
     megaparsec >=9.7.0,
     mtl >=2.2.2 && <2.3,
+    bytestring >=0.11.2 && <0.12,
