@@ -359,7 +359,7 @@ For instance, you can define a macro for a specific platform in a module:
 
 ```frost
 sockaddr_in :: struct {
-?defined(OS_LINUX)
+?defined(__APPLE__)
     sin_len -> byte
     sin_family -> byte
 ?else
@@ -371,18 +371,26 @@ sockaddr_in :: struct {
 }
 ```
 
-And then define the platform in the main file, and import the code resulting in
-the correct struct definition:
+Frost supports macros that are available in the current user's environment. This
+means that you can define a macro in the command line and use it in your code.
+
+For example, to enable the `__APPLE__` macro, you can compile the code with:
+
+```bash
+__APPLE__=1 frostc -i source.ff -o output.ll
+```
+
+This will enable the `__APPLE__` macro in the code, and the compiler will
+evaluate the conditionals accordingly, using the correct struct definition.
 
 ```frost
-?set(OS_LINUX)
 import "custom/socket.ff"
 
 main: never -> int = {
     sockaddr: sockaddr_in
 
-    sockaddr.len = 16
-    sockaddr.sin_family = 2
+    sockaddr.len = @byte(16)
+    sockaddr.sin_family = @byte(2)
     % ...
 }
 ```
