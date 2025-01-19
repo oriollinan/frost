@@ -16,8 +16,12 @@ in_addr :: struct {
 }
 
 sockaddr_in :: struct {
+?defined(__APPLE__)
     sin_len -> byte
     sin_family -> byte
+?else
+    sin_family -> int16
+?end
     sin_port -> int16
     sin_addr -> in_addr
     sin_zero -> *int8
