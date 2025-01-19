@@ -51,6 +51,14 @@ spec = H.describe "Codegen.Errors" $ do
     H.it "should format BreakOutsideLoop correctly" $ do
       CE.showErrorType CE.BreakOutsideLoop `H.shouldBe` "Break statement outside loop"
 
+    H.it "should format UnsupportedDefinition correctly" $ do
+      let expr = AT.Lit (AT.SrcLoc "test.c" 1 1) (AT.LInt 42)
+      CE.showErrorType (CE.UnsupportedDefinition expr) `H.shouldBe` "Unsupported definition: Lit (SrcLoc {srcFile = \"test.c\", srcLine = 1, srcCol = 1}) (LInt 42)"
+
+    H.it "should format UnsupportedStructureAccess correctly" $ do
+      let expr = AT.Lit (AT.SrcLoc "test.c" 1 1) (AT.LInt 42)
+      CE.showErrorType (CE.UnsupportedStructureAccess expr) `H.shouldBe` "Invalid structure access: Lit (SrcLoc {srcFile = \"test.c\", srcLine = 1, srcCol = 1}) (LInt 42)"
+
     H.it "should format UnsupportedConversion correctly" $ do
       CE.showErrorType (CE.UnsupportedConversion T.i32 T.float) `H.shouldBe` "Unsupported conversion from IntegerType {typeBits = 32} to FloatingPointType {floatingPointType = FloatFP}"
 
