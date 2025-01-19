@@ -4,7 +4,7 @@ module Codegen.ExprGen.CastSpec (spec) where
 import qualified Ast.Types as AT
 import qualified Codegen.Codegen as CC
 import qualified Codegen.Errors as CE
-import Data.List (find)
+import qualified Data.List as L
 import qualified LLVM.AST as AST
 import qualified LLVM.AST.AddrSpace as AS
 import qualified LLVM.AST.Constant as C
@@ -39,13 +39,13 @@ spec = H.describe "Codegen" $ do
         let instrs = getInstructions blocks
 
         length blocks `H.shouldBe` 1
-        case find isZextInstr instrs of
+        case L.find isZextInstr instrs of
           Just (AST.UnName _ AST.:= AST.ZExt {AST.operand0 = o, AST.type' = t}) -> do
             t `H.shouldBe` T.IntegerType 64
             o `H.shouldBe` AST.ConstantOperand (C.Int 32 0)
           _ -> H.expectationFailure "Expected a Zext instruction"
 
-        case find isTruncInstr instrs of
+        case L.find isTruncInstr instrs of
           Just (AST.UnName _ AST.:= AST.Trunc {AST.operand0 = o, AST.type' = t}) -> do
             t `H.shouldBe` T.IntegerType 8
             o `H.shouldBe` AST.ConstantOperand (C.Int 32 0)
@@ -64,13 +64,13 @@ spec = H.describe "Codegen" $ do
         let instrs = getInstructions blocks
 
         length blocks `H.shouldBe` 1
-        case find isFPExtInstr instrs of
+        case L.find isFPExtInstr instrs of
           Just (AST.UnName _ AST.:= AST.FPExt {AST.operand0 = o, AST.type' = t}) -> do
             t `H.shouldBe` AST.FloatingPointType T.DoubleFP
             o `H.shouldBe` AST.ConstantOperand (C.Float (FF.Single 0))
           _ -> H.expectationFailure "Expected a FPExt instruction"
 
-        case find isFPTruncInstr instrs of
+        case L.find isFPTruncInstr instrs of
           Just (AST.UnName _ AST.:= AST.FPTrunc {AST.operand0 = o, AST.type' = t}) -> do
             t `H.shouldBe` AST.FloatingPointType T.FloatFP
             o `H.shouldBe` AST.ConstantOperand (C.Float (FF.Double 0))
@@ -87,13 +87,13 @@ spec = H.describe "Codegen" $ do
         let instrs = getInstructions blocks
 
         length blocks `H.shouldBe` 1
-        case find isSIToFPInstr instrs of
+        case L.find isSIToFPInstr instrs of
           Just (AST.UnName _ AST.:= AST.SIToFP {AST.operand0 = o, AST.type' = t}) -> do
             t `H.shouldBe` AST.FloatingPointType T.FloatFP
             o `H.shouldBe` AST.ConstantOperand (C.Int 32 0)
           _ -> H.expectationFailure "Expected a SIToFP instruction"
 
-        case find isFPToSIInstr instrs of
+        case L.find isFPToSIInstr instrs of
           Just (AST.UnName _ AST.:= AST.FPToSI {AST.operand0 = o, AST.type' = t}) -> do
             t `H.shouldBe` T.IntegerType 32
             o `H.shouldBe` AST.ConstantOperand (C.Float (FF.Single 0))
@@ -113,7 +113,7 @@ spec = H.describe "Codegen" $ do
         let instrs = getInstructions blocks
 
         length blocks `H.shouldBe` 1
-        case find isBitCastInstr instrs of
+        case L.find isBitCastInstr instrs of
           Just (AST.UnName _ AST.:= AST.BitCast {AST.operand0 = o, AST.type' = t}) -> do
             t `H.shouldBe` AST.PointerType (AST.IntegerType 32) (AS.AddrSpace 0)
             o `H.shouldBe` AST.ConstantOperand (C.Int 32 0)
