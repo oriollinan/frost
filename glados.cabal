@@ -97,6 +97,7 @@ test-suite glados-test
     Codegen.ExprGen.ControlFlowSpec
     Codegen.ExprGen.DataValueSpec
     Codegen.ExprGen.StateSpec
+    Codegen.ExprGen.OperatorSpec
 
   hs-source-dirs: test
   main-is: Spec.hs
