@@ -1,6 +1,5 @@
 module Codegen.ExprGen.CastSpec (spec) where
 
--- Add this import at the top of your file
 import qualified Ast.Types as AT
 import qualified Codegen.Codegen as CC
 import qualified Codegen.Errors as CE
