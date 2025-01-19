@@ -91,6 +91,12 @@ test-suite glados-test
     Ast.Parser.TypeDefinitionSpec
     Ast.Parser.TypeSpec
     Codegen.CodegenSpec
+    Codegen.ExprGen.FunctionSpec
+    Codegen.ExprGen.GlobalSpec
+    Codegen.ExprGen.CastSpec
+    Codegen.ExprGen.ControlFlowSpec
+    Codegen.ExprGen.DataValueSpec
+    Codegen.ExprGen.StateSpec
 
   hs-source-dirs: test
   main-is: Spec.hs
