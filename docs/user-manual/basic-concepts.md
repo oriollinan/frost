@@ -28,10 +28,10 @@ Frost's backend is LLVM, which means we inherit the use of the
 
 ```bash
 # Apply optimization passes
-frostc source.ff | opt -O3 -S | lli
+frostc -i source.ff | opt -O3 -S | lli
 
 # Apply custom optimization pipeline, e.g., mem2reg
-frostc source.ff | opt -passes=mem2reg -S | lli
+frostc -i source.ff | opt -passes=mem2reg -S | lli
 ```
 
 ## Language Fundamentals
@@ -231,14 +231,14 @@ the current scope. It can also be a block:
 import "https://frost-lang.deno.dev/std/lib.ff"
 
 % Allocation with automatic cleanup
-let buffer: *byte = malloc(size)
+buffer: *byte = malloc(size)
 defer {
     free(buffer)
     printf(">> Memory freed\n")
 }
 
 % Pointer operations
-ptr = buffer + offset   % Pointer arithmetic
+ptr: *byte = buffer + offset   % Pointer arithmetic
 buffer.* = value        % Dereferencing
 
 % Deferred blocks will run at the end of the scope

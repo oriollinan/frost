@@ -59,7 +59,7 @@ Before you begin, ensure you have the following tools installed:
    To ensure the compiler was built successfully, run:
 
    ```bash
-   ./frostc --version
+   ./frostc -h
    ```
 
    This should display the version information for the Frost compiler.

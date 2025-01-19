@@ -34,7 +34,7 @@ defer free(data)            % Cleanup
 
 % Pointer operations
 ptr.* = 42                  % Dereferencing
-let offset_ptr = ptr + 1    % Pointer arithmetic
+offset: *byte = ptr + 1     % Pointer arithmetic
 ```
 
 **Safety Features**
