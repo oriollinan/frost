@@ -13,58 +13,72 @@ import qualified Test.Hspec as H
 spec :: H.Spec
 spec = H.describe "ExprGen.Assembly" $ do
   H.describe "generateAssembly" $ do
-    H.it "should generate Intel dialect assembly" $ do
-      let funcExpr =
-            wrapInFunction $
-              AT.Assembly sampleLoc $
-                AT.AsmExpr
-                  { AT.asmCode = "mov eax, ebx",
-                    AT.asmDialect = AT.Intel,
-                    AT.asmReturnType = AT.TVoid,
-                    AT.asmParameters = [],
-                    AT.asmArgs = [],
-                    AT.asmConstraints = AT.AsmConstraint "" [],
-                    AT.asmSideEffects = False,
-                    AT.asmAlignStack = False
-                  }
+    H.it "generates Intel dialect assembly correctly" $ do
+      let expr = makeAsmExpr "mov eax, ebx" AT.Intel AT.TVoid [] [] "" False False
+      verifyAssembly expr $ \asm -> do
+        IA.dialect asm `H.shouldBe` IA.IntelDialect
+        IA.assembly asm `H.shouldBe` "mov eax, ebx"
+        IA.hasSideEffects asm `H.shouldBe` False
+        IA.alignStack asm `H.shouldBe` False
 
-      let blocks = generateTestBlocks funcExpr
-      let instrs = getInstructions blocks
+    H.it "generates AT&T dialect with operands correctly" $ do
+      let expr =
+            makeAsmExpr
+              "mov $1, $0\nadd $0, $0, $2"
+              AT.ATT
+              (AT.TInt 32)
+              [AT.TInt 32, AT.TInt 32]
+              [makeLiteral 1, makeLiteral 1]
+              "r,r"
+              False
+              False
+      verifyAssembly expr $ \asm -> do
+        IA.dialect asm `H.shouldBe` IA.ATTDialect
+        IA.constraints asm `H.shouldBe` "=r,r,r"
 
-      length blocks `H.shouldBe` 1
-      case L.find isInlineAsmInstr instrs of
-        Just (AST.Do (AST.Call {AST.function = Left asm})) -> do
-          IA.dialect asm `H.shouldBe` IA.IntelDialect
-          IA.assembly asm `H.shouldBe` "mov eax, ebx"
-        _ -> H.expectationFailure "Expected an inline assembly instruction"
-
-    H.it "should generate AT&T dialect assembly with constraints" $ do
-      let funcExpr =
-            wrapInFunction $
-              AT.Assembly sampleLoc $
-                AT.AsmExpr
-                  { AT.asmCode = "movl %ebx, %eax",
-                    AT.asmDialect = AT.ATT,
-                    AT.asmReturnType = AT.TInt 32,
-                    AT.asmParameters = [AT.TInt 32],
-                    AT.asmArgs = [AT.Lit sampleLoc (AT.LInt 0)],
-                    AT.asmConstraints = AT.AsmConstraint "r" ["r"],
-                    AT.asmSideEffects = True,
-                    AT.asmAlignStack = True
-                  }
-
-      let blocks = generateTestBlocks funcExpr
-      let instrs = getInstructions blocks
-
-      length blocks `H.shouldBe` 1
-      case L.find isInlineAsmInstr instrs of
-        Just (AST.UnName _ AST.:= AST.Call {AST.function = Left asm}) -> do
-          IA.dialect asm `H.shouldBe` IA.ATTDialect
-          IA.hasSideEffects asm `H.shouldBe` True
-          IA.alignStack asm `H.shouldBe` True
-        _ -> H.expectationFailure "Expected an inline assembly instruction"
+    H.it "handles side effects and stack alignment" $ do
+      let expr =
+            makeAsmExpr
+              "movl %ebx, %eax"
+              AT.ATT
+              (AT.TInt 32)
+              [AT.TInt 32]
+              [makeLiteral 0]
+              "r"
+              True
+              True
+      verifyAssembly expr $ \asm -> do
+        IA.hasSideEffects asm `H.shouldBe` True
+        IA.alignStack asm `H.shouldBe` True
   where
     sampleLoc = AT.SrcLoc "test.c" 1 1
+
+    makeAsmExpr code dialect retType params args constraints sideEffects alignStack =
+      AT.Assembly sampleLoc $
+        AT.AsmExpr
+          { AT.asmCode = code,
+            AT.asmDialect = dialect,
+            AT.asmReturnType = retType,
+            AT.asmParameters = params,
+            AT.asmArgs = args,
+            AT.asmConstraints = AT.AsmConstraint "r" [constraints],
+            AT.asmSideEffects = sideEffects,
+            AT.asmAlignStack = alignStack
+          }
+
+    makeLiteral n = AT.Lit sampleLoc (AT.LInt n)
+
+    verifyAssembly expr check = do
+      let blocks = generateBlocks expr
+      let instrs = concatMap blockInstructions blocks
+      case findAsmInstruction instrs of
+        Just asm -> check asm
+        Nothing -> H.expectationFailure "No assembly instruction found"
+
+    generateBlocks expr =
+      case CC.codegen (AT.Program [("test", wrapInFunction expr)] [] "test.c") of
+        Right mod' -> concatMap G.basicBlocks [f | AST.GlobalDefinition f@AST.Function {} <- AST.moduleDefinitions mod']
+        Left _ -> []
 
     wrapInFunction expr =
       AT.Function
@@ -75,18 +89,15 @@ spec = H.describe "ExprGen.Assembly" $ do
           AT.funcBody = expr
         }
 
-    generateTestBlocks expr = case CC.codegen testProg of
-      Right mod' -> concatMap G.basicBlocks $ getDefinitions mod'
-      Left _ -> []
-      where
-        testProg = AT.Program [("test", expr)] [] "test.c"
+    blockInstructions (G.BasicBlock _ instrs _) = instrs
 
-    getDefinitions mod' =
-      [f | AST.GlobalDefinition f@(AST.Function {}) <- AST.moduleDefinitions mod']
+    findAsmInstruction instrs =
+      L.find isAsmInstruction instrs >>= extractAsm
 
-    getInstructions blocks =
-      [i | G.BasicBlock _ instrs _ <- blocks, i <- instrs]
+    isAsmInstruction (AST.Do (AST.Call {AST.function = Left _})) = True
+    isAsmInstruction (AST.UnName _ AST.:= AST.Call {AST.function = Left _}) = True
+    isAsmInstruction _ = False
 
-    isInlineAsmInstr (AST.Do (AST.Call {AST.function = Left _})) = True
-    isInlineAsmInstr (AST.UnName _ AST.:= AST.Call {AST.function = Left _}) = True
-    isInlineAsmInstr _ = False
+    extractAsm (AST.Do (AST.Call {AST.function = Left asm})) = Just asm
+    extractAsm (AST.UnName _ AST.:= AST.Call {AST.function = Left asm}) = Just asm
+    extractAsm _ = Nothing
