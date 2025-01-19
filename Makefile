@@ -41,7 +41,7 @@ repl:
 
 .PHONY: format
 format:
-	ormolu -i $(shell find lib app -name "*.hs")
+	ormolu -i $(shell find lib app test -name "*.hs")
 
 .PHONY: help
 help:

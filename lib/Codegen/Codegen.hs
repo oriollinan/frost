@@ -1,7 +1,7 @@
 module Codegen.Codegen where
 
 import qualified Ast.Types as AT
-import qualified Codegen.Errors as CC
+import qualified Codegen.Errors as CE
 import qualified Codegen.ExprGen.ExprGen ()
 import qualified Codegen.ExprGen.Global as EG
 import qualified Codegen.State as CS
@@ -13,7 +13,7 @@ import qualified LLVM.IRBuilder.Module as M
 import qualified LLVM.IRBuilder.Monad as IRM
 
 -- | Generate LLVM code for a program.
-codegen :: AT.Program -> Either CC.CodegenError AST.Module
+codegen :: AT.Program -> Either CE.CodegenError AST.Module
 codegen program =
   E.runExcept $
     M.buildModuleT (U.stringToByteString $ AT.sourceFile program) $

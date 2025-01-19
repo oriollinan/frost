@@ -52,8 +52,8 @@ class (Monad m) => VarBinding m where
   getGlobalVar :: String -> m (Maybe AST.Operand)
   addGlobalVar :: String -> AST.Operand -> m ()
 
-instance (MonadCodegen m, Monad m) => VarBinding m where
-  getVar :: (MonadCodegen m, Monad m) => String -> m (Maybe AST.Operand)
+instance (S.MonadState CodegenState m, Monad m) => VarBinding m where
+  getVar :: (S.MonadState CodegenState m, Monad m) => String -> m (Maybe AST.Operand)
   getVar name = do
     state <- S.get
     return $
@@ -61,17 +61,17 @@ instance (MonadCodegen m, Monad m) => VarBinding m where
         `S.mplus` lookup name (localState state)
         `S.mplus` lookup name (globalState state)
 
-  addVar :: (MonadCodegen m, Monad m) => String -> AST.Operand -> m ()
+  addVar :: (S.MonadState CodegenState m, Monad m) => String -> AST.Operand -> m ()
   addVar name operand = S.modify (\s -> s {localState = (name, operand) : localState s})
 
-  getGlobalVar :: (MonadCodegen m, Monad m) => String -> m (Maybe AST.Operand)
+  getGlobalVar :: (S.MonadState CodegenState m, Monad m) => String -> m (Maybe AST.Operand)
   getGlobalVar name = S.gets (lookup name . globalState)
 
-  addGlobalVar :: (MonadCodegen m, Monad m) => String -> AST.Operand -> m ()
+  addGlobalVar :: (S.MonadState CodegenState m, Monad m) => String -> AST.Operand -> m ()
   addGlobalVar name operand = S.modify (\s -> s {globalState = (name, operand) : globalState s})
 
--- | Generates a fresh unique name.
-fresh :: (MonadCodegen m) => m AST.Name
+-- Generates a fresh unique name.
+fresh :: (S.MonadState CodegenState m) => m AST.Name
 fresh = do
   state <- S.get
   let uniqueName = uniqueNameState state
@@ -79,8 +79,8 @@ fresh = do
   let fullName = "_" ++ show uniqueName
   return $ AST.Name (CU.stringToByteString fullName)
 
--- | Generates a fresh unique name with the given prefix.
-freshName :: (MonadCodegen m) => String -> m AST.Name
+-- Generates a fresh unique name with the given prefix.
+freshName :: (S.MonadState CodegenState m) => String -> m AST.Name
 freshName prefix = do
   state <- S.get
   let uniqueName = uniqueNameState state

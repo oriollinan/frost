@@ -10,6 +10,7 @@ data CodegenError = CodegenError
   { errorLoc :: AT.SrcLoc,
     errorType :: CodegenErrorType
   }
+  deriving (Eq)
 
 -- | Error types for code generation.
 data CodegenErrorType
@@ -31,7 +32,7 @@ data CodegenErrorType
   | BreakOutsideLoop
   | UnsupportedConversion T.Type T.Type
   | UnsupportedGlobalDeclaration AT.Expr
-  deriving (Show)
+  deriving (Eq, Show)
 
 instance Show CodegenError where
   show :: CodegenError -> String
